@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "debug": "registry:npm/debug#2.0.0+20160723033700",
+    "pg": "registry:npm/pg#6.0.2+20161130221557"
+  },
+  "devDependencies": {
+    "pg": "registry:npm/pg#6.0.2+20161130221557"
+  }
+}
