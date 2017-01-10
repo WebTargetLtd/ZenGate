@@ -1,6 +1,6 @@
 import { browser, element, by } from 'protractor';
 
-export class ZF2ModelGenPage {
+export class Zf2modgenPage {
   navigateTo() {
     return browser.get('/');
   }

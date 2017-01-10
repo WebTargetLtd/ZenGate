@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
-import {IMain, IDatabase} from 'pg-promise';
-import * as pgPromise from 'pg-promise';
+import {  MdTabsModule } from '@angular/material';
 
 
 @Component({
@@ -11,5 +10,4 @@ import * as pgPromise from 'pg-promise';
 export class AppComponent {
   title = 'app works!';
 
-  
 }

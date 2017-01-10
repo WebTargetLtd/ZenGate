@@ -1,10 +1,10 @@
-import { ZF2ModelGenPage } from './app.po';
+import { Zf2modgenPage } from './app.po';
 
-describe('zf2-model-gen App', function() {
-  let page: ZF2ModelGenPage;
+describe('zf2modgen App', function() {
+  let page: Zf2modgenPage;
 
   beforeEach(() => {
-    page = new ZF2ModelGenPage();
+    page = new Zf2modgenPage();
   });
 
   it('should display message saying app works', () => {
