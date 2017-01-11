@@ -28,7 +28,8 @@ export class AppModule {
   }
   public balls() {
     this._dbServ.getSettings(Dbtype.postgreql);
-    this._dbServ.setSetting("username", "poobum");
+    this._dbServ.setSetting("username", "postgres");
+    this._dbServ.setSetting("password", "pgpassword");
 
   }
 
