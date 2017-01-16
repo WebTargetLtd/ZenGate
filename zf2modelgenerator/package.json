@@ -1,0 +1,23 @@
+{
+  "name": "zf2modelgenerator",
+  "version": "0.0.1",
+  "description": "A tool to generate PHP template files for ZF2 modelling. ",
+  "main": "bundle.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Zend",
+    "Framework",
+    "ZF2",
+    "PostgreSQL",
+    "MySQL",
+    "database"
+  ],
+  "author": "Neil Smith",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^7.0.0",
+    "webpack-dev-server": "^1.16.2"
+  }
+}
