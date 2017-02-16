@@ -50,7 +50,7 @@
 	    function Home(_tablename, _namespace) {
 	        this._tablename = _tablename;
 	        this._namespace = _namespace;
-	        console.log("Hello world - the Home thing");
+	        console.log("Hello world - the Home thingz");
 	        var x = new replace_1.Replace([["table", "t_Users"], ["publics", "public var $Noodle;"]]);
 	    }
 	    return Home;
@@ -265,6 +265,12 @@
 	    return Replace;
 	}());
 	exports.Replace = Replace;
+	// Similarly TypeScript has no trouble going through a string character by character using for...of:
+	var hello = "is it me you're looking for?";
+	for (var _i = 0, hello_1 = hello; _i < hello_1.length; _i++) {
+	    var char = hello_1[_i];
+	    console.log(char); // is it me you're looking for?
+	}
 
 
 /***/ }

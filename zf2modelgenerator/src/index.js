@@ -4,7 +4,7 @@ var Home = (function () {
     function Home(_tablename, _namespace) {
         this._tablename = _tablename;
         this._namespace = _namespace;
-        console.log("Hello world - the Home thing");
+        console.log("Hello world - the Home thingz");
         var x = new replace_1.Replace([["table", "t_Users"], ["publics", "public var $Noodle;"]]);
     }
     return Home;

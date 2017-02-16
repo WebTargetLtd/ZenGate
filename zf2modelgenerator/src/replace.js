@@ -11,3 +11,8 @@ var Replace = (function () {
     return Replace;
 }());
 exports.Replace = Replace;
+var hello = "is it me you're looking for?";
+for (var _i = 0, hello_1 = hello; _i < hello_1.length; _i++) {
+    var char = hello_1[_i];
+    console.log(char);
+}

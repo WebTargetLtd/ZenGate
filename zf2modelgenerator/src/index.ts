@@ -3,7 +3,7 @@ import { Replace } from './replace';
 
 export class Home {
     constructor(private _tablename:string, private _namespace:string) {
-        console.log("Hello world - the Home thing");
+        console.log("Hello world - the Home thingz");
         let x = new Replace([["table", "t_Users"], ["publics", "public var $Noodle;"]]);
     }
 }
