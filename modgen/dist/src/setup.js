@@ -1,15 +1,15 @@
 "use strict";
-const replace_1 = require("./replace");
+const cla_1 = require("./consts/cla");
 class Setup {
-    constructor(_tablename, _namespace) {
-        this._tablename = _tablename;
-        this._namespace = _namespace;
-        console.log(this.getDBParams("rimacondb"));
-        let x = new replace_1.Replace('../templates/src/X.php', [["{$table}", "t_Users"], ["{$publics}", "public var $Noodle;"]]);
+    constructor(_args) {
+        console.log(this.getDBParams()[cla_1.cla.dbname]);
     }
     getDBParams(_key) {
         let cf = require("../dbconfig.json");
-        return cf;
+        if (_key === undefined) {
+            _key = cf.default;
+        }
+        return cf[_key];
     }
 }
 exports.Setup = Setup;

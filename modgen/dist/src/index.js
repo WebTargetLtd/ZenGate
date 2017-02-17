@@ -1,7 +1,10 @@
 "use strict";
 const setup_1 = require("./setup");
-var _tablename = typeof process.argv[2] != 'undefined' ? process.argv[2] : 't_user';
-var _namespace = typeof process.argv[3] != 'undefined' ? process.argv[3] : 'Auth';
-console.log("TableName :: " + _tablename);
-let x = new setup_1.Setup('t_Users', 'Auth');
+var program = require('commander');
+program
+    .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
+    .option('-d, --db <database name>', 'The database name')
+    .option('-dt, --dbtype <Database Type>', 'PostGreSQL or MySQL')
+    .parse(process.argv);
+let x = new setup_1.Setup(program);
 //# sourceMappingURL=index.js.map

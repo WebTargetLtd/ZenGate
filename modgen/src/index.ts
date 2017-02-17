@@ -1,8 +1,13 @@
 import { Setup } from './setup';
+var program = require('commander');
+program
+  .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
+  .option('-d, --db <database name>', 'The database name')
+  .option('-dt, --dbtype <Database Type>', 'PostGreSQL or MySQL')
+.parse(process.argv);
 
-var _tablename = typeof process.argv[2] != 'undefined' ? process.argv[2] : 't_user';
-var _namespace = typeof process.argv[3] != 'undefined' ? process.argv[3] : 'Auth';
 
-console.log("TableName :: " + _tablename);
 
-let x = new Setup('t_Users', 'Auth');
+// console.log("TableName :: " + _tablename);
+// console.log(program);
+let x = new Setup(program);
