@@ -2,9 +2,13 @@
 class db {
     constructor() {
         this.pg = require('pg');
-        var ff = new pg();
-        this.pg = require('pg');
-        var client = this.pg.client();
+        this.client = new this.pg.Client();
+        console.log("constructor for pg");
+    }
+    connect() {
+    }
+    getClient() {
+        return this.client;
     }
 }
 exports.db = db;

@@ -1,13 +1,26 @@
 import { Replace } from './replace';
+import { db } from './db';
 import { cla } from './consts/cla';
 
 
 export class Setup {
-    constructor(_args:string) {
-      console.log(this.getDBParams()[cla.dbname]); //_args.connection));
-        // let x = new Replace('../templates/src/X.php', [["{$table}", "t_Users"], ["{$publics}", "public var $Noodle;"]]);
-    }
+    constructor(private _args:Object) {
+      // console.log(this.getDBParams()[cla.username]);
+      // let g = new db();
+      console.log("Namespace is " + _args["namespace"]);
+      this.doReplacements();
 
+
+    }
+    doReplacements(){
+      let x = new Replace('../templates/src/XTable.php', [
+        ["{$table}", "User"],
+        ["{$namespace}", this._args["namespace"]],
+        ["{$created}", this._args["datecreated"]],
+      ]).doReplace();
+      console.log(x);
+
+    }
     getDBParams(_key?:string):Object{
       let cf = require("../dbconfig.json");
       if (_key === undefined){

@@ -78,11 +78,22 @@ module.exports = require("fs");
 
 "use strict";
 
-const cla_1 = __webpack_require__(4);
+const replace_1 = __webpack_require__(4);
 class Setup {
     constructor(_args) {
-        console.log(this.getDBParams()[cla_1.cla.dbname]); //_args.connection));
-        // let x = new Replace('../templates/src/X.php', [["{$table}", "t_Users"], ["{$publics}", "public var $Noodle;"]]);
+        this._args = _args;
+        // console.log(this.getDBParams()[cla.username]);
+        // let g = new db();
+        console.log("Namespace is " + _args["namespace"]);
+        this.doReplacements();
+    }
+    doReplacements() {
+        let x = new replace_1.Replace('../templates/src/XTable.php', [
+            ["{$table}", "User"],
+            ["{$namespace}", this._args["namespace"]],
+            ["{$created}", this._args["datecreated"]],
+        ]).doReplace();
+        console.log(x);
     }
     getDBParams(_key) {
         let cf = __webpack_require__(3);
@@ -1235,16 +1246,39 @@ module.exports = {
 
 "use strict";
 
-class cla {
+class Replace {
+    constructor(_filename, _data) {
+        this._filename = _filename;
+        this._data = _data;
+        try {
+        }
+        catch (err) {
+            console.log(err);
+        }
+    }
+    doReplace() {
+        try {
+            let fs = __webpack_require__(0);
+            console.log("doReplace");
+            return fs.readFile(this._filename, "utf-8", (err, data) => {
+                if (err)
+                    throw err;
+                let output = data;
+                for (var _item of this._data) {
+                    console.log(_item[0] + " - " + _item[1]);
+                    output = output.split(_item[0]).join(_item[1]);
+                }
+                console.log("Smarty" + output);
+                return output;
+            });
+        }
+        catch (err) {
+            console.log(err);
+        }
+    }
 }
-cla.database = "database";
-cla.type = "type";
-cla.server = "server";
-cla.port = "port";
-cla.username = "username";
-cla.pasword = "password";
-cla.dbname = "dbname";
-exports.cla = cla;
+exports.Replace = Replace;
+// Similarly TypeScript has no trouble going through a string character by character using for...of:
 
 
 /***/ }),
@@ -1293,9 +1327,10 @@ const setup_1 = __webpack_require__(1);
 var program = __webpack_require__(2);
 program
     .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
-    .option('-d, --db <database name>', 'The database name')
-    .option('-dt, --dbtype <Database Type>', 'PostGreSQL or MySQL')
+    .option('-t, --tabletype <Table Name>', 'Name of the table or view to model')
+    .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
     .parse(process.argv);
+program.datecreated = new Date().toLocaleString();
 // console.log("TableName :: " + _tablename);
 // console.log(program);
 let x = new setup_1.Setup(program);
