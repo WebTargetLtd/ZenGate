@@ -1,7 +1,7 @@
 
 
 To compile
-webpack --progress --colors --watch
+  webpack --progress --colors --watch
 
 And to see the results:
 cd dist

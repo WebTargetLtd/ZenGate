@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 9);
+/******/ 	return __webpack_require__(__webpack_require__.s = 7);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -78,31 +78,14 @@ module.exports = require("fs");
 
 "use strict";
 
-const replace_1 = __webpack_require__(4);
 class Setup {
     constructor(_args) {
-        this._args = _args;
         // console.log(this.getDBParams()[cla.username]);
-        // let g = new db();
-        console.log("Namespace is " + _args["namespace"]);
-        this.doReplacements();
-    }
-    doReplacements() {
-        let x = new replace_1.Replace('../templates/src/XTable.php', [
-            ["{$table}", "User"],
-            ["{$namespace}", this._args["namespace"]],
-            ["{$created}", this._args["datecreated"]],
-        ]).doReplace();
-        console.log(x);
-    }
-    getDBParams(_key) {
-        let cf = __webpack_require__(3);
-        if (_key === undefined) {
-            // Get default from the config file.
-            // And use it as a key
-            _key = cf.default;
-        }
-        return cf[_key];
+        // let _db = new db(_args, 'pg');
+        // _db.retrieve(this.doReplacements);
+        // console.log("Namespace is " + _args["namespace"]);
+        // this.doReplacements();
+        this._args = _args;
     }
 }
 exports.Setup = Setup;
@@ -116,10 +99,10 @@ exports.Setup = Setup;
  * Module dependencies.
  */
 
-var EventEmitter = __webpack_require__(7).EventEmitter;
-var spawn = __webpack_require__(6).spawn;
-var readlink = __webpack_require__(5).readlinkSync;
-var path = __webpack_require__(8);
+var EventEmitter = __webpack_require__(5).EventEmitter;
+var spawn = __webpack_require__(4).spawn;
+var readlink = __webpack_require__(3).readlinkSync;
+var path = __webpack_require__(6);
 var dirname = path.dirname;
 var basename = path.basename;
 var fs = __webpack_require__(0);
@@ -1226,63 +1209,6 @@ function exists(file) {
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports) {
-
-module.exports = {
-	"rimacondb": {
-		"type": "pg",
-		"server": "192.168.77.2",
-		"port": "5432",
-		"username": "postgres",
-		"password": "password",
-		"dbname": "RiMaConDB"
-	},
-	"default": "rimacondb"
-};
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-class Replace {
-    constructor(_filename, _data) {
-        this._filename = _filename;
-        this._data = _data;
-        try {
-        }
-        catch (err) {
-            console.log(err);
-        }
-    }
-    doReplace() {
-        try {
-            let fs = __webpack_require__(0);
-            console.log("doReplace");
-            return fs.readFile(this._filename, "utf-8", (err, data) => {
-                if (err)
-                    throw err;
-                let output = data;
-                for (var _item of this._data) {
-                    console.log(_item[0] + " - " + _item[1]);
-                    output = output.split(_item[0]).join(_item[1]);
-                }
-                console.log("Smarty" + output);
-                return output;
-            });
-        }
-        catch (err) {
-            console.log(err);
-        }
-    }
-}
-exports.Replace = Replace;
-// Similarly TypeScript has no trouble going through a string character by character using for...of:
-
-
-/***/ }),
-/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var fs = __webpack_require__(0)
@@ -1300,25 +1226,25 @@ exports.readlinkSync = function (p) {
 
 
 /***/ }),
-/* 6 */
+/* 4 */
 /***/ (function(module, exports) {
 
 module.exports = require("child_process");
 
 /***/ }),
-/* 7 */
+/* 5 */
 /***/ (function(module, exports) {
 
 module.exports = require("events");
 
 /***/ }),
-/* 8 */
+/* 6 */
 /***/ (function(module, exports) {
 
 module.exports = require("path");
 
 /***/ }),
-/* 9 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1327,7 +1253,7 @@ const setup_1 = __webpack_require__(1);
 var program = __webpack_require__(2);
 program
     .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
-    .option('-t, --tabletype <Table Name>', 'Name of the table or view to model')
+    .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
     .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
     .parse(process.argv);
 program.datecreated = new Date().toLocaleString();
