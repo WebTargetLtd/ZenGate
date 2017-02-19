@@ -1,16 +1,28 @@
 import { Idb } from './Idb';
+import {dbConn } from './dbConn';
+import { configService } from '../configService';
 
 export class connMysql implements Idb {
-  getConnectString():string{
-    return "";
-  };
-  getQuery():string{
-      return "";
+
+  private _pConn: dbConn;
+
+  constructor(private _cs:configService) {
+      this.configure();
   }
-    getRows():string[]{
-      return [""];
+  configure() {
+      this._pConn = this._cs.getDBParams();
+  }
+
+    getConnectString(): string {
+        return "";
+    };
+    getQuery(): string {
+        return "";
     }
-    configure():void{
-      
+    getRows(): string[] {
+        return [""];
     }
+    testConnection() {
+        return false;
+    };
 }

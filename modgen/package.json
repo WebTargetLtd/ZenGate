@@ -29,6 +29,7 @@
   "dependencies": {
     "@types/pg": "^6.1.36",
     "commander": "^2.9.0",
-    "pg": "^6.1.2"
+    "pg": "^6.1.2",
+    "pg-native": "^1.10.0"
   }
 }

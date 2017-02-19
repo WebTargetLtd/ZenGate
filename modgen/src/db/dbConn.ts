@@ -1,7 +1,7 @@
 /**
  * -----------------------------------------------------------------------------
- * Class        : Idb.ts
- * Description  : Interface that each db type should implement.
+ * Class        : dbConn.ts
+ * Description  : Replicates the connection parameters that livein dbconfig.json
  * Parameters   :
  * Usage        :
  * Notes        :
@@ -11,11 +11,12 @@
  * Date?        Whom?       Notes
  * _____________________________________________________________________________
  */
-import { configService } from '../configService';
-export interface Idb {
-  getConnectString():string;
-  getQuery(_tableName:string):string;
-  getRows():string[];
-  configure(_cs:configService):void;
-  testConnection():boolean;
+
+export class dbConn {
+    type: string
+    server: string;
+    port: string;
+    username: string;
+    password: string;
+    dbname: string;
 }

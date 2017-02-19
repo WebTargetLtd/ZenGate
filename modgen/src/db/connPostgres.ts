@@ -1,41 +1,82 @@
-import { Idb } from './Idb';
-import { cla } from '../consts/cla';
-import { dbBase } from './dbBase';
+/**
+ * -----------------------------------------------------------------------------
+ * Class        : connPostgres.ts
+ * Description  : PostGreSQL implementation.
+ * Parameters   :
+ * Usage        :
+ * Notes        :
+ * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
+ * Created Date : 19 Feb 2017
+ * -----------------------------------------------------------------------------
+ * Date?        Whom?       Notes
+ * _____________________________________________________________________________
+ */
 
-export class connPostgres extends dbBase implements Idb {
+import { Idb } from './Idb';
+import { dbConn } from './dbConn';
+import { configService } from '../configService';
+
+
+export class connPostgres implements Idb {
 
     private _client: any;
-    private pg = require('pg');
+    private _pConn: dbConn;
+    private _pg = require('pg');
 
-    constructor() {
-        super();
-        console.log("require('pg')");
-        // this._client = new this.pg.Client();
+    constructor(private _cs: configService) {
+        this.configure();
     }
     configure() {
-
-    };
+        this._pConn = this._cs.getDBParams();
+        this._client = new this._pg.Client(this.getConnectString());
+    }
 
     getRows(): string[] {
 
-        // Get connection
-        console.log(this.getConnectString());
+        try {
+            let _cs = this.getConnectString();
+            let _qry = this.getQuery();
+            let _cl = this._client;
+            // console.log(JSON.stringify(this._client));
+            // return [""];
+            this._client.connect(function(err: any) {
+                if (err) throw err;
 
+                // execute a query on our database
+                _cl.query(_qry, function(err: any, result: any) {
+                    if (err) throw err;
+
+                    // just print the result to the console
+                    console.log(result); //.rows[0]); // outputs: { name: 'brianc' }
+
+                    // disconnect the client
+                    _cl.end(function(err: any) {
+                        if (err) throw err;
+                    });
+                });
+            });
+        }
+        catch (err) {
+            console.log(err);
+        }
         return ["Noodle", "Doodle"];
     }
 
     getConnectString(): string {
         try {
-            let _p = this.getDBParams();
-            let _connstring = `postgres://${_p[cla.username]}:${_p[cla.password]}@${_p[cla.server]}/${_p[cla.dbname]}`;
-            return _connstring;
+            return `postgres://${this._pConn.username}:${this._pConn.password}@${this._pConn.server}/${this._pConn.dbname}`;
         }
         catch (err) {
             console.log("Error in db.ts getConnectString :: " + err);
         }
     }
-    getQuery(_tableName: string): string {
-        return `select column_name from information_schema.columns where table_name='${_tableName}';`;
+    getQuery(_tableName?: string): string {
+
+        return `select column_name from information_schema.columns where table_name='${this._cs.getTable()}';`;
     }
+
+    testConnection() {
+        return true;
+    };
 
 }

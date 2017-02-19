@@ -1,12 +1,24 @@
-import { Replace } from './replace';
+/**
+ * -----------------------------------------------------------------------------
+ * Class        : setup.ts
+ * Description  : Starts the process rolling.
+ * Parameters   :
+ * Usage        :
+ * Notes        :
+ * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
+ * Created Date : 19 Feb 2017
+ * -----------------------------------------------------------------------------
+ * Date?        Whom?       Notes
+ * _____________________________________________________________________________
+ */
+ import { Replace } from './replace';
 import { db } from './db';
 import { cla } from './consts/cla';
-
+import { configService } from './configService';
 
 export class Setup {
-    constructor(private _args:Object) {
-      // console.log(this.getDBParams()[cla.username]);
-      // let _db = new db(_args, 'pg');
+    constructor(private _args:configService) {
+      let _db = new db(_args);
       // _db.retrieve(this.doReplacements);
       // console.log("Namespace is " + _args["namespace"]);
       // this.doReplacements();
@@ -24,6 +36,6 @@ export class Setup {
 
       // console.log(xTable);
 
-    
+
 
 }

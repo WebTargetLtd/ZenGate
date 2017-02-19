@@ -1,32 +1,53 @@
 "use strict";
-const cla_1 = require("../consts/cla");
-const dbBase_1 = require("./dbBase");
-class connPostgres extends dbBase_1.dbBase {
-    constructor() {
-        super();
-        this.pg = require('pg');
-        console.log("require('pg')");
+class connPostgres {
+    constructor(_cs) {
+        this._cs = _cs;
+        this._pg = require('pg');
+        this.configure();
     }
     configure() {
+        this._pConn = this._cs.getDBParams();
+        this._client = new this._pg.Client(this.getConnectString());
     }
-    ;
     getRows() {
-        console.log(this.getConnectString());
+        try {
+            let _cs = this.getConnectString();
+            let _qry = this.getQuery();
+            let _cl = this._client;
+            this._client.connect(function (err) {
+                if (err)
+                    throw err;
+                _cl.query(_qry, function (err, result) {
+                    if (err)
+                        throw err;
+                    console.log(result);
+                    _cl.end(function (err) {
+                        if (err)
+                            throw err;
+                    });
+                });
+            });
+        }
+        catch (err) {
+            console.log(err);
+        }
         return ["Noodle", "Doodle"];
     }
     getConnectString() {
         try {
-            let _p = this.getDBParams();
-            let _connstring = `postgres://${_p[cla_1.cla.username]}:${_p[cla_1.cla.password]}@${_p[cla_1.cla.server]}/${_p[cla_1.cla.dbname]}`;
-            return _connstring;
+            return `postgres://${this._pConn.username}:${this._pConn.password}@${this._pConn.server}/${this._pConn.dbname}`;
         }
         catch (err) {
             console.log("Error in db.ts getConnectString :: " + err);
         }
     }
     getQuery(_tableName) {
-        return `select column_name from information_schema.columns where table_name='${_tableName}';`;
+        return `select column_name from information_schema.columns where table_name='${this._cs.getTable()}';`;
     }
+    testConnection() {
+        return true;
+    }
+    ;
 }
 exports.connPostgres = connPostgres;
 //# sourceMappingURL=connPostgres.js.map

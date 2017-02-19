@@ -1,4 +1,6 @@
 import { Setup } from './setup';
+import { configService } from './configService';
+
 var program = require('commander');
 program
   .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
@@ -10,4 +12,5 @@ program.datecreated = new Date().toLocaleString();
 
 // console.log("TableName :: " + _tablename);
 // console.log(program);
-let x = new Setup(program);
+let cs = new configService(program);
+let x = new Setup(cs);

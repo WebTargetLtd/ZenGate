@@ -1,23 +1,43 @@
+/**
+ * -----------------------------------------------------------------------------
+ * Class        : db.ts
+ * Description  :
+ * Parameters   :
+ * Usage        :
+ * Notes        :
+ * Created      : @author Neil Smith <Neil.SMith@Computors.com>
+ * Created Date : 17 Feb 2017
+ * -----------------------------------------------------------------------------
+ * Date?        Whom?       Notes
+ * _____________________________________________________________________________
+ */
+
 import { cla } from './consts/cla';
 import { connPostgres } from './db/connPostgres';
+import { configService } from './configService';
 
 export class db {
 
     private client: any;
     private _dbInstance: any;
+    // private _configService:configService;
 
-    constructor(private _args: Object, private _type: string) {
-        switch (_type) {
+    constructor(private _configService:configService) {
+        // this._configService = new configService();
+
+        console.log(_configService.getDBParams() );
+        switch (this._configService.getDBParams()["type"]) {
             case 'pg':
-                this._dbInstance = new connPostgres(); // require('connPostgres');
+                this._dbInstance = new connPostgres(_configService); // require('connPostgres');
                 break;
             case 'mysql':
                 this._dbInstance = require('./db/connMysql');
                 break;
             default:
-                console.log(`DB Type '${_type}' does not exist. Cannot create a connection of Idb type`);
+                // console.log(`DB Type '${_type}' does not exist. Cannot create a connection of Idb type`);
         }
-        // console.log(JSON.stringify(this._dbInstance.getConnectString()));
+         // console.log(JSON.stringify(this._dbInstance.getConnectString()));
+         this.getRows();
     }
     getRows():string[]{
       return this._dbInstance.getRows();
