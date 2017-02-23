@@ -15,7 +15,7 @@ import { configService } from '../configService';
 export interface Idb {
   getConnectString():string;
   getQuery(_tableName:string):string;
-  getRows():string[];
+  getRows(_callback:any, _message:string):string[];
   configure(_cs:configService):void;
   testConnection():boolean;
 }

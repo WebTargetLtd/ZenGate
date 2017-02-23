@@ -15,17 +15,18 @@
 import { cla } from './consts/cla';
 import { connPostgres } from './db/connPostgres';
 import { configService } from './configService';
+import { Replace } from './replace';
 
 export class db {
 
     private client: any;
     private _dbInstance: any;
-    // private _configService:configService;
+    private _thingy:string;
 
-    constructor(private _configService:configService) {
+    constructor(private _configService: configService) {
         // this._configService = new configService();
-
-        console.log(_configService.getDBParams() );
+        this._thingy = "Poop";
+        console.log(_configService.getDBParams());
         switch (this._configService.getDBParams()["type"]) {
             case 'pg':
                 this._dbInstance = new connPostgres(_configService); // require('connPostgres');
@@ -34,39 +35,26 @@ export class db {
                 this._dbInstance = require('./db/connMysql');
                 break;
             default:
-                // console.log(`DB Type '${_type}' does not exist. Cannot create a connection of Idb type`);
+            // console.log(`DB Type '${_type}' does not exist. Cannot create a connection of Idb type`);
         }
-         // console.log(JSON.stringify(this._dbInstance.getConnectString()));
-         this.getRows();
+        // console.log(JSON.stringify(this._dbInstance.getConnectString()));
+        this.getRows();
     }
-    getRows():string[]{
-      return this._dbInstance.getRows();
+    getRows(): string[] {
+        this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp");
+        return;
+    }
+    writeColumns(_rows: string[], _message:string): void {
+        console.log("A message " + _message);
+        for (var item of _rows["rows"]){
+          // this._columns.push(item);
+          console.log("My Item " + JSON.stringify(item.column_name));
+        }
+        // let rp = new Replace('myfile', );
     }
 
-    private dbInstance(){
+
+    private dbInstance() {
         return this._dbInstance;
     }
-    /*
-    retrieve(_callback): void {
-        let _qry = this.getQuery();
-
-        this.pg.connect(this.getConnectString(), function(err, client, done) {
-            if (err) {
-                return console.error('error fetching client from pool', err);
-            }
-            client.query(_qry, function(err, result) {
-                done();
-                // console.log(JSON.stringify(result));
-
-                if (err) {
-                    return console.log('error running query', err);
-                } else {
-                    _callback("this._args", result.rows);
-                }
-                return result;
-            });
-        });
-
-    }
-    */
 }

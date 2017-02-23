@@ -63,41 +63,2053 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 12);
+/******/ 	return __webpack_require__(__webpack_require__.s = 67);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"rimacondb": {
-		"type": "pg",
-		"server": "192.168.77.2",
-		"port": "5432",
-		"username": "postgres",
-		"password": "postgres",
-		"dbname": "RiMaConDB"
-	},
-	"steeldb": {
-		"type": "pg",
-		"server": "steel.webtarget.co.uk",
-		"port": "5778",
-		"username": "postgres",
-		"password": "cleverpassword",
-		"dbname": "MildenSteels"
-	},
-	"default": "rimacondb"
-};
+module.exports = require("util");
 
 /***/ }),
 /* 1 */
 /***/ (function(module, exports) {
 
-module.exports = require("fs");
+module.exports = require("events");
 
 /***/ }),
 /* 2 */
+/***/ (function(module, exports) {
+
+module.exports = require("path");
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var textParsers = __webpack_require__(44);
+var binaryParsers = __webpack_require__(43);
+var arrayParser = __webpack_require__(11);
+
+exports.getTypeParser = getTypeParser;
+exports.setTypeParser = setTypeParser;
+exports.arrayParser = arrayParser;
+
+var typeParsers = {
+  text: {},
+  binary: {}
+};
+
+//the empty parse function
+function noParse (val) {
+  return String(val);
+};
+
+//returns a function used to convert a specific type (specified by
+//oid) into a result javascript type
+//note: the oid can be obtained via the following sql query:
+//SELECT oid FROM pg_type WHERE typname = 'TYPE_NAME_HERE';
+function getTypeParser (oid, format) {
+  format = format || 'text';
+  if (!typeParsers[format]) {
+    return noParse;
+  }
+  return typeParsers[format][oid] || noParse;
+};
+
+function setTypeParser (oid, format, parseFn) {
+  if(typeof format == 'function') {
+    parseFn = format;
+    format = 'text';
+  }
+  typeParsers[format][oid] = parseFn;
+};
+
+textParsers.init(function(oid, converter) {
+  typeParsers.text[oid] = converter;
+});
+
+binaryParsers.init(function(oid, converter) {
+  typeParsers.binary[oid] = converter;
+});
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var defaults = module.exports = {
+  // database host. defaults to localhost
+  host: 'localhost',
+
+  //database user's name
+  user: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
+
+  //name of database to connect
+  database: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
+
+  //database user's password
+  password: null,
+
+  // a Postgres connection string to be used instead of setting individual connection items
+  // NOTE:  Setting this value will cause it to override any other value (such as database or user) defined
+  // in the defaults object.
+  connectionString : undefined,
+
+  //database port
+  port: 5432,
+
+  //number of rows to return at a time from a prepared statement's
+  //portal. 0 will return all rows at once
+  rows: 0,
+
+  // binary result mode
+  binary: false,
+
+  //Connection pool options - see https://github.com/coopernurse/node-pool
+  //number of connections to use in connection pool
+  //0 will disable connection pooling
+  poolSize: 10,
+
+  //max milliseconds a client can go unused before it is removed
+  //from the pool and destroyed
+  poolIdleTimeout: 30000,
+
+  //frequency to check for idle clients within the client pool
+  reapIntervalMillis: 1000,
+
+  //if true the most recently released resources will be the first to be allocated
+  returnToHead: false,
+
+  //pool log function / boolean
+  poolLog: false,
+
+  client_encoding: "",
+
+  ssl: false,
+
+  application_name: undefined,
+  fallback_application_name: undefined,
+
+  parseInputDatesAsUTC: false
+};
+
+//parse int8 so you can get your count values as actual numbers
+module.exports.__defineSetter__("parseInt8", function(val) {
+  __webpack_require__(3).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
+});
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports) {
+
+module.exports = require("assert");
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports) {
+
+module.exports = require("fs");
+
+/***/ }),
+/* 7 */
+/***/ (function(module, exports) {
+
+module.exports = require("stream");
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var url = __webpack_require__(19);
+var dns = __webpack_require__(63);
+
+var defaults = __webpack_require__(4);
+
+var val = function(key, config, envVar) {
+  if (envVar === undefined) {
+    envVar = process.env[ 'PG' + key.toUpperCase() ];
+  } else if (envVar === false) {
+    // do nothing ... use false
+  } else {
+    envVar = process.env[ envVar ];
+  }
+
+  return config[key] ||
+    envVar ||
+    defaults[key];
+};
+
+//parses a connection string
+var parse = __webpack_require__(34).parse;
+
+var useSsl = function() {
+  switch(process.env.PGSSLMODE) {
+  case "disable":
+    return false;
+  case "prefer":
+  case "require":
+  case "verify-ca":
+  case "verify-full":
+    return true;
+  }
+  return defaults.ssl;
+};
+
+var ConnectionParameters = function(config) {
+  //if a string is passed, it is a raw connection string so we parse it into a config
+  config = typeof config == 'string' ? parse(config) : (config || {});
+  //if the config has a connectionString defined, parse IT into the config we use
+  //this will override other default values with what is stored in connectionString
+  if(config.connectionString) {
+    config = parse(config.connectionString);
+  }
+  this.user = val('user', config);
+  this.database = val('database', config);
+  this.port = parseInt(val('port', config), 10);
+  this.host = val('host', config);
+  this.password = val('password', config);
+  this.binary = val('binary', config);
+  this.ssl = typeof config.ssl === 'undefined' ? useSsl() : config.ssl;
+  this.client_encoding = val("client_encoding", config);
+  //a domain socket begins with '/'
+  this.isDomainSocket = (!(this.host||'').indexOf('/'));
+
+  this.application_name = val('application_name', config, 'PGAPPNAME');
+  this.fallback_application_name = val('fallback_application_name', config, false);
+};
+
+var add = function(params, config, paramName) {
+  var value = config[paramName];
+  if(value) {
+    params.push(paramName+"='"+value+"'");
+  }
+};
+
+ConnectionParameters.prototype.getLibpqConnectionString = function(cb) {
+  var params = [];
+  add(params, this, 'user');
+  add(params, this, 'password');
+  add(params, this, 'port');
+  add(params, this, 'application_name');
+  add(params, this, 'fallback_application_name');
+
+  if(this.database) {
+    params.push("dbname='" + this.database + "'");
+  }
+  if(this.host) {
+    params.push("host=" + this.host);
+  }
+  if(this.isDomainSocket) {
+    return cb(null, params.join(' '));
+  }
+  if(this.client_encoding) {
+    params.push("client_encoding='" + this.client_encoding + "'");
+  }
+  dns.lookup(this.host, function(err, address) {
+    if(err) return cb(err, null);
+    params.push("hostaddr=" + address);
+    return cb(null, params.join(' '));
+  });
+};
+
+module.exports = ConnectionParameters;
+
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports) {
+
+function webpackEmptyContext(req) {
+	throw new Error("Cannot find module '" + req + "'.");
+}
+webpackEmptyContext.keys = function() { return []; };
+webpackEmptyContext.resolve = webpackEmptyContext;
+module.exports = webpackEmptyContext;
+webpackEmptyContext.id = 9;
+
+
+/***/ }),
+/* 10 */
+/***/ (function(module, exports) {
+
+function ArrayParser(source, converter) {
+  this.source = source;
+  this.converter = converter;
+  this.pos = 0;
+  this.entries = [];
+  this.recorded = [];
+  this.dimension = 0;
+  if (!this.converter) {
+    this.converter = function(entry) {
+      return entry;
+    };
+  }
+}
+
+ArrayParser.prototype.eof = function() {
+  return this.pos >= this.source.length;
+};
+
+ArrayParser.prototype.nextChar = function() {
+  var c;
+  if ((c = this.source[this.pos++]) === "\\") {
+    return {
+      char: this.source[this.pos++],
+      escaped: true
+    };
+  } else {
+    return {
+      char: c,
+      escaped: false
+    };
+  }
+};
+
+ArrayParser.prototype.record = function(c) {
+  return this.recorded.push(c);
+};
+
+ArrayParser.prototype.newEntry = function(includeEmpty) {
+  var entry;
+  if (this.recorded.length > 0 || includeEmpty) {
+    entry = this.recorded.join("");
+    if (entry === "NULL" && !includeEmpty) {
+      entry = null;
+    }
+    if (entry !== null) {
+      entry = this.converter(entry);
+    }
+    this.entries.push(entry);
+    this.recorded = [];
+  }
+};
+
+ArrayParser.prototype.parse = function(nested) {
+  var c, p, quote;
+  if (nested === null) {
+    nested = false;
+  }
+  quote = false;
+  while (!this.eof()) {
+    c = this.nextChar();
+    if (c.char === "{" && !quote) {
+      this.dimension++;
+      if (this.dimension > 1) {
+        p = new ArrayParser(this.source.substr(this.pos - 1), this.converter);
+        this.entries.push(p.parse(true));
+        this.pos += p.pos - 2;
+      }
+    } else if (c.char === "}" && !quote) {
+      this.dimension--;
+      if (this.dimension === 0) {
+        this.newEntry();
+        if (nested) {
+          return this.entries;
+        }
+      }
+    } else if (c.char === '"' && !c.escaped) {
+      if (quote) {
+        this.newEntry(true);
+      }
+      quote = !quote;
+    } else if (c.char === ',' && !quote) {
+      this.newEntry();
+    } else {
+      this.record(c.char);
+    }
+  }
+  if (this.dimension !== 0) {
+    throw "array dimension not balanced";
+  }
+  return this.entries;
+};
+
+module.exports = {
+  create: function(source, converter){
+    return new ArrayParser(source, converter);
+  }
+};
+
+
+/***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var array = __webpack_require__(18);
+
+module.exports = {
+  create: function (source, transform) {
+    return {
+      parse: function() {
+        return array.parse(source, transform);
+      }
+    };
+  }
+};
+
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var crypto = __webpack_require__(62);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+var pgPass = __webpack_require__(52);
+var TypeOverrides = __webpack_require__(16);
+
+var ConnectionParameters = __webpack_require__(8);
+var Query = __webpack_require__(48);
+var defaults = __webpack_require__(4);
+var Connection = __webpack_require__(13);
+
+var Client = function(config) {
+  EventEmitter.call(this);
+
+  this.connectionParameters = new ConnectionParameters(config);
+  this.user = this.connectionParameters.user;
+  this.database = this.connectionParameters.database;
+  this.port = this.connectionParameters.port;
+  this.host = this.connectionParameters.host;
+  this.password = this.connectionParameters.password;
+
+  var c = config || {};
+
+  this._types = new TypeOverrides(c.types);
+
+  this.connection = c.connection || new Connection({
+    stream: c.stream,
+    ssl: this.connectionParameters.ssl,
+    keepAlive: c.keepAlive || false
+  });
+  this.queryQueue = [];
+  this.binary = c.binary || defaults.binary;
+  this.encoding = 'utf8';
+  this.processID = null;
+  this.secretKey = null;
+  this.ssl = this.connectionParameters.ssl || false;
+};
+
+util.inherits(Client, EventEmitter);
+
+Client.prototype.connect = function(callback) {
+  var self = this;
+  var con = this.connection;
+
+  if(this.host && this.host.indexOf('/') === 0) {
+    con.connect(this.host + '/.s.PGSQL.' + this.port);
+  } else {
+    con.connect(this.port, this.host);
+  }
+
+
+  //once connection is established send startup message
+  con.on('connect', function() {
+    if(self.ssl) {
+      con.requestSsl();
+    } else {
+      con.startup(self.getStartupConf());
+    }
+  });
+
+  con.on('sslconnect', function() {
+    con.startup(self.getStartupConf());
+  });
+
+  function checkPgPass(cb) {
+    return function(msg) {
+      if (null !== self.password) {
+        cb(msg);
+      } else {
+        pgPass(self.connectionParameters, function(pass){
+          if (undefined !== pass) {
+            self.connectionParameters.password = self.password = pass;
+          }
+          cb(msg);
+        });
+      }
+    };
+  }
+
+  //password request handling
+  con.on('authenticationCleartextPassword', checkPgPass(function() {
+    con.password(self.password);
+  }));
+
+  //password request handling
+  con.on('authenticationMD5Password', checkPgPass(function(msg) {
+    var inner = Client.md5(self.password + self.user);
+    var outer = Client.md5(Buffer.concat([new Buffer(inner), msg.salt]));
+    var md5password = "md5" + outer;
+    con.password(md5password);
+  }));
+
+  con.once('backendKeyData', function(msg) {
+    self.processID = msg.processID;
+    self.secretKey = msg.secretKey;
+  });
+
+  //hook up query handling events to connection
+  //after the connection initially becomes ready for queries
+  con.once('readyForQuery', function() {
+
+    //delegate rowDescription to active query
+    con.on('rowDescription', function(msg) {
+      self.activeQuery.handleRowDescription(msg);
+    });
+
+    //delegate dataRow to active query
+    con.on('dataRow', function(msg) {
+      self.activeQuery.handleDataRow(msg);
+    });
+
+    //delegate portalSuspended to active query
+    con.on('portalSuspended', function(msg) {
+      self.activeQuery.handlePortalSuspended(con);
+    });
+
+    //deletagate emptyQuery to active query
+    con.on('emptyQuery', function(msg) {
+      self.activeQuery.handleEmptyQuery(con);
+    });
+
+    //delegate commandComplete to active query
+    con.on('commandComplete', function(msg) {
+      self.activeQuery.handleCommandComplete(msg, con);
+    });
+
+    //if a prepared statement has a name and properly parses
+    //we track that its already been executed so we don't parse
+    //it again on the same client
+    con.on('parseComplete', function(msg) {
+      if(self.activeQuery.name) {
+        con.parsedStatements[self.activeQuery.name] = true;
+      }
+    });
+
+    con.on('copyInResponse', function(msg) {
+      self.activeQuery.handleCopyInResponse(self.connection);
+    });
+
+    con.on('copyData', function (msg) {
+      self.activeQuery.handleCopyData(msg, self.connection);
+    });
+
+    con.on('notification', function(msg) {
+      self.emit('notification', msg);
+    });
+
+    //process possible callback argument to Client#connect
+    if (callback) {
+      callback(null, self);
+      //remove callback for proper error handling
+      //after the connect event
+      callback = null;
+    }
+    self.emit('connect');
+  });
+
+  con.on('readyForQuery', function() {
+    var activeQuery = self.activeQuery;
+    self.activeQuery = null;
+    self.readyForQuery = true;
+    self._pulseQueryQueue();
+    if(activeQuery) {
+      activeQuery.handleReadyForQuery();
+    }
+  });
+
+  con.on('error', function(error) {
+    if(self.activeQuery) {
+      var activeQuery = self.activeQuery;
+      self.activeQuery = null;
+      return activeQuery.handleError(error, con);
+    }
+    if(!callback) {
+      return self.emit('error', error);
+    }
+    callback(error);
+    callback = null;
+  });
+
+  con.once('end', function() {
+    if ( callback ) {
+      // haven't received a connection message yet !
+      var err = new Error('Connection terminated');
+      callback(err);
+      callback = null;
+      return;
+    }
+    if(self.activeQuery) {
+      var disconnectError = new Error('Connection terminated');
+      self.activeQuery.handleError(disconnectError, con);
+      self.activeQuery = null;
+    }
+    self.emit('end');
+  });
+
+
+  con.on('notice', function(msg) {
+    self.emit('notice', msg);
+  });
+
+};
+
+Client.prototype.getStartupConf = function() {
+  var params = this.connectionParameters;
+
+  var data = {
+    user: params.user,
+    database: params.database
+  };
+
+  var appName = params.application_name || params.fallback_application_name;
+  if (appName) {
+    data.application_name = appName;
+  }
+
+  return data;
+};
+
+Client.prototype.cancel = function(client, query) {
+  if(client.activeQuery == query) {
+    var con = this.connection;
+
+    if(this.host && this.host.indexOf('/') === 0) {
+      con.connect(this.host + '/.s.PGSQL.' + this.port);
+    } else {
+      con.connect(this.port, this.host);
+    }
+
+    //once connection is established send cancel message
+    con.on('connect', function() {
+      con.cancel(client.processID, client.secretKey);
+    });
+  } else if(client.queryQueue.indexOf(query) != -1) {
+    client.queryQueue.splice(client.queryQueue.indexOf(query), 1);
+  }
+};
+
+Client.prototype.setTypeParser = function(oid, format, parseFn) {
+  return this._types.setTypeParser(oid, format, parseFn);
+};
+
+Client.prototype.getTypeParser = function(oid, format) {
+  return this._types.getTypeParser(oid, format);
+};
+
+// Ported from PostgreSQL 9.2.4 source code in src/interfaces/libpq/fe-exec.c
+Client.prototype.escapeIdentifier = function(str) {
+
+  var escaped = '"';
+
+  for(var i = 0; i < str.length; i++) {
+    var c = str[i];
+    if(c === '"') {
+      escaped += c + c;
+    } else {
+      escaped += c;
+    }
+  }
+
+  escaped += '"';
+
+  return escaped;
+};
+
+// Ported from PostgreSQL 9.2.4 source code in src/interfaces/libpq/fe-exec.c
+Client.prototype.escapeLiteral = function(str) {
+
+  var hasBackslash = false;
+  var escaped = '\'';
+
+  for(var i = 0; i < str.length; i++) {
+    var c = str[i];
+    if(c === '\'') {
+      escaped += c + c;
+    } else if (c === '\\') {
+      escaped += c + c;
+      hasBackslash = true;
+    } else {
+      escaped += c;
+    }
+  }
+
+  escaped += '\'';
+
+  if(hasBackslash === true) {
+    escaped = ' E' + escaped;
+  }
+
+  return escaped;
+};
+
+Client.prototype._pulseQueryQueue = function() {
+  if(this.readyForQuery===true) {
+    this.activeQuery = this.queryQueue.shift();
+    if(this.activeQuery) {
+      this.readyForQuery = false;
+      this.hasExecuted = true;
+      this.activeQuery.submit(this.connection);
+    } else if(this.hasExecuted) {
+      this.activeQuery = null;
+      this.emit('drain');
+    }
+  }
+};
+
+Client.prototype.copyFrom = function (text) {
+  throw new Error("For PostgreSQL COPY TO/COPY FROM support npm install pg-copy-streams");
+};
+
+Client.prototype.copyTo = function (text) {
+  throw new Error("For PostgreSQL COPY TO/COPY FROM support npm install pg-copy-streams");
+};
+
+Client.prototype.query = function(config, values, callback) {
+  //can take in strings, config object or query object
+  var query = (typeof config.submit == 'function') ? config :
+     new Query(config, values, callback);
+  if(this.binary && !query.binary) {
+    query.binary = true;
+  }
+  if(query._result) {
+    query._result._getTypeParser = this._types.getTypeParser.bind(this._types);
+  }
+
+  this.queryQueue.push(query);
+  this._pulseQueryQueue();
+  return query;
+};
+
+Client.prototype.end = function(cb) {
+  this.connection.end();
+  if (cb) {
+    this.connection.once('end', cb);
+  }
+};
+
+Client.md5 = function(string) {
+  return crypto.createHash('md5').update(string, 'utf-8').digest('hex');
+};
+
+// expose a Query constructor
+Client.Query = Query;
+
+module.exports = Client;
+
+
+/***/ }),
+/* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var net = __webpack_require__(64);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+
+var Writer = __webpack_require__(29);
+var Reader = __webpack_require__(33);
+
+var TEXT_MODE = 0;
+var BINARY_MODE = 1;
+var Connection = function(config) {
+  EventEmitter.call(this);
+  config = config || {};
+  this.stream = config.stream || new net.Stream();
+  this._keepAlive = config.keepAlive;
+  this.lastBuffer = false;
+  this.lastOffset = 0;
+  this.buffer = null;
+  this.offset = null;
+  this.encoding = 'utf8';
+  this.parsedStatements = {};
+  this.writer = new Writer();
+  this.ssl = config.ssl || false;
+  this._ending = false;
+  this._mode = TEXT_MODE;
+  this._emitMessage = false;
+  this._reader = new Reader({
+    headerSize: 1,
+    lengthPadding: -4
+  });
+  var self = this;
+  this.on('newListener', function(eventName) {
+    if(eventName == 'message') {
+      self._emitMessage = true;
+    }
+  });
+};
+
+util.inherits(Connection, EventEmitter);
+
+Connection.prototype.connect = function(port, host) {
+
+  if(this.stream.readyState === 'closed') {
+    this.stream.connect(port, host);
+  } else if(this.stream.readyState == 'open') {
+    this.emit('connect');
+  }
+
+  var self = this;
+
+  this.stream.on('connect', function() {
+    if (self._keepAlive) {
+      self.stream.setKeepAlive(true);
+    }
+    self.emit('connect');
+  });
+
+  this.stream.on('error', function(error) {
+    //don't raise ECONNRESET errors - they can & should be ignored
+    //during disconnect
+    if(self._ending && error.code == 'ECONNRESET') {
+      return;
+    }
+    self.emit('error', error);
+  });
+
+  this.stream.on('close', function() {
+    // NOTE: node-0.10 emits both 'end' and 'close'
+    //       for streams closed by the peer, while
+    //       node-0.8 only emits 'close'
+    self.emit('end');
+  });
+
+  if(!this.ssl) {
+    return this.attachListeners(this.stream);
+  }
+
+  this.stream.once('data', function(buffer) {
+    var responseCode = buffer.toString('utf8');
+    if(responseCode != 'S') {
+      return self.emit('error', new Error('The server does not support SSL connections'));
+    }
+    var tls = __webpack_require__(66);
+    self.stream = tls.connect({
+      socket: self.stream,
+      servername: host,
+      rejectUnauthorized: self.ssl.rejectUnauthorized,
+      ca: self.ssl.ca,
+      pfx: self.ssl.pfx,
+      key: self.ssl.key,
+      passphrase: self.ssl.passphrase,
+      cert: self.ssl.cert,
+      NPNProtocols: self.ssl.NPNProtocols
+    });
+    self.attachListeners(self.stream);
+    self.emit('sslconnect');
+
+    self.stream.on('error', function(error){
+      self.emit('error', error);
+    });
+  });
+};
+
+Connection.prototype.attachListeners = function(stream) {
+  var self = this;
+  stream.on('data', function(buff) {
+    self._reader.addChunk(buff);
+    var packet = self._reader.read();
+    while(packet) {
+      var msg = self.parseMessage(packet);
+      if(self._emitMessage) {
+        self.emit('message', msg);
+      }
+      self.emit(msg.name, msg);
+      packet = self._reader.read();
+    }
+  });
+  stream.on('end', function() {
+    self.emit('end');
+  });
+};
+
+Connection.prototype.requestSsl = function() {
+  this.checkSslResponse = true;
+
+  var bodyBuffer = this.writer
+    .addInt16(0x04D2)
+    .addInt16(0x162F).flush();
+
+  var length = bodyBuffer.length + 4;
+
+  var buffer = new Writer()
+    .addInt32(length)
+    .add(bodyBuffer)
+    .join();
+  this.stream.write(buffer);
+};
+
+Connection.prototype.startup = function(config) {
+  var writer = this.writer
+    .addInt16(3)
+    .addInt16(0)
+  ;
+
+  Object.keys(config).forEach(function(key){
+    var val = config[key];
+    writer.addCString(key).addCString(val);
+  });
+
+  writer.addCString('client_encoding').addCString("'utf-8'");
+
+  var bodyBuffer = writer.addCString('').flush();
+  //this message is sent without a code
+
+  var length = bodyBuffer.length + 4;
+
+  var buffer = new Writer()
+    .addInt32(length)
+    .add(bodyBuffer)
+    .join();
+  this.stream.write(buffer);
+};
+
+Connection.prototype.cancel = function(processID, secretKey) {
+  var bodyBuffer = this.writer
+    .addInt16(1234)
+    .addInt16(5678)
+    .addInt32(processID)
+    .addInt32(secretKey)
+    .flush();
+
+  var length = bodyBuffer.length + 4;
+
+  var buffer = new Writer()
+    .addInt32(length)
+    .add(bodyBuffer)
+    .join();
+  this.stream.write(buffer);
+};
+
+Connection.prototype.password = function(password) {
+  //0x70 = 'p'
+  this._send(0x70, this.writer.addCString(password));
+};
+
+Connection.prototype._send = function(code, more) {
+  if(!this.stream.writable) { return false; }
+  if(more === true) {
+    this.writer.addHeader(code);
+  } else {
+    return this.stream.write(this.writer.flush(code));
+  }
+};
+
+Connection.prototype.query = function(text) {
+  //0x51 = Q
+  this.stream.write(this.writer.addCString(text).flush(0x51));
+};
+
+//send parse message
+//"more" === true to buffer the message until flush() is called
+Connection.prototype.parse = function(query, more) {
+  //expect something like this:
+  // { name: 'queryName',
+  //   text: 'select * from blah',
+  //   types: ['int8', 'bool'] }
+
+  //normalize missing query names to allow for null
+  query.name = query.name || '';
+  if (query.name.length > 63) {
+    console.error('Warning! Postgres only supports 63 characters for query names.');
+    console.error('You supplied', query.name, '(', query.name.length, ')');
+    console.error('This can cause conflicts and silent errors executing queries');
+  }
+  //normalize null type array
+  query.types = query.types || [];
+  var len = query.types.length;
+  var buffer = this.writer
+    .addCString(query.name) //name of query
+    .addCString(query.text) //actual query text
+    .addInt16(len);
+  for(var i = 0; i < len; i++) {
+    buffer.addInt32(query.types[i]);
+  }
+
+  var code = 0x50;
+  this._send(code, more);
+};
+
+//send bind message
+//"more" === true to buffer the message until flush() is called
+Connection.prototype.bind = function(config, more) {
+  //normalize config
+  config = config || {};
+  config.portal = config.portal || '';
+  config.statement = config.statement || '';
+  config.binary = config.binary || false;
+  var values = config.values || [];
+  var len = values.length;
+  var useBinary = false;
+  for (var j = 0; j < len; j++)
+    useBinary |= values[j] instanceof Buffer;
+  var buffer = this.writer
+    .addCString(config.portal)
+    .addCString(config.statement);
+  if (!useBinary)
+    buffer.addInt16(0);
+  else {
+    buffer.addInt16(len);
+    for (j = 0; j < len; j++)
+      buffer.addInt16(values[j] instanceof Buffer);
+  }
+  buffer.addInt16(len);
+  for(var i = 0; i < len; i++) {
+    var val = values[i];
+    if(val === null || typeof val === "undefined") {
+      buffer.addInt32(-1);
+    } else if (val instanceof Buffer) {
+      buffer.addInt32(val.length);
+      buffer.add(val);
+    } else {
+      buffer.addInt32(Buffer.byteLength(val));
+      buffer.addString(val);
+    }
+  }
+
+  if(config.binary) {
+    buffer.addInt16(1); // format codes to use binary
+    buffer.addInt16(1);
+  }
+  else {
+    buffer.addInt16(0); // format codes to use text
+  }
+  //0x42 = 'B'
+  this._send(0x42, more);
+};
+
+//send execute message
+//"more" === true to buffer the message until flush() is called
+Connection.prototype.execute = function(config, more) {
+  config = config || {};
+  config.portal = config.portal || '';
+  config.rows = config.rows || '';
+  this.writer
+    .addCString(config.portal)
+    .addInt32(config.rows);
+
+  //0x45 = 'E'
+  this._send(0x45, more);
+};
+
+var emptyBuffer = Buffer(0);
+
+Connection.prototype.flush = function() {
+  //0x48 = 'H'
+  this.writer.add(emptyBuffer);
+  this._send(0x48);
+};
+
+Connection.prototype.sync = function() {
+  //clear out any pending data in the writer
+  this.writer.flush(0);
+
+  this.writer.add(emptyBuffer);
+  this._ending = true;
+  this._send(0x53);
+};
+
+Connection.prototype.end = function() {
+  //0x58 = 'X'
+  this.writer.add(emptyBuffer);
+  this._ending = true;
+  this._send(0x58);
+};
+
+Connection.prototype.close = function(msg, more) {
+  this.writer.addCString(msg.type + (msg.name || ''));
+  this._send(0x43, more);
+};
+
+Connection.prototype.describe = function(msg, more) {
+  this.writer.addCString(msg.type + (msg.name || ''));
+  this._send(0x44, more);
+};
+
+Connection.prototype.sendCopyFromChunk = function (chunk) {
+  this.stream.write(this.writer.add(chunk).flush(0x64));
+};
+
+Connection.prototype.endCopyFrom = function () {
+  this.stream.write(this.writer.add(emptyBuffer).flush(0x63));
+};
+
+Connection.prototype.sendCopyFail = function (msg) {
+  //this.stream.write(this.writer.add(emptyBuffer).flush(0x66));
+  this.writer.addCString(msg);
+  this._send(0x66);
+};
+
+var Message = function(name, length) {
+  this.name = name;
+  this.length = length;
+};
+
+Connection.prototype.parseMessage =  function(buffer) {
+
+  this.offset = 0;
+  var length = buffer.length + 4;
+  switch(this._reader.header)
+  {
+
+  case 0x52: //R
+    return this.parseR(buffer, length);
+
+  case 0x53: //S
+    return this.parseS(buffer, length);
+
+  case 0x4b: //K
+    return this.parseK(buffer, length);
+
+  case 0x43: //C
+    return this.parseC(buffer, length);
+
+  case 0x5a: //Z
+    return this.parseZ(buffer, length);
+
+  case 0x54: //T
+    return this.parseT(buffer, length);
+
+  case 0x44: //D
+    return this.parseD(buffer, length);
+
+  case 0x45: //E
+    return this.parseE(buffer, length);
+
+  case 0x4e: //N
+    return this.parseN(buffer, length);
+
+  case 0x31: //1
+    return new Message('parseComplete', length);
+
+  case 0x32: //2
+    return new Message('bindComplete', length);
+
+  case 0x33: //3
+    return new Message('closeComplete', length);
+
+  case 0x41: //A
+    return this.parseA(buffer, length);
+
+  case 0x6e: //n
+    return new Message('noData', length);
+
+  case 0x49: //I
+    return new Message('emptyQuery', length);
+
+  case 0x73: //s
+    return new Message('portalSuspended', length);
+
+  case 0x47: //G
+    return this.parseG(buffer, length);
+
+  case 0x48: //H
+    return this.parseH(buffer, length);
+
+  case 0x63: //c
+    return new Message('copyDone', length);
+
+  case 0x64: //d
+    return this.parsed(buffer, length);
+  }
+};
+
+Connection.prototype.parseR = function(buffer, length) {
+  var code = 0;
+  var msg = new Message('authenticationOk', length);
+  if(msg.length === 8) {
+    code = this.parseInt32(buffer);
+    if(code === 3) {
+      msg.name = 'authenticationCleartextPassword';
+    }
+    return msg;
+  }
+  if(msg.length === 12) {
+    code = this.parseInt32(buffer);
+    if(code === 5) { //md5 required
+      msg.name = 'authenticationMD5Password';
+      msg.salt = new Buffer(4);
+      buffer.copy(msg.salt, 0, this.offset, this.offset + 4);
+      this.offset += 4;
+      return msg;
+    }
+  }
+  throw new Error("Unknown authenticationOk message type" + util.inspect(msg));
+};
+
+Connection.prototype.parseS = function(buffer, length) {
+  var msg = new Message('parameterStatus', length);
+  msg.parameterName = this.parseCString(buffer);
+  msg.parameterValue = this.parseCString(buffer);
+  return msg;
+};
+
+Connection.prototype.parseK = function(buffer, length) {
+  var msg = new Message('backendKeyData', length);
+  msg.processID = this.parseInt32(buffer);
+  msg.secretKey = this.parseInt32(buffer);
+  return msg;
+};
+
+Connection.prototype.parseC = function(buffer, length) {
+  var msg = new Message('commandComplete', length);
+  msg.text = this.parseCString(buffer);
+  return msg;
+};
+
+Connection.prototype.parseZ = function(buffer, length) {
+  var msg = new Message('readyForQuery', length);
+  msg.name = 'readyForQuery';
+  msg.status = this.readString(buffer, 1);
+  return msg;
+};
+
+var ROW_DESCRIPTION = 'rowDescription';
+Connection.prototype.parseT = function(buffer, length) {
+  var msg = new Message(ROW_DESCRIPTION, length);
+  msg.fieldCount = this.parseInt16(buffer);
+  var fields = [];
+  for(var i = 0; i < msg.fieldCount; i++){
+    fields.push(this.parseField(buffer));
+  }
+  msg.fields = fields;
+  return msg;
+};
+
+var Field = function() {
+  this.name = null;
+  this.tableID = null;
+  this.columnID = null;
+  this.dataTypeID = null;
+  this.dataTypeSize = null;
+  this.dataTypeModifier = null;
+  this.format = null;
+};
+
+var FORMAT_TEXT = 'text';
+var FORMAT_BINARY = 'binary';
+Connection.prototype.parseField = function(buffer) {
+  var field = new Field();
+  field.name = this.parseCString(buffer);
+  field.tableID = this.parseInt32(buffer);
+  field.columnID = this.parseInt16(buffer);
+  field.dataTypeID = this.parseInt32(buffer);
+  field.dataTypeSize = this.parseInt16(buffer);
+  field.dataTypeModifier = this.parseInt32(buffer);
+  if(this.parseInt16(buffer) === TEXT_MODE) {
+    this._mode = TEXT_MODE;
+    field.format = FORMAT_TEXT;
+  } else {
+    this._mode = BINARY_MODE;
+    field.format = FORMAT_BINARY;
+  }
+  return field;
+};
+
+var DATA_ROW = 'dataRow';
+var DataRowMessage = function(length, fieldCount) {
+  this.name = DATA_ROW;
+  this.length = length;
+  this.fieldCount = fieldCount;
+  this.fields = [];
+};
+
+
+//extremely hot-path code
+Connection.prototype.parseD = function(buffer, length) {
+  var fieldCount = this.parseInt16(buffer);
+  var msg = new DataRowMessage(length, fieldCount);
+  for(var i = 0; i < fieldCount; i++) {
+    msg.fields.push(this._readValue(buffer));
+  }
+  return msg;
+};
+
+//extremely hot-path code
+Connection.prototype._readValue = function(buffer) {
+  var length = this.parseInt32(buffer);
+  if(length === -1) return null;
+  if(this._mode === TEXT_MODE) {
+    return this.readString(buffer, length);
+  }
+  return this.readBytes(buffer, length);
+};
+
+//parses error
+Connection.prototype.parseE = function(buffer, length) {
+  var fields = {};
+  var msg, item;
+  var input = new Message('error', length);
+  var fieldType = this.readString(buffer, 1);
+  while(fieldType != '\0') {
+    fields[fieldType] = this.parseCString(buffer);
+    fieldType = this.readString(buffer, 1);
+  }
+  if(input.name === 'error') {
+    // the msg is an Error instance
+    msg = new Error(fields.M);
+    for (item in input) {
+      // copy input properties to the error
+      if(input.hasOwnProperty(item)) {
+        msg[item] = input[item];
+      }
+    }
+  } else {
+    // the msg is an object literal
+    msg = input;
+    msg.message = fields.M;
+  }
+  msg.severity = fields.S;
+  msg.code = fields.C;
+  msg.detail = fields.D;
+  msg.hint = fields.H;
+  msg.position = fields.P;
+  msg.internalPosition = fields.p;
+  msg.internalQuery = fields.q;
+  msg.where = fields.W;
+  msg.schema = fields.s;
+  msg.table = fields.t;
+  msg.column = fields.c;
+  msg.dataType = fields.d;
+  msg.constraint = fields.n;
+  msg.file = fields.F;
+  msg.line = fields.L;
+  msg.routine = fields.R;
+  return msg;
+};
+
+//same thing, different name
+Connection.prototype.parseN = function(buffer, length) {
+  var msg = this.parseE(buffer, length);
+  msg.name = 'notice';
+  return msg;
+};
+
+Connection.prototype.parseA = function(buffer, length) {
+  var msg = new Message('notification', length);
+  msg.processId = this.parseInt32(buffer);
+  msg.channel = this.parseCString(buffer);
+  msg.payload = this.parseCString(buffer);
+  return msg;
+};
+
+Connection.prototype.parseG = function (buffer, length) {
+  var msg = new Message('copyInResponse', length);
+  return this.parseGH(buffer, msg);
+};
+
+Connection.prototype.parseH = function(buffer, length) {
+  var msg = new Message('copyOutResponse', length);
+  return this.parseGH(buffer, msg);
+};
+
+Connection.prototype.parseGH = function (buffer, msg) {
+  var isBinary = buffer[this.offset] !== 0;
+  this.offset++;
+  msg.binary = isBinary;
+  var columnCount = this.parseInt16(buffer);
+  msg.columnTypes = [];
+  for(var i = 0; i<columnCount; i++) {
+    msg.columnTypes.push(this.parseInt16(buffer));
+  }
+  return msg;
+};
+
+Connection.prototype.parsed = function (buffer, length) {
+  var msg = new Message('copyData', length);
+  msg.chunk = this.readBytes(buffer, msg.length - 4);
+  return msg;
+};
+
+Connection.prototype.parseInt32 = function(buffer) {
+  var value = buffer.readInt32BE(this.offset, true);
+  this.offset += 4;
+  return value;
+};
+
+Connection.prototype.parseInt16 = function(buffer) {
+  var value = buffer.readInt16BE(this.offset, true);
+  this.offset += 2;
+  return value;
+};
+
+Connection.prototype.readString = function(buffer, length) {
+  return buffer.toString(this.encoding, this.offset, (this.offset += length));
+};
+
+Connection.prototype.readBytes = function(buffer, length) {
+  return buffer.slice(this.offset, this.offset += length);
+};
+
+Connection.prototype.parseCString = function(buffer) {
+  var start = this.offset;
+  while(buffer[this.offset++] !== 0) { }
+  return buffer.toString(this.encoding, start, this.offset - 1);
+};
+//end parsing methods
+module.exports = Connection;
+
+
+/***/ }),
+/* 14 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+var Client = __webpack_require__(12);
+var defaults =  __webpack_require__(4);
+var Connection = __webpack_require__(13);
+var ConnectionParameters = __webpack_require__(8);
+var poolFactory = __webpack_require__(47);
+
+var PG = function(clientConstructor) {
+  EventEmitter.call(this);
+  this.defaults = defaults;
+  this.Client = clientConstructor;
+  this.Query = this.Client.Query;
+  this.Pool = poolFactory(this.Client);
+  this._pools = [];
+  this.Connection = Connection;
+  this.types = __webpack_require__(3);
+};
+
+util.inherits(PG, EventEmitter);
+
+PG.prototype.end = function() {
+  var self = this;
+  var keys = Object.keys(this._pools);
+  var count = keys.length;
+  if(count === 0) {
+    self.emit('end');
+  } else {
+    keys.forEach(function(key) {
+      var pool = self._pools[key];
+      delete self._pools[key];
+      pool.pool.drain(function() {
+        pool.pool.destroyAllNow(function() {
+          count--;
+          if(count === 0) {
+            self.emit('end');
+          }
+        });
+      });
+    });
+  }
+};
+
+PG.prototype.connect = function(config, callback) {
+  if(typeof config == "function") {
+    callback = config;
+    config = null;
+  }
+  var poolName = JSON.stringify(config || {});
+  if (typeof config == 'string') {
+    config = new ConnectionParameters(config);
+  }
+
+  config = config || {};
+
+  //for backwards compatibility
+  config.max = config.max || config.poolSize || defaults.poolSize;
+  config.idleTimeoutMillis = config.idleTimeoutMillis || config.poolIdleTimeout || defaults.poolIdleTimeout;
+  config.log = config.log || config.poolLog || defaults.poolLog;
+
+  this._pools[poolName] = this._pools[poolName] || new this.Pool(config);
+  var pool = this._pools[poolName];
+  if(!pool.listeners('error').length) {
+    //propagate errors up to pg object
+    pool.on('error', function(e) {
+      this.emit('error', e, e.client);
+    }.bind(this));
+  }
+  return pool.connect(callback);
+};
+
+// cancel the query running on the given client
+PG.prototype.cancel = function(config, client, query) {
+  if(client.native) {
+    return client.cancel(query);
+  }
+  var c = config;
+  //allow for no config to be passed
+  if(typeof c === 'function') {
+    c = defaults;
+  }
+  var cancellingClient = new this.Client(c);
+  cancellingClient.cancel(client, query);
+};
+
+if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
+  module.exports = new PG(__webpack_require__(15));
+} else {
+  module.exports = new PG(Client);
+
+  //lazy require native module...the native module may not have installed
+  module.exports.__defineGetter__("native", function() {
+    delete module.exports.native;
+    var native = null;
+    try {
+      native = new PG(__webpack_require__(15));
+    } catch (err) {
+      if (err.code !== 'MODULE_NOT_FOUND') {
+        throw err;
+      }
+      console.error(err.message);
+    }
+    module.exports.native = native;
+    return native;
+  });
+}
+
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var Native = __webpack_require__(35);
+var TypeOverrides = __webpack_require__(16);
+var semver = __webpack_require__(56);
+var pkg = __webpack_require__(50);
+var assert = __webpack_require__(5);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+var ConnectionParameters = __webpack_require__(8);
+
+var msg = 'Version >= ' + pkg.minNativeVersion + ' of pg-native required.';
+assert(semver.gte(Native.version, pkg.minNativeVersion), msg);
+
+var NativeQuery = __webpack_require__(45);
+
+var Client = module.exports = function(config) {
+  EventEmitter.call(this);
+  config = config || {};
+
+  this._types = new TypeOverrides(config.types);
+
+  this.native = new Native({
+    types: this._types
+  });
+
+  this._queryQueue = [];
+  this._connected = false;
+
+  //keep these on the object for legacy reasons
+  //for the time being. TODO: deprecate all this jazz
+  var cp = this.connectionParameters = new ConnectionParameters(config);
+  this.user = cp.user;
+  this.password = cp.password;
+  this.database = cp.database;
+  this.host = cp.host;
+  this.port = cp.port;
+
+  //a hash to hold named queries
+  this.namedQueries = {};
+};
+
+util.inherits(Client, EventEmitter);
+
+//connect to the backend
+//pass an optional callback to be called once connected
+//or with an error if there was a connection error
+//if no callback is passed and there is a connection error
+//the client will emit an error event.
+Client.prototype.connect = function(cb) {
+  var self = this;
+
+  var onError = function(err) {
+    if(cb) return cb(err);
+    return self.emit('error', err);
+  };
+
+  this.connectionParameters.getLibpqConnectionString(function(err, conString) {
+    if(err) return onError(err);
+    self.native.connect(conString, function(err) {
+      if(err) return onError(err);
+
+      //set internal states to connected
+      self._connected = true;
+
+      //handle connection errors from the native layer
+      self.native.on('error', function(err) {
+        //error will be handled by active query
+        if(self._activeQuery && self._activeQuery.state != 'end') {
+          return;
+        }
+        self.emit('error', err);
+      });
+
+      self.native.on('notification', function(msg) {
+        self.emit('notification', {
+          channel: msg.relname,
+          payload: msg.extra
+        });
+      });
+
+      //signal we are connected now
+      self.emit('connect');
+      self._pulseQueryQueue(true);
+
+      //possibly call the optional callback
+      if(cb) cb();
+    });
+  });
+};
+
+//send a query to the server
+//this method is highly overloaded to take
+//1) string query, optional array of parameters, optional function callback
+//2) object query with {
+//    string query
+//    optional array values,
+//    optional function callback instead of as a separate parameter
+//    optional string name to name & cache the query plan
+//    optional string rowMode = 'array' for an array of results
+//  }
+Client.prototype.query = function(config, values, callback) {
+  var query = new NativeQuery(this.native);
+
+  //support query('text', ...) style calls
+  if(typeof config == 'string') {
+    query.text = config;
+  }
+
+  //support passing everything in via a config object
+  if(typeof config == 'object') {
+    query.text = config.text;
+    query.values = config.values;
+    query.name = config.name;
+    query.callback = config.callback;
+    query._arrayMode = config.rowMode == 'array';
+  }
+
+  //support query({...}, function() {}) style calls
+  //& support query(..., ['values'], ...) style calls
+  if(typeof values == 'function') {
+    query.callback = values;
+  }
+  else if(util.isArray(values)) {
+    query.values = values;
+  }
+  if(typeof callback == 'function') {
+    query.callback = callback;
+  }
+
+  this._queryQueue.push(query);
+  this._pulseQueryQueue();
+  return query;
+};
+
+//disconnect from the backend server
+Client.prototype.end = function(cb) {
+  var self = this;
+  if(!this._connected) {
+    this.once('connect', this.end.bind(this, cb));
+  }
+  this.native.end(function() {
+    //send an error to the active query
+    if(self._hasActiveQuery()) {
+      var msg = 'Connection terminated';
+      self._queryQueue.length = 0;
+      self._activeQuery.handleError(new Error(msg));
+    }
+    self.emit('end');
+    if(cb) cb();
+  });
+};
+
+Client.prototype._hasActiveQuery = function() {
+  return this._activeQuery && this._activeQuery.state != 'error' && this._activeQuery.state != 'end';
+};
+
+Client.prototype._pulseQueryQueue = function(initialConnection) {
+  if(!this._connected) {
+    return;
+  }
+  if(this._hasActiveQuery()) {
+    return;
+  }
+  var query = this._queryQueue.shift();
+  if(!query) {
+    if(!initialConnection) {
+      this.emit('drain');
+    }
+    return;
+  }
+  this._activeQuery = query;
+  query.submit(this);
+  var self = this;
+  query.once('_done', function() {
+    self._pulseQueryQueue();
+  });
+};
+
+//attempt to cancel an in-progress query
+Client.prototype.cancel = function(query) {
+  if(this._activeQuery == query) {
+    this.native.cancel(function() {});
+  } else if (this._queryQueue.indexOf(query) != -1) {
+    this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
+  }
+};
+
+Client.prototype.setTypeParser = function(oid, format, parseFn) {
+  return this._types.setTypeParser(oid, format, parseFn);
+};
+
+Client.prototype.getTypeParser = function(oid, format) {
+  return this._types.getTypeParser(oid, format);
+};
+
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var types = __webpack_require__(3);
+
+function TypeOverrides(userTypes) {
+  this._types = userTypes || types;
+  this.text = {};
+  this.binary = {};
+}
+
+TypeOverrides.prototype.getOverrides = function(format) {
+  switch(format) {
+    case 'text': return this.text;
+    case 'binary': return this.binary;
+    default: return {};
+  }
+};
+
+TypeOverrides.prototype.setTypeParser = function(oid, format, parseFn) {
+  if(typeof format == 'function') {
+    parseFn = format;
+    format = 'text';
+  }
+  this.getOverrides(format)[oid] = parseFn;
+};
+
+TypeOverrides.prototype.getTypeParser = function(oid, format) {
+  format = format || 'text';
+  return this.getOverrides(format)[oid] || this._types.getTypeParser(oid, format);
+};
+
+module.exports = TypeOverrides;
+
+
+/***/ }),
+/* 17 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * README.md file in the root directory of this source tree.
+ */
+
+var defaults = __webpack_require__(4);
+
+function escapeElement(elementRepresentation) {
+  var escaped = elementRepresentation
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+
+  return '"' + escaped + '"';
+}
+
+// convert a JS array to a postgres array literal
+// uses comma separator so won't work for types like box that use
+// a different array separator.
+function arrayString(val) {
+  var result = '{';
+  for (var i = 0 ; i < val.length; i++) {
+    if(i > 0) {
+      result = result + ',';
+    }
+    if(val[i] === null || typeof val[i] === 'undefined') {
+      result = result + 'NULL';
+    }
+    else if(Array.isArray(val[i])) {
+      result = result + arrayString(val[i]);
+    }
+    else
+    {
+      result += escapeElement(prepareValue(val[i]));
+    }
+  }
+  result = result + '}';
+  return result;
+}
+
+//converts values from javascript types
+//to their 'raw' counterparts for use as a postgres parameter
+//note: you can override this function to provide your own conversion mechanism
+//for complex types, etc...
+var prepareValue = function(val, seen) {
+  if (val instanceof Buffer) {
+    return val;
+  }
+  if(val instanceof Date) {
+    if(defaults.parseInputDatesAsUTC) {
+      return dateToStringUTC(val);
+    } else {
+      return dateToString(val);
+    }
+  }
+  if(Array.isArray(val)) {
+    return arrayString(val);
+  }
+  if(val === null || typeof val === 'undefined') {
+    return null;
+  }
+  if(typeof val === 'object') {
+    return prepareObject(val, seen);
+  }
+  return val.toString();
+};
+
+function prepareObject(val, seen) {
+  if(val.toPostgres && typeof val.toPostgres === 'function') {
+    seen = seen || [];
+    if (seen.indexOf(val) !== -1) {
+      throw new Error('circular reference detected while preparing "' + val + '" for query');
+    }
+    seen.push(val);
+
+    return prepareValue(val.toPostgres(prepareValue), seen);
+  }
+  return JSON.stringify(val);
+}
+
+function pad(number, digits) {
+  number = ""  +number;
+  while(number.length < digits)
+    number = "0" + number;
+  return number;
+}
+
+function dateToString(date) {
+
+  var offset = -date.getTimezoneOffset();
+  var ret = pad(date.getFullYear(), 4) + '-' +
+    pad(date.getMonth() + 1, 2) + '-' +
+    pad(date.getDate(), 2) + 'T' +
+    pad(date.getHours(), 2) + ':' +
+    pad(date.getMinutes(), 2) + ':' +
+    pad(date.getSeconds(), 2) + '.' +
+    pad(date.getMilliseconds(), 3);
+
+  if(offset < 0) {
+    ret += "-";
+    offset *= -1;
+  }
+  else
+    ret += "+";
+
+  return ret + pad(Math.floor(offset/60), 2) + ":" + pad(offset%60, 2);
+}
+
+function dateToStringUTC(date) {
+
+  var ret = pad(date.getUTCFullYear(), 4) + '-' +
+      pad(date.getUTCMonth() + 1, 2) + '-' +
+      pad(date.getUTCDate(), 2) + 'T' +
+      pad(date.getUTCHours(), 2) + ':' +
+      pad(date.getUTCMinutes(), 2) + ':' +
+      pad(date.getUTCSeconds(), 2) + '.' +
+      pad(date.getUTCMilliseconds(), 3);
+
+  return ret + "+00:00";
+}
+
+function normalizeQueryConfig (config, values, callback) {
+  //can take in strings or config objects
+  config = (typeof(config) == 'string') ? { text: config } : config;
+  if(values) {
+    if(typeof values === 'function') {
+      config.callback = values;
+    } else {
+      config.values = values;
+    }
+  }
+  if(callback) {
+    config.callback = callback;
+  }
+  return config;
+}
+
+module.exports = {
+  prepareValue: function prepareValueWrapper (value) {
+    //this ensures that extra arguments do not get passed into prepareValue
+    //by accident, eg: from calling values.map(utils.prepareValue)
+    return prepareValue(value);
+  },
+  normalizeQueryConfig: normalizeQueryConfig
+};
+
+
+/***/ }),
+/* 18 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+exports.parse = function (source, transform) {
+  return new ArrayParser(source, transform).parse()
+}
+
+function ArrayParser (source, transform) {
+  this.source = source
+  this.transform = transform || identity
+  this.position = 0
+  this.entries = []
+  this.recorded = []
+  this.dimension = 0
+}
+
+ArrayParser.prototype.isEof = function () {
+  return this.position >= this.source.length
+}
+
+ArrayParser.prototype.nextCharacter = function () {
+  var character = this.source[this.position++]
+  if (character === '\\') {
+    return {
+      value: this.source[this.position++],
+      escaped: true
+    }
+  }
+  return {
+    value: character,
+    escaped: false
+  }
+}
+
+ArrayParser.prototype.record = function (character) {
+  this.recorded.push(character)
+}
+
+ArrayParser.prototype.newEntry = function (includeEmpty) {
+  var entry
+  if (this.recorded.length > 0 || includeEmpty) {
+    entry = this.recorded.join('')
+    if (entry === 'NULL' && !includeEmpty) {
+      entry = null
+    }
+    if (entry !== null) entry = this.transform(entry)
+    this.entries.push(entry)
+    this.recorded = []
+  }
+}
+
+ArrayParser.prototype.parse = function (nested) {
+  var character, parser, quote
+  while (!this.isEof()) {
+    character = this.nextCharacter()
+    if (character.value === '{' && !quote) {
+      this.dimension++
+      if (this.dimension > 1) {
+        parser = new ArrayParser(this.source.substr(this.position - 1), this.transform)
+        this.entries.push(parser.parse(true))
+        this.position += parser.position - 2
+      }
+    } else if (character.value === '}' && !quote) {
+      this.dimension--
+      if (!this.dimension) {
+        this.newEntry()
+        if (nested) return this.entries
+      }
+    } else if (character.value === '"' && !character.escaped) {
+      if (quote) this.newEntry(true)
+      quote = !quote
+    } else if (character.value === ',' && !quote) {
+      this.newEntry()
+    } else {
+      this.record(character.value)
+    }
+  }
+  if (this.dimension !== 0) {
+    throw new Error('array dimension not balanced')
+  }
+  return this.entries
+}
+
+function identity (value) {
+  return value
+}
+
+
+/***/ }),
+/* 19 */
+/***/ (function(module, exports) {
+
+module.exports = require("url");
+
+/***/ }),
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -120,7 +2132,7 @@ class configService {
       Build our config
     */
     constructor(_clArgs) {
-        this.cf = __webpack_require__(0);
+        this.cf = __webpack_require__(23);
         try {
             this._ns = _clArgs["namespace"];
             this._table = _clArgs["tablename"];
@@ -142,21 +2154,24 @@ class configService {
         }
         return this.cf[_key];
     }
+    setRows(_rows) {
+        this._rows = _rows;
+    }
 }
 exports.configService = configService;
 
 
 /***/ }),
-/* 3 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
-const db_1 = __webpack_require__(5);
+const db_1 = __webpack_require__(25);
 class Setup {
-    constructor(_args) {
-        this._args = _args;
-        let _db = new db_1.db(_args);
+    constructor(_cs) {
+        this._cs = _cs;
+        let _db = new db_1.db(_cs);
         // _db.retrieve(this.doReplacements);
         // console.log("Namespace is " + _args["namespace"]);
         // this.doReplacements();
@@ -166,20 +2181,20 @@ exports.Setup = Setup;
 
 
 /***/ }),
-/* 4 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
  * Module dependencies.
  */
 
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var spawn = __webpack_require__(9).spawn;
-var readlink = __webpack_require__(8).readlinkSync;
-var path = __webpack_require__(11);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var spawn = __webpack_require__(61).spawn;
+var readlink = __webpack_require__(31).readlinkSync;
+var path = __webpack_require__(2);
 var dirname = path.dirname;
 var basename = path.basename;
-var fs = __webpack_require__(1);
+var fs = __webpack_require__(6);
 
 /**
  * Expose the root command.
@@ -1282,2169 +3297,31 @@ function exists(file) {
 
 
 /***/ }),
-/* 5 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-/**
- * -----------------------------------------------------------------------------
- * Class        : db.ts
- * Description  :
- * Parameters   :
- * Usage        :
- * Notes        :
- * Created      : @author Neil Smith <Neil.SMith@Computors.com>
- * Created Date : 17 Feb 2017
- * -----------------------------------------------------------------------------
- * Date?        Whom?       Notes
- * _____________________________________________________________________________
- */
-
-const connPostgres_1 = __webpack_require__(31);
-class db {
-    // private _configService:configService;
-    constructor(_configService) {
-        // this._configService = new configService();
-        this._configService = _configService;
-        console.log(_configService.getDBParams());
-        switch (this._configService.getDBParams()["type"]) {
-            case 'pg':
-                this._dbInstance = new connPostgres_1.connPostgres(_configService); // require('connPostgres');
-                break;
-            case 'mysql':
-                this._dbInstance = __webpack_require__(6);
-                break;
-            default:
-        }
-        // console.log(JSON.stringify(this._dbInstance.getConnectString()));
-        this.getRows();
-    }
-    getRows() {
-        return this._dbInstance.getRows();
-    }
-    dbInstance() {
-        return this._dbInstance;
-    }
-}
-exports.db = db;
-
-
-/***/ }),
-/* 6 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-class connMysql {
-    constructor(_cs) {
-        this._cs = _cs;
-        this.configure();
-    }
-    configure() {
-        this._pConn = this._cs.getDBParams();
-    }
-    getConnectString() {
-        return "";
-    }
-    ;
-    getQuery() {
-        return "";
-    }
-    getRows() {
-        return [""];
-    }
-    testConnection() {
-        return false;
-    }
-    ;
-}
-exports.connMysql = connMysql;
-
-
-/***/ }),
-/* 7 */,
-/* 8 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var fs = __webpack_require__(1)
-  , lstat = fs.lstatSync;
-
-exports.readlinkSync = function (p) {
-  if (lstat(p).isSymbolicLink()) {
-    return fs.readlinkSync(p);
-  } else {
-    return p;
-  }
-};
-
-
-
-
-/***/ }),
-/* 9 */
-/***/ (function(module, exports) {
-
-module.exports = require("child_process");
-
-/***/ }),
-/* 10 */
-/***/ (function(module, exports) {
-
-module.exports = require("events");
-
-/***/ }),
-/* 11 */
-/***/ (function(module, exports) {
-
-module.exports = require("path");
-
-/***/ }),
-/* 12 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-const setup_1 = __webpack_require__(3);
-const configService_1 = __webpack_require__(2);
-var program = __webpack_require__(4);
-program
-    .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
-    .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
-    .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
-    .parse(process.argv);
-program.datecreated = new Date().toLocaleString();
-// console.log("TableName :: " + _tablename);
-// console.log(program);
-let cs = new configService_1.configService(program);
-let x = new setup_1.Setup(cs);
-
-
-/***/ }),
-/* 13 */
-/***/ (function(module, exports) {
-
-module.exports = require("util");
-
-/***/ }),
-/* 14 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var textParsers = __webpack_require__(47);
-var binaryParsers = __webpack_require__(46);
-var arrayParser = __webpack_require__(21);
-
-exports.getTypeParser = getTypeParser;
-exports.setTypeParser = setTypeParser;
-exports.arrayParser = arrayParser;
-
-var typeParsers = {
-  text: {},
-  binary: {}
-};
-
-//the empty parse function
-function noParse (val) {
-  return String(val);
-};
-
-//returns a function used to convert a specific type (specified by
-//oid) into a result javascript type
-//note: the oid can be obtained via the following sql query:
-//SELECT oid FROM pg_type WHERE typname = 'TYPE_NAME_HERE';
-function getTypeParser (oid, format) {
-  format = format || 'text';
-  if (!typeParsers[format]) {
-    return noParse;
-  }
-  return typeParsers[format][oid] || noParse;
-};
-
-function setTypeParser (oid, format, parseFn) {
-  if(typeof format == 'function') {
-    parseFn = format;
-    format = 'text';
-  }
-  typeParsers[format][oid] = parseFn;
-};
-
-textParsers.init(function(oid, converter) {
-  typeParsers.text[oid] = converter;
-});
-
-binaryParsers.init(function(oid, converter) {
-  typeParsers.binary[oid] = converter;
-});
-
-
-/***/ }),
-/* 15 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var defaults = module.exports = {
-  // database host. defaults to localhost
-  host: 'localhost',
-
-  //database user's name
-  user: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
-
-  //name of database to connect
-  database: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
-
-  //database user's password
-  password: null,
-
-  // a Postgres connection string to be used instead of setting individual connection items
-  // NOTE:  Setting this value will cause it to override any other value (such as database or user) defined
-  // in the defaults object.
-  connectionString : undefined,
-
-  //database port
-  port: 5432,
-
-  //number of rows to return at a time from a prepared statement's
-  //portal. 0 will return all rows at once
-  rows: 0,
-
-  // binary result mode
-  binary: false,
-
-  //Connection pool options - see https://github.com/coopernurse/node-pool
-  //number of connections to use in connection pool
-  //0 will disable connection pooling
-  poolSize: 10,
-
-  //max milliseconds a client can go unused before it is removed
-  //from the pool and destroyed
-  poolIdleTimeout: 30000,
-
-  //frequency to check for idle clients within the client pool
-  reapIntervalMillis: 1000,
-
-  //if true the most recently released resources will be the first to be allocated
-  returnToHead: false,
-
-  //pool log function / boolean
-  poolLog: false,
-
-  client_encoding: "",
-
-  ssl: false,
-
-  application_name: undefined,
-  fallback_application_name: undefined,
-
-  parseInputDatesAsUTC: false
-};
-
-//parse int8 so you can get your count values as actual numbers
-module.exports.__defineSetter__("parseInt8", function(val) {
-  __webpack_require__(14).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
-});
-
-
-/***/ }),
-/* 16 */
-/***/ (function(module, exports) {
-
-module.exports = require("assert");
-
-/***/ }),
-/* 17 */
-/***/ (function(module, exports) {
-
-module.exports = require("stream");
-
-/***/ }),
-/* 18 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var url = __webpack_require__(29);
-var dns = __webpack_require__(65);
-
-var defaults = __webpack_require__(15);
-
-var val = function(key, config, envVar) {
-  if (envVar === undefined) {
-    envVar = process.env[ 'PG' + key.toUpperCase() ];
-  } else if (envVar === false) {
-    // do nothing ... use false
-  } else {
-    envVar = process.env[ envVar ];
-  }
-
-  return config[key] ||
-    envVar ||
-    defaults[key];
-};
-
-//parses a connection string
-var parse = __webpack_require__(38).parse;
-
-var useSsl = function() {
-  switch(process.env.PGSSLMODE) {
-  case "disable":
-    return false;
-  case "prefer":
-  case "require":
-  case "verify-ca":
-  case "verify-full":
-    return true;
-  }
-  return defaults.ssl;
-};
-
-var ConnectionParameters = function(config) {
-  //if a string is passed, it is a raw connection string so we parse it into a config
-  config = typeof config == 'string' ? parse(config) : (config || {});
-  //if the config has a connectionString defined, parse IT into the config we use
-  //this will override other default values with what is stored in connectionString
-  if(config.connectionString) {
-    config = parse(config.connectionString);
-  }
-  this.user = val('user', config);
-  this.database = val('database', config);
-  this.port = parseInt(val('port', config), 10);
-  this.host = val('host', config);
-  this.password = val('password', config);
-  this.binary = val('binary', config);
-  this.ssl = typeof config.ssl === 'undefined' ? useSsl() : config.ssl;
-  this.client_encoding = val("client_encoding", config);
-  //a domain socket begins with '/'
-  this.isDomainSocket = (!(this.host||'').indexOf('/'));
-
-  this.application_name = val('application_name', config, 'PGAPPNAME');
-  this.fallback_application_name = val('fallback_application_name', config, false);
-};
-
-var add = function(params, config, paramName) {
-  var value = config[paramName];
-  if(value) {
-    params.push(paramName+"='"+value+"'");
-  }
-};
-
-ConnectionParameters.prototype.getLibpqConnectionString = function(cb) {
-  var params = [];
-  add(params, this, 'user');
-  add(params, this, 'password');
-  add(params, this, 'port');
-  add(params, this, 'application_name');
-  add(params, this, 'fallback_application_name');
-
-  if(this.database) {
-    params.push("dbname='" + this.database + "'");
-  }
-  if(this.host) {
-    params.push("host=" + this.host);
-  }
-  if(this.isDomainSocket) {
-    return cb(null, params.join(' '));
-  }
-  if(this.client_encoding) {
-    params.push("client_encoding='" + this.client_encoding + "'");
-  }
-  dns.lookup(this.host, function(err, address) {
-    if(err) return cb(err, null);
-    params.push("hostaddr=" + address);
-    return cb(null, params.join(' '));
-  });
-};
-
-module.exports = ConnectionParameters;
-
-
-/***/ }),
-/* 19 */
-/***/ (function(module, exports) {
-
-function webpackEmptyContext(req) {
-	throw new Error("Cannot find module '" + req + "'.");
-}
-webpackEmptyContext.keys = function() { return []; };
-webpackEmptyContext.resolve = webpackEmptyContext;
-module.exports = webpackEmptyContext;
-webpackEmptyContext.id = 19;
-
-
-/***/ }),
-/* 20 */
-/***/ (function(module, exports) {
-
-function ArrayParser(source, converter) {
-  this.source = source;
-  this.converter = converter;
-  this.pos = 0;
-  this.entries = [];
-  this.recorded = [];
-  this.dimension = 0;
-  if (!this.converter) {
-    this.converter = function(entry) {
-      return entry;
-    };
-  }
-}
-
-ArrayParser.prototype.eof = function() {
-  return this.pos >= this.source.length;
-};
-
-ArrayParser.prototype.nextChar = function() {
-  var c;
-  if ((c = this.source[this.pos++]) === "\\") {
-    return {
-      char: this.source[this.pos++],
-      escaped: true
-    };
-  } else {
-    return {
-      char: c,
-      escaped: false
-    };
-  }
-};
-
-ArrayParser.prototype.record = function(c) {
-  return this.recorded.push(c);
-};
-
-ArrayParser.prototype.newEntry = function(includeEmpty) {
-  var entry;
-  if (this.recorded.length > 0 || includeEmpty) {
-    entry = this.recorded.join("");
-    if (entry === "NULL" && !includeEmpty) {
-      entry = null;
-    }
-    if (entry !== null) {
-      entry = this.converter(entry);
-    }
-    this.entries.push(entry);
-    this.recorded = [];
-  }
-};
-
-ArrayParser.prototype.parse = function(nested) {
-  var c, p, quote;
-  if (nested === null) {
-    nested = false;
-  }
-  quote = false;
-  while (!this.eof()) {
-    c = this.nextChar();
-    if (c.char === "{" && !quote) {
-      this.dimension++;
-      if (this.dimension > 1) {
-        p = new ArrayParser(this.source.substr(this.pos - 1), this.converter);
-        this.entries.push(p.parse(true));
-        this.pos += p.pos - 2;
-      }
-    } else if (c.char === "}" && !quote) {
-      this.dimension--;
-      if (this.dimension === 0) {
-        this.newEntry();
-        if (nested) {
-          return this.entries;
-        }
-      }
-    } else if (c.char === '"' && !c.escaped) {
-      if (quote) {
-        this.newEntry(true);
-      }
-      quote = !quote;
-    } else if (c.char === ',' && !quote) {
-      this.newEntry();
-    } else {
-      this.record(c.char);
-    }
-  }
-  if (this.dimension !== 0) {
-    throw "array dimension not balanced";
-  }
-  return this.entries;
-};
-
-module.exports = {
-  create: function(source, converter){
-    return new ArrayParser(source, converter);
-  }
-};
-
-
-/***/ }),
-/* 21 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var array = __webpack_require__(28);
-
-module.exports = {
-  create: function (source, transform) {
-    return {
-      parse: function() {
-        return array.parse(source, transform);
-      }
-    };
-  }
-};
-
-
-/***/ }),
-/* 22 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var crypto = __webpack_require__(64);
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-var pgPass = __webpack_require__(55);
-var TypeOverrides = __webpack_require__(26);
-
-var ConnectionParameters = __webpack_require__(18);
-var Query = __webpack_require__(51);
-var defaults = __webpack_require__(15);
-var Connection = __webpack_require__(23);
-
-var Client = function(config) {
-  EventEmitter.call(this);
-
-  this.connectionParameters = new ConnectionParameters(config);
-  this.user = this.connectionParameters.user;
-  this.database = this.connectionParameters.database;
-  this.port = this.connectionParameters.port;
-  this.host = this.connectionParameters.host;
-  this.password = this.connectionParameters.password;
-
-  var c = config || {};
-
-  this._types = new TypeOverrides(c.types);
-
-  this.connection = c.connection || new Connection({
-    stream: c.stream,
-    ssl: this.connectionParameters.ssl,
-    keepAlive: c.keepAlive || false
-  });
-  this.queryQueue = [];
-  this.binary = c.binary || defaults.binary;
-  this.encoding = 'utf8';
-  this.processID = null;
-  this.secretKey = null;
-  this.ssl = this.connectionParameters.ssl || false;
-};
-
-util.inherits(Client, EventEmitter);
-
-Client.prototype.connect = function(callback) {
-  var self = this;
-  var con = this.connection;
-
-  if(this.host && this.host.indexOf('/') === 0) {
-    con.connect(this.host + '/.s.PGSQL.' + this.port);
-  } else {
-    con.connect(this.port, this.host);
-  }
-
-
-  //once connection is established send startup message
-  con.on('connect', function() {
-    if(self.ssl) {
-      con.requestSsl();
-    } else {
-      con.startup(self.getStartupConf());
-    }
-  });
-
-  con.on('sslconnect', function() {
-    con.startup(self.getStartupConf());
-  });
-
-  function checkPgPass(cb) {
-    return function(msg) {
-      if (null !== self.password) {
-        cb(msg);
-      } else {
-        pgPass(self.connectionParameters, function(pass){
-          if (undefined !== pass) {
-            self.connectionParameters.password = self.password = pass;
-          }
-          cb(msg);
-        });
-      }
-    };
-  }
-
-  //password request handling
-  con.on('authenticationCleartextPassword', checkPgPass(function() {
-    con.password(self.password);
-  }));
-
-  //password request handling
-  con.on('authenticationMD5Password', checkPgPass(function(msg) {
-    var inner = Client.md5(self.password + self.user);
-    var outer = Client.md5(Buffer.concat([new Buffer(inner), msg.salt]));
-    var md5password = "md5" + outer;
-    con.password(md5password);
-  }));
-
-  con.once('backendKeyData', function(msg) {
-    self.processID = msg.processID;
-    self.secretKey = msg.secretKey;
-  });
-
-  //hook up query handling events to connection
-  //after the connection initially becomes ready for queries
-  con.once('readyForQuery', function() {
-
-    //delegate rowDescription to active query
-    con.on('rowDescription', function(msg) {
-      self.activeQuery.handleRowDescription(msg);
-    });
-
-    //delegate dataRow to active query
-    con.on('dataRow', function(msg) {
-      self.activeQuery.handleDataRow(msg);
-    });
-
-    //delegate portalSuspended to active query
-    con.on('portalSuspended', function(msg) {
-      self.activeQuery.handlePortalSuspended(con);
-    });
-
-    //deletagate emptyQuery to active query
-    con.on('emptyQuery', function(msg) {
-      self.activeQuery.handleEmptyQuery(con);
-    });
-
-    //delegate commandComplete to active query
-    con.on('commandComplete', function(msg) {
-      self.activeQuery.handleCommandComplete(msg, con);
-    });
-
-    //if a prepared statement has a name and properly parses
-    //we track that its already been executed so we don't parse
-    //it again on the same client
-    con.on('parseComplete', function(msg) {
-      if(self.activeQuery.name) {
-        con.parsedStatements[self.activeQuery.name] = true;
-      }
-    });
-
-    con.on('copyInResponse', function(msg) {
-      self.activeQuery.handleCopyInResponse(self.connection);
-    });
-
-    con.on('copyData', function (msg) {
-      self.activeQuery.handleCopyData(msg, self.connection);
-    });
-
-    con.on('notification', function(msg) {
-      self.emit('notification', msg);
-    });
-
-    //process possible callback argument to Client#connect
-    if (callback) {
-      callback(null, self);
-      //remove callback for proper error handling
-      //after the connect event
-      callback = null;
-    }
-    self.emit('connect');
-  });
-
-  con.on('readyForQuery', function() {
-    var activeQuery = self.activeQuery;
-    self.activeQuery = null;
-    self.readyForQuery = true;
-    self._pulseQueryQueue();
-    if(activeQuery) {
-      activeQuery.handleReadyForQuery();
-    }
-  });
-
-  con.on('error', function(error) {
-    if(self.activeQuery) {
-      var activeQuery = self.activeQuery;
-      self.activeQuery = null;
-      return activeQuery.handleError(error, con);
-    }
-    if(!callback) {
-      return self.emit('error', error);
-    }
-    callback(error);
-    callback = null;
-  });
-
-  con.once('end', function() {
-    if ( callback ) {
-      // haven't received a connection message yet !
-      var err = new Error('Connection terminated');
-      callback(err);
-      callback = null;
-      return;
-    }
-    if(self.activeQuery) {
-      var disconnectError = new Error('Connection terminated');
-      self.activeQuery.handleError(disconnectError, con);
-      self.activeQuery = null;
-    }
-    self.emit('end');
-  });
-
-
-  con.on('notice', function(msg) {
-    self.emit('notice', msg);
-  });
-
-};
-
-Client.prototype.getStartupConf = function() {
-  var params = this.connectionParameters;
-
-  var data = {
-    user: params.user,
-    database: params.database
-  };
-
-  var appName = params.application_name || params.fallback_application_name;
-  if (appName) {
-    data.application_name = appName;
-  }
-
-  return data;
-};
-
-Client.prototype.cancel = function(client, query) {
-  if(client.activeQuery == query) {
-    var con = this.connection;
-
-    if(this.host && this.host.indexOf('/') === 0) {
-      con.connect(this.host + '/.s.PGSQL.' + this.port);
-    } else {
-      con.connect(this.port, this.host);
-    }
-
-    //once connection is established send cancel message
-    con.on('connect', function() {
-      con.cancel(client.processID, client.secretKey);
-    });
-  } else if(client.queryQueue.indexOf(query) != -1) {
-    client.queryQueue.splice(client.queryQueue.indexOf(query), 1);
-  }
-};
-
-Client.prototype.setTypeParser = function(oid, format, parseFn) {
-  return this._types.setTypeParser(oid, format, parseFn);
-};
-
-Client.prototype.getTypeParser = function(oid, format) {
-  return this._types.getTypeParser(oid, format);
-};
-
-// Ported from PostgreSQL 9.2.4 source code in src/interfaces/libpq/fe-exec.c
-Client.prototype.escapeIdentifier = function(str) {
-
-  var escaped = '"';
-
-  for(var i = 0; i < str.length; i++) {
-    var c = str[i];
-    if(c === '"') {
-      escaped += c + c;
-    } else {
-      escaped += c;
-    }
-  }
-
-  escaped += '"';
-
-  return escaped;
-};
-
-// Ported from PostgreSQL 9.2.4 source code in src/interfaces/libpq/fe-exec.c
-Client.prototype.escapeLiteral = function(str) {
-
-  var hasBackslash = false;
-  var escaped = '\'';
-
-  for(var i = 0; i < str.length; i++) {
-    var c = str[i];
-    if(c === '\'') {
-      escaped += c + c;
-    } else if (c === '\\') {
-      escaped += c + c;
-      hasBackslash = true;
-    } else {
-      escaped += c;
-    }
-  }
-
-  escaped += '\'';
-
-  if(hasBackslash === true) {
-    escaped = ' E' + escaped;
-  }
-
-  return escaped;
-};
-
-Client.prototype._pulseQueryQueue = function() {
-  if(this.readyForQuery===true) {
-    this.activeQuery = this.queryQueue.shift();
-    if(this.activeQuery) {
-      this.readyForQuery = false;
-      this.hasExecuted = true;
-      this.activeQuery.submit(this.connection);
-    } else if(this.hasExecuted) {
-      this.activeQuery = null;
-      this.emit('drain');
-    }
-  }
-};
-
-Client.prototype.copyFrom = function (text) {
-  throw new Error("For PostgreSQL COPY TO/COPY FROM support npm install pg-copy-streams");
-};
-
-Client.prototype.copyTo = function (text) {
-  throw new Error("For PostgreSQL COPY TO/COPY FROM support npm install pg-copy-streams");
-};
-
-Client.prototype.query = function(config, values, callback) {
-  //can take in strings, config object or query object
-  var query = (typeof config.submit == 'function') ? config :
-     new Query(config, values, callback);
-  if(this.binary && !query.binary) {
-    query.binary = true;
-  }
-  if(query._result) {
-    query._result._getTypeParser = this._types.getTypeParser.bind(this._types);
-  }
-
-  this.queryQueue.push(query);
-  this._pulseQueryQueue();
-  return query;
-};
-
-Client.prototype.end = function(cb) {
-  this.connection.end();
-  if (cb) {
-    this.connection.once('end', cb);
-  }
-};
-
-Client.md5 = function(string) {
-  return crypto.createHash('md5').update(string, 'utf-8').digest('hex');
-};
-
-// expose a Query constructor
-Client.Query = Query;
-
-module.exports = Client;
-
-
-/***/ }),
 /* 23 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var net = __webpack_require__(66);
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-
-var Writer = __webpack_require__(33);
-var Reader = __webpack_require__(37);
-
-var TEXT_MODE = 0;
-var BINARY_MODE = 1;
-var Connection = function(config) {
-  EventEmitter.call(this);
-  config = config || {};
-  this.stream = config.stream || new net.Stream();
-  this._keepAlive = config.keepAlive;
-  this.lastBuffer = false;
-  this.lastOffset = 0;
-  this.buffer = null;
-  this.offset = null;
-  this.encoding = 'utf8';
-  this.parsedStatements = {};
-  this.writer = new Writer();
-  this.ssl = config.ssl || false;
-  this._ending = false;
-  this._mode = TEXT_MODE;
-  this._emitMessage = false;
-  this._reader = new Reader({
-    headerSize: 1,
-    lengthPadding: -4
-  });
-  var self = this;
-  this.on('newListener', function(eventName) {
-    if(eventName == 'message') {
-      self._emitMessage = true;
-    }
-  });
+module.exports = {
+	"rimacondb": {
+		"type": "pg",
+		"server": "192.168.77.2",
+		"port": "5432",
+		"username": "postgres",
+		"password": "postgres",
+		"dbname": "RiMaConDB"
+	},
+	"steeldb": {
+		"type": "pg",
+		"server": "steel.webtarget.co.uk",
+		"port": "5778",
+		"username": "postgres",
+		"password": "cleverpassword",
+		"dbname": "MildenSteels"
+	},
+	"default": "rimacondb"
 };
-
-util.inherits(Connection, EventEmitter);
-
-Connection.prototype.connect = function(port, host) {
-
-  if(this.stream.readyState === 'closed') {
-    this.stream.connect(port, host);
-  } else if(this.stream.readyState == 'open') {
-    this.emit('connect');
-  }
-
-  var self = this;
-
-  this.stream.on('connect', function() {
-    if (self._keepAlive) {
-      self.stream.setKeepAlive(true);
-    }
-    self.emit('connect');
-  });
-
-  this.stream.on('error', function(error) {
-    //don't raise ECONNRESET errors - they can & should be ignored
-    //during disconnect
-    if(self._ending && error.code == 'ECONNRESET') {
-      return;
-    }
-    self.emit('error', error);
-  });
-
-  this.stream.on('close', function() {
-    // NOTE: node-0.10 emits both 'end' and 'close'
-    //       for streams closed by the peer, while
-    //       node-0.8 only emits 'close'
-    self.emit('end');
-  });
-
-  if(!this.ssl) {
-    return this.attachListeners(this.stream);
-  }
-
-  this.stream.once('data', function(buffer) {
-    var responseCode = buffer.toString('utf8');
-    if(responseCode != 'S') {
-      return self.emit('error', new Error('The server does not support SSL connections'));
-    }
-    var tls = __webpack_require__(68);
-    self.stream = tls.connect({
-      socket: self.stream,
-      servername: host,
-      rejectUnauthorized: self.ssl.rejectUnauthorized,
-      ca: self.ssl.ca,
-      pfx: self.ssl.pfx,
-      key: self.ssl.key,
-      passphrase: self.ssl.passphrase,
-      cert: self.ssl.cert,
-      NPNProtocols: self.ssl.NPNProtocols
-    });
-    self.attachListeners(self.stream);
-    self.emit('sslconnect');
-
-    self.stream.on('error', function(error){
-      self.emit('error', error);
-    });
-  });
-};
-
-Connection.prototype.attachListeners = function(stream) {
-  var self = this;
-  stream.on('data', function(buff) {
-    self._reader.addChunk(buff);
-    var packet = self._reader.read();
-    while(packet) {
-      var msg = self.parseMessage(packet);
-      if(self._emitMessage) {
-        self.emit('message', msg);
-      }
-      self.emit(msg.name, msg);
-      packet = self._reader.read();
-    }
-  });
-  stream.on('end', function() {
-    self.emit('end');
-  });
-};
-
-Connection.prototype.requestSsl = function() {
-  this.checkSslResponse = true;
-
-  var bodyBuffer = this.writer
-    .addInt16(0x04D2)
-    .addInt16(0x162F).flush();
-
-  var length = bodyBuffer.length + 4;
-
-  var buffer = new Writer()
-    .addInt32(length)
-    .add(bodyBuffer)
-    .join();
-  this.stream.write(buffer);
-};
-
-Connection.prototype.startup = function(config) {
-  var writer = this.writer
-    .addInt16(3)
-    .addInt16(0)
-  ;
-
-  Object.keys(config).forEach(function(key){
-    var val = config[key];
-    writer.addCString(key).addCString(val);
-  });
-
-  writer.addCString('client_encoding').addCString("'utf-8'");
-
-  var bodyBuffer = writer.addCString('').flush();
-  //this message is sent without a code
-
-  var length = bodyBuffer.length + 4;
-
-  var buffer = new Writer()
-    .addInt32(length)
-    .add(bodyBuffer)
-    .join();
-  this.stream.write(buffer);
-};
-
-Connection.prototype.cancel = function(processID, secretKey) {
-  var bodyBuffer = this.writer
-    .addInt16(1234)
-    .addInt16(5678)
-    .addInt32(processID)
-    .addInt32(secretKey)
-    .flush();
-
-  var length = bodyBuffer.length + 4;
-
-  var buffer = new Writer()
-    .addInt32(length)
-    .add(bodyBuffer)
-    .join();
-  this.stream.write(buffer);
-};
-
-Connection.prototype.password = function(password) {
-  //0x70 = 'p'
-  this._send(0x70, this.writer.addCString(password));
-};
-
-Connection.prototype._send = function(code, more) {
-  if(!this.stream.writable) { return false; }
-  if(more === true) {
-    this.writer.addHeader(code);
-  } else {
-    return this.stream.write(this.writer.flush(code));
-  }
-};
-
-Connection.prototype.query = function(text) {
-  //0x51 = Q
-  this.stream.write(this.writer.addCString(text).flush(0x51));
-};
-
-//send parse message
-//"more" === true to buffer the message until flush() is called
-Connection.prototype.parse = function(query, more) {
-  //expect something like this:
-  // { name: 'queryName',
-  //   text: 'select * from blah',
-  //   types: ['int8', 'bool'] }
-
-  //normalize missing query names to allow for null
-  query.name = query.name || '';
-  if (query.name.length > 63) {
-    console.error('Warning! Postgres only supports 63 characters for query names.');
-    console.error('You supplied', query.name, '(', query.name.length, ')');
-    console.error('This can cause conflicts and silent errors executing queries');
-  }
-  //normalize null type array
-  query.types = query.types || [];
-  var len = query.types.length;
-  var buffer = this.writer
-    .addCString(query.name) //name of query
-    .addCString(query.text) //actual query text
-    .addInt16(len);
-  for(var i = 0; i < len; i++) {
-    buffer.addInt32(query.types[i]);
-  }
-
-  var code = 0x50;
-  this._send(code, more);
-};
-
-//send bind message
-//"more" === true to buffer the message until flush() is called
-Connection.prototype.bind = function(config, more) {
-  //normalize config
-  config = config || {};
-  config.portal = config.portal || '';
-  config.statement = config.statement || '';
-  config.binary = config.binary || false;
-  var values = config.values || [];
-  var len = values.length;
-  var useBinary = false;
-  for (var j = 0; j < len; j++)
-    useBinary |= values[j] instanceof Buffer;
-  var buffer = this.writer
-    .addCString(config.portal)
-    .addCString(config.statement);
-  if (!useBinary)
-    buffer.addInt16(0);
-  else {
-    buffer.addInt16(len);
-    for (j = 0; j < len; j++)
-      buffer.addInt16(values[j] instanceof Buffer);
-  }
-  buffer.addInt16(len);
-  for(var i = 0; i < len; i++) {
-    var val = values[i];
-    if(val === null || typeof val === "undefined") {
-      buffer.addInt32(-1);
-    } else if (val instanceof Buffer) {
-      buffer.addInt32(val.length);
-      buffer.add(val);
-    } else {
-      buffer.addInt32(Buffer.byteLength(val));
-      buffer.addString(val);
-    }
-  }
-
-  if(config.binary) {
-    buffer.addInt16(1); // format codes to use binary
-    buffer.addInt16(1);
-  }
-  else {
-    buffer.addInt16(0); // format codes to use text
-  }
-  //0x42 = 'B'
-  this._send(0x42, more);
-};
-
-//send execute message
-//"more" === true to buffer the message until flush() is called
-Connection.prototype.execute = function(config, more) {
-  config = config || {};
-  config.portal = config.portal || '';
-  config.rows = config.rows || '';
-  this.writer
-    .addCString(config.portal)
-    .addInt32(config.rows);
-
-  //0x45 = 'E'
-  this._send(0x45, more);
-};
-
-var emptyBuffer = Buffer(0);
-
-Connection.prototype.flush = function() {
-  //0x48 = 'H'
-  this.writer.add(emptyBuffer);
-  this._send(0x48);
-};
-
-Connection.prototype.sync = function() {
-  //clear out any pending data in the writer
-  this.writer.flush(0);
-
-  this.writer.add(emptyBuffer);
-  this._ending = true;
-  this._send(0x53);
-};
-
-Connection.prototype.end = function() {
-  //0x58 = 'X'
-  this.writer.add(emptyBuffer);
-  this._ending = true;
-  this._send(0x58);
-};
-
-Connection.prototype.close = function(msg, more) {
-  this.writer.addCString(msg.type + (msg.name || ''));
-  this._send(0x43, more);
-};
-
-Connection.prototype.describe = function(msg, more) {
-  this.writer.addCString(msg.type + (msg.name || ''));
-  this._send(0x44, more);
-};
-
-Connection.prototype.sendCopyFromChunk = function (chunk) {
-  this.stream.write(this.writer.add(chunk).flush(0x64));
-};
-
-Connection.prototype.endCopyFrom = function () {
-  this.stream.write(this.writer.add(emptyBuffer).flush(0x63));
-};
-
-Connection.prototype.sendCopyFail = function (msg) {
-  //this.stream.write(this.writer.add(emptyBuffer).flush(0x66));
-  this.writer.addCString(msg);
-  this._send(0x66);
-};
-
-var Message = function(name, length) {
-  this.name = name;
-  this.length = length;
-};
-
-Connection.prototype.parseMessage =  function(buffer) {
-
-  this.offset = 0;
-  var length = buffer.length + 4;
-  switch(this._reader.header)
-  {
-
-  case 0x52: //R
-    return this.parseR(buffer, length);
-
-  case 0x53: //S
-    return this.parseS(buffer, length);
-
-  case 0x4b: //K
-    return this.parseK(buffer, length);
-
-  case 0x43: //C
-    return this.parseC(buffer, length);
-
-  case 0x5a: //Z
-    return this.parseZ(buffer, length);
-
-  case 0x54: //T
-    return this.parseT(buffer, length);
-
-  case 0x44: //D
-    return this.parseD(buffer, length);
-
-  case 0x45: //E
-    return this.parseE(buffer, length);
-
-  case 0x4e: //N
-    return this.parseN(buffer, length);
-
-  case 0x31: //1
-    return new Message('parseComplete', length);
-
-  case 0x32: //2
-    return new Message('bindComplete', length);
-
-  case 0x33: //3
-    return new Message('closeComplete', length);
-
-  case 0x41: //A
-    return this.parseA(buffer, length);
-
-  case 0x6e: //n
-    return new Message('noData', length);
-
-  case 0x49: //I
-    return new Message('emptyQuery', length);
-
-  case 0x73: //s
-    return new Message('portalSuspended', length);
-
-  case 0x47: //G
-    return this.parseG(buffer, length);
-
-  case 0x48: //H
-    return this.parseH(buffer, length);
-
-  case 0x63: //c
-    return new Message('copyDone', length);
-
-  case 0x64: //d
-    return this.parsed(buffer, length);
-  }
-};
-
-Connection.prototype.parseR = function(buffer, length) {
-  var code = 0;
-  var msg = new Message('authenticationOk', length);
-  if(msg.length === 8) {
-    code = this.parseInt32(buffer);
-    if(code === 3) {
-      msg.name = 'authenticationCleartextPassword';
-    }
-    return msg;
-  }
-  if(msg.length === 12) {
-    code = this.parseInt32(buffer);
-    if(code === 5) { //md5 required
-      msg.name = 'authenticationMD5Password';
-      msg.salt = new Buffer(4);
-      buffer.copy(msg.salt, 0, this.offset, this.offset + 4);
-      this.offset += 4;
-      return msg;
-    }
-  }
-  throw new Error("Unknown authenticationOk message type" + util.inspect(msg));
-};
-
-Connection.prototype.parseS = function(buffer, length) {
-  var msg = new Message('parameterStatus', length);
-  msg.parameterName = this.parseCString(buffer);
-  msg.parameterValue = this.parseCString(buffer);
-  return msg;
-};
-
-Connection.prototype.parseK = function(buffer, length) {
-  var msg = new Message('backendKeyData', length);
-  msg.processID = this.parseInt32(buffer);
-  msg.secretKey = this.parseInt32(buffer);
-  return msg;
-};
-
-Connection.prototype.parseC = function(buffer, length) {
-  var msg = new Message('commandComplete', length);
-  msg.text = this.parseCString(buffer);
-  return msg;
-};
-
-Connection.prototype.parseZ = function(buffer, length) {
-  var msg = new Message('readyForQuery', length);
-  msg.name = 'readyForQuery';
-  msg.status = this.readString(buffer, 1);
-  return msg;
-};
-
-var ROW_DESCRIPTION = 'rowDescription';
-Connection.prototype.parseT = function(buffer, length) {
-  var msg = new Message(ROW_DESCRIPTION, length);
-  msg.fieldCount = this.parseInt16(buffer);
-  var fields = [];
-  for(var i = 0; i < msg.fieldCount; i++){
-    fields.push(this.parseField(buffer));
-  }
-  msg.fields = fields;
-  return msg;
-};
-
-var Field = function() {
-  this.name = null;
-  this.tableID = null;
-  this.columnID = null;
-  this.dataTypeID = null;
-  this.dataTypeSize = null;
-  this.dataTypeModifier = null;
-  this.format = null;
-};
-
-var FORMAT_TEXT = 'text';
-var FORMAT_BINARY = 'binary';
-Connection.prototype.parseField = function(buffer) {
-  var field = new Field();
-  field.name = this.parseCString(buffer);
-  field.tableID = this.parseInt32(buffer);
-  field.columnID = this.parseInt16(buffer);
-  field.dataTypeID = this.parseInt32(buffer);
-  field.dataTypeSize = this.parseInt16(buffer);
-  field.dataTypeModifier = this.parseInt32(buffer);
-  if(this.parseInt16(buffer) === TEXT_MODE) {
-    this._mode = TEXT_MODE;
-    field.format = FORMAT_TEXT;
-  } else {
-    this._mode = BINARY_MODE;
-    field.format = FORMAT_BINARY;
-  }
-  return field;
-};
-
-var DATA_ROW = 'dataRow';
-var DataRowMessage = function(length, fieldCount) {
-  this.name = DATA_ROW;
-  this.length = length;
-  this.fieldCount = fieldCount;
-  this.fields = [];
-};
-
-
-//extremely hot-path code
-Connection.prototype.parseD = function(buffer, length) {
-  var fieldCount = this.parseInt16(buffer);
-  var msg = new DataRowMessage(length, fieldCount);
-  for(var i = 0; i < fieldCount; i++) {
-    msg.fields.push(this._readValue(buffer));
-  }
-  return msg;
-};
-
-//extremely hot-path code
-Connection.prototype._readValue = function(buffer) {
-  var length = this.parseInt32(buffer);
-  if(length === -1) return null;
-  if(this._mode === TEXT_MODE) {
-    return this.readString(buffer, length);
-  }
-  return this.readBytes(buffer, length);
-};
-
-//parses error
-Connection.prototype.parseE = function(buffer, length) {
-  var fields = {};
-  var msg, item;
-  var input = new Message('error', length);
-  var fieldType = this.readString(buffer, 1);
-  while(fieldType != '\0') {
-    fields[fieldType] = this.parseCString(buffer);
-    fieldType = this.readString(buffer, 1);
-  }
-  if(input.name === 'error') {
-    // the msg is an Error instance
-    msg = new Error(fields.M);
-    for (item in input) {
-      // copy input properties to the error
-      if(input.hasOwnProperty(item)) {
-        msg[item] = input[item];
-      }
-    }
-  } else {
-    // the msg is an object literal
-    msg = input;
-    msg.message = fields.M;
-  }
-  msg.severity = fields.S;
-  msg.code = fields.C;
-  msg.detail = fields.D;
-  msg.hint = fields.H;
-  msg.position = fields.P;
-  msg.internalPosition = fields.p;
-  msg.internalQuery = fields.q;
-  msg.where = fields.W;
-  msg.schema = fields.s;
-  msg.table = fields.t;
-  msg.column = fields.c;
-  msg.dataType = fields.d;
-  msg.constraint = fields.n;
-  msg.file = fields.F;
-  msg.line = fields.L;
-  msg.routine = fields.R;
-  return msg;
-};
-
-//same thing, different name
-Connection.prototype.parseN = function(buffer, length) {
-  var msg = this.parseE(buffer, length);
-  msg.name = 'notice';
-  return msg;
-};
-
-Connection.prototype.parseA = function(buffer, length) {
-  var msg = new Message('notification', length);
-  msg.processId = this.parseInt32(buffer);
-  msg.channel = this.parseCString(buffer);
-  msg.payload = this.parseCString(buffer);
-  return msg;
-};
-
-Connection.prototype.parseG = function (buffer, length) {
-  var msg = new Message('copyInResponse', length);
-  return this.parseGH(buffer, msg);
-};
-
-Connection.prototype.parseH = function(buffer, length) {
-  var msg = new Message('copyOutResponse', length);
-  return this.parseGH(buffer, msg);
-};
-
-Connection.prototype.parseGH = function (buffer, msg) {
-  var isBinary = buffer[this.offset] !== 0;
-  this.offset++;
-  msg.binary = isBinary;
-  var columnCount = this.parseInt16(buffer);
-  msg.columnTypes = [];
-  for(var i = 0; i<columnCount; i++) {
-    msg.columnTypes.push(this.parseInt16(buffer));
-  }
-  return msg;
-};
-
-Connection.prototype.parsed = function (buffer, length) {
-  var msg = new Message('copyData', length);
-  msg.chunk = this.readBytes(buffer, msg.length - 4);
-  return msg;
-};
-
-Connection.prototype.parseInt32 = function(buffer) {
-  var value = buffer.readInt32BE(this.offset, true);
-  this.offset += 4;
-  return value;
-};
-
-Connection.prototype.parseInt16 = function(buffer) {
-  var value = buffer.readInt16BE(this.offset, true);
-  this.offset += 2;
-  return value;
-};
-
-Connection.prototype.readString = function(buffer, length) {
-  return buffer.toString(this.encoding, this.offset, (this.offset += length));
-};
-
-Connection.prototype.readBytes = function(buffer, length) {
-  return buffer.slice(this.offset, this.offset += length);
-};
-
-Connection.prototype.parseCString = function(buffer) {
-  var start = this.offset;
-  while(buffer[this.offset++] !== 0) { }
-  return buffer.toString(this.encoding, start, this.offset - 1);
-};
-//end parsing methods
-module.exports = Connection;
-
 
 /***/ }),
 /* 24 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-var Client = __webpack_require__(22);
-var defaults =  __webpack_require__(15);
-var Connection = __webpack_require__(23);
-var ConnectionParameters = __webpack_require__(18);
-var poolFactory = __webpack_require__(50);
-
-var PG = function(clientConstructor) {
-  EventEmitter.call(this);
-  this.defaults = defaults;
-  this.Client = clientConstructor;
-  this.Query = this.Client.Query;
-  this.Pool = poolFactory(this.Client);
-  this._pools = [];
-  this.Connection = Connection;
-  this.types = __webpack_require__(14);
-};
-
-util.inherits(PG, EventEmitter);
-
-PG.prototype.end = function() {
-  var self = this;
-  var keys = Object.keys(this._pools);
-  var count = keys.length;
-  if(count === 0) {
-    self.emit('end');
-  } else {
-    keys.forEach(function(key) {
-      var pool = self._pools[key];
-      delete self._pools[key];
-      pool.pool.drain(function() {
-        pool.pool.destroyAllNow(function() {
-          count--;
-          if(count === 0) {
-            self.emit('end');
-          }
-        });
-      });
-    });
-  }
-};
-
-PG.prototype.connect = function(config, callback) {
-  if(typeof config == "function") {
-    callback = config;
-    config = null;
-  }
-  var poolName = JSON.stringify(config || {});
-  if (typeof config == 'string') {
-    config = new ConnectionParameters(config);
-  }
-
-  config = config || {};
-
-  //for backwards compatibility
-  config.max = config.max || config.poolSize || defaults.poolSize;
-  config.idleTimeoutMillis = config.idleTimeoutMillis || config.poolIdleTimeout || defaults.poolIdleTimeout;
-  config.log = config.log || config.poolLog || defaults.poolLog;
-
-  this._pools[poolName] = this._pools[poolName] || new this.Pool(config);
-  var pool = this._pools[poolName];
-  if(!pool.listeners('error').length) {
-    //propagate errors up to pg object
-    pool.on('error', function(e) {
-      this.emit('error', e, e.client);
-    }.bind(this));
-  }
-  return pool.connect(callback);
-};
-
-// cancel the query running on the given client
-PG.prototype.cancel = function(config, client, query) {
-  if(client.native) {
-    return client.cancel(query);
-  }
-  var c = config;
-  //allow for no config to be passed
-  if(typeof c === 'function') {
-    c = defaults;
-  }
-  var cancellingClient = new this.Client(c);
-  cancellingClient.cancel(client, query);
-};
-
-if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
-  module.exports = new PG(__webpack_require__(25));
-} else {
-  module.exports = new PG(Client);
-
-  //lazy require native module...the native module may not have installed
-  module.exports.__defineGetter__("native", function() {
-    delete module.exports.native;
-    var native = null;
-    try {
-      native = new PG(__webpack_require__(25));
-    } catch (err) {
-      if (err.code !== 'MODULE_NOT_FOUND') {
-        throw err;
-      }
-      console.error(err.message);
-    }
-    module.exports.native = native;
-    return native;
-  });
-}
-
-
-/***/ }),
-/* 25 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var Native = __webpack_require__(39);
-var TypeOverrides = __webpack_require__(26);
-var semver = __webpack_require__(59);
-var pkg = __webpack_require__(53);
-var assert = __webpack_require__(16);
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-var ConnectionParameters = __webpack_require__(18);
-
-var msg = 'Version >= ' + pkg.minNativeVersion + ' of pg-native required.';
-assert(semver.gte(Native.version, pkg.minNativeVersion), msg);
-
-var NativeQuery = __webpack_require__(48);
-
-var Client = module.exports = function(config) {
-  EventEmitter.call(this);
-  config = config || {};
-
-  this._types = new TypeOverrides(config.types);
-
-  this.native = new Native({
-    types: this._types
-  });
-
-  this._queryQueue = [];
-  this._connected = false;
-
-  //keep these on the object for legacy reasons
-  //for the time being. TODO: deprecate all this jazz
-  var cp = this.connectionParameters = new ConnectionParameters(config);
-  this.user = cp.user;
-  this.password = cp.password;
-  this.database = cp.database;
-  this.host = cp.host;
-  this.port = cp.port;
-
-  //a hash to hold named queries
-  this.namedQueries = {};
-};
-
-util.inherits(Client, EventEmitter);
-
-//connect to the backend
-//pass an optional callback to be called once connected
-//or with an error if there was a connection error
-//if no callback is passed and there is a connection error
-//the client will emit an error event.
-Client.prototype.connect = function(cb) {
-  var self = this;
-
-  var onError = function(err) {
-    if(cb) return cb(err);
-    return self.emit('error', err);
-  };
-
-  this.connectionParameters.getLibpqConnectionString(function(err, conString) {
-    if(err) return onError(err);
-    self.native.connect(conString, function(err) {
-      if(err) return onError(err);
-
-      //set internal states to connected
-      self._connected = true;
-
-      //handle connection errors from the native layer
-      self.native.on('error', function(err) {
-        //error will be handled by active query
-        if(self._activeQuery && self._activeQuery.state != 'end') {
-          return;
-        }
-        self.emit('error', err);
-      });
-
-      self.native.on('notification', function(msg) {
-        self.emit('notification', {
-          channel: msg.relname,
-          payload: msg.extra
-        });
-      });
-
-      //signal we are connected now
-      self.emit('connect');
-      self._pulseQueryQueue(true);
-
-      //possibly call the optional callback
-      if(cb) cb();
-    });
-  });
-};
-
-//send a query to the server
-//this method is highly overloaded to take
-//1) string query, optional array of parameters, optional function callback
-//2) object query with {
-//    string query
-//    optional array values,
-//    optional function callback instead of as a separate parameter
-//    optional string name to name & cache the query plan
-//    optional string rowMode = 'array' for an array of results
-//  }
-Client.prototype.query = function(config, values, callback) {
-  var query = new NativeQuery(this.native);
-
-  //support query('text', ...) style calls
-  if(typeof config == 'string') {
-    query.text = config;
-  }
-
-  //support passing everything in via a config object
-  if(typeof config == 'object') {
-    query.text = config.text;
-    query.values = config.values;
-    query.name = config.name;
-    query.callback = config.callback;
-    query._arrayMode = config.rowMode == 'array';
-  }
-
-  //support query({...}, function() {}) style calls
-  //& support query(..., ['values'], ...) style calls
-  if(typeof values == 'function') {
-    query.callback = values;
-  }
-  else if(util.isArray(values)) {
-    query.values = values;
-  }
-  if(typeof callback == 'function') {
-    query.callback = callback;
-  }
-
-  this._queryQueue.push(query);
-  this._pulseQueryQueue();
-  return query;
-};
-
-//disconnect from the backend server
-Client.prototype.end = function(cb) {
-  var self = this;
-  if(!this._connected) {
-    this.once('connect', this.end.bind(this, cb));
-  }
-  this.native.end(function() {
-    //send an error to the active query
-    if(self._hasActiveQuery()) {
-      var msg = 'Connection terminated';
-      self._queryQueue.length = 0;
-      self._activeQuery.handleError(new Error(msg));
-    }
-    self.emit('end');
-    if(cb) cb();
-  });
-};
-
-Client.prototype._hasActiveQuery = function() {
-  return this._activeQuery && this._activeQuery.state != 'error' && this._activeQuery.state != 'end';
-};
-
-Client.prototype._pulseQueryQueue = function(initialConnection) {
-  if(!this._connected) {
-    return;
-  }
-  if(this._hasActiveQuery()) {
-    return;
-  }
-  var query = this._queryQueue.shift();
-  if(!query) {
-    if(!initialConnection) {
-      this.emit('drain');
-    }
-    return;
-  }
-  this._activeQuery = query;
-  query.submit(this);
-  var self = this;
-  query.once('_done', function() {
-    self._pulseQueryQueue();
-  });
-};
-
-//attempt to cancel an in-progress query
-Client.prototype.cancel = function(query) {
-  if(this._activeQuery == query) {
-    this.native.cancel(function() {});
-  } else if (this._queryQueue.indexOf(query) != -1) {
-    this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
-  }
-};
-
-Client.prototype.setTypeParser = function(oid, format, parseFn) {
-  return this._types.setTypeParser(oid, format, parseFn);
-};
-
-Client.prototype.getTypeParser = function(oid, format) {
-  return this._types.getTypeParser(oid, format);
-};
-
-
-/***/ }),
-/* 26 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var types = __webpack_require__(14);
-
-function TypeOverrides(userTypes) {
-  this._types = userTypes || types;
-  this.text = {};
-  this.binary = {};
-}
-
-TypeOverrides.prototype.getOverrides = function(format) {
-  switch(format) {
-    case 'text': return this.text;
-    case 'binary': return this.binary;
-    default: return {};
-  }
-};
-
-TypeOverrides.prototype.setTypeParser = function(oid, format, parseFn) {
-  if(typeof format == 'function') {
-    parseFn = format;
-    format = 'text';
-  }
-  this.getOverrides(format)[oid] = parseFn;
-};
-
-TypeOverrides.prototype.getTypeParser = function(oid, format) {
-  format = format || 'text';
-  return this.getOverrides(format)[oid] || this._types.getTypeParser(oid, format);
-};
-
-module.exports = TypeOverrides;
-
-
-/***/ }),
-/* 27 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2010-2016 Brian Carlson (brian.m.carlson@gmail.com)
- * All rights reserved.
- *
- * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
- */
-
-var defaults = __webpack_require__(15);
-
-function escapeElement(elementRepresentation) {
-  var escaped = elementRepresentation
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"');
-
-  return '"' + escaped + '"';
-}
-
-// convert a JS array to a postgres array literal
-// uses comma separator so won't work for types like box that use
-// a different array separator.
-function arrayString(val) {
-  var result = '{';
-  for (var i = 0 ; i < val.length; i++) {
-    if(i > 0) {
-      result = result + ',';
-    }
-    if(val[i] === null || typeof val[i] === 'undefined') {
-      result = result + 'NULL';
-    }
-    else if(Array.isArray(val[i])) {
-      result = result + arrayString(val[i]);
-    }
-    else
-    {
-      result += escapeElement(prepareValue(val[i]));
-    }
-  }
-  result = result + '}';
-  return result;
-}
-
-//converts values from javascript types
-//to their 'raw' counterparts for use as a postgres parameter
-//note: you can override this function to provide your own conversion mechanism
-//for complex types, etc...
-var prepareValue = function(val, seen) {
-  if (val instanceof Buffer) {
-    return val;
-  }
-  if(val instanceof Date) {
-    if(defaults.parseInputDatesAsUTC) {
-      return dateToStringUTC(val);
-    } else {
-      return dateToString(val);
-    }
-  }
-  if(Array.isArray(val)) {
-    return arrayString(val);
-  }
-  if(val === null || typeof val === 'undefined') {
-    return null;
-  }
-  if(typeof val === 'object') {
-    return prepareObject(val, seen);
-  }
-  return val.toString();
-};
-
-function prepareObject(val, seen) {
-  if(val.toPostgres && typeof val.toPostgres === 'function') {
-    seen = seen || [];
-    if (seen.indexOf(val) !== -1) {
-      throw new Error('circular reference detected while preparing "' + val + '" for query');
-    }
-    seen.push(val);
-
-    return prepareValue(val.toPostgres(prepareValue), seen);
-  }
-  return JSON.stringify(val);
-}
-
-function pad(number, digits) {
-  number = ""  +number;
-  while(number.length < digits)
-    number = "0" + number;
-  return number;
-}
-
-function dateToString(date) {
-
-  var offset = -date.getTimezoneOffset();
-  var ret = pad(date.getFullYear(), 4) + '-' +
-    pad(date.getMonth() + 1, 2) + '-' +
-    pad(date.getDate(), 2) + 'T' +
-    pad(date.getHours(), 2) + ':' +
-    pad(date.getMinutes(), 2) + ':' +
-    pad(date.getSeconds(), 2) + '.' +
-    pad(date.getMilliseconds(), 3);
-
-  if(offset < 0) {
-    ret += "-";
-    offset *= -1;
-  }
-  else
-    ret += "+";
-
-  return ret + pad(Math.floor(offset/60), 2) + ":" + pad(offset%60, 2);
-}
-
-function dateToStringUTC(date) {
-
-  var ret = pad(date.getUTCFullYear(), 4) + '-' +
-      pad(date.getUTCMonth() + 1, 2) + '-' +
-      pad(date.getUTCDate(), 2) + 'T' +
-      pad(date.getUTCHours(), 2) + ':' +
-      pad(date.getUTCMinutes(), 2) + ':' +
-      pad(date.getUTCSeconds(), 2) + '.' +
-      pad(date.getUTCMilliseconds(), 3);
-
-  return ret + "+00:00";
-}
-
-function normalizeQueryConfig (config, values, callback) {
-  //can take in strings or config objects
-  config = (typeof(config) == 'string') ? { text: config } : config;
-  if(values) {
-    if(typeof values === 'function') {
-      config.callback = values;
-    } else {
-      config.values = values;
-    }
-  }
-  if(callback) {
-    config.callback = callback;
-  }
-  return config;
-}
-
-module.exports = {
-  prepareValue: function prepareValueWrapper (value) {
-    //this ensures that extra arguments do not get passed into prepareValue
-    //by accident, eg: from calling values.map(utils.prepareValue)
-    return prepareValue(value);
-  },
-  normalizeQueryConfig: normalizeQueryConfig
-};
-
-
-/***/ }),
-/* 28 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-exports.parse = function (source, transform) {
-  return new ArrayParser(source, transform).parse()
-}
-
-function ArrayParser (source, transform) {
-  this.source = source
-  this.transform = transform || identity
-  this.position = 0
-  this.entries = []
-  this.recorded = []
-  this.dimension = 0
-}
-
-ArrayParser.prototype.isEof = function () {
-  return this.position >= this.source.length
-}
-
-ArrayParser.prototype.nextCharacter = function () {
-  var character = this.source[this.position++]
-  if (character === '\\') {
-    return {
-      value: this.source[this.position++],
-      escaped: true
-    }
-  }
-  return {
-    value: character,
-    escaped: false
-  }
-}
-
-ArrayParser.prototype.record = function (character) {
-  this.recorded.push(character)
-}
-
-ArrayParser.prototype.newEntry = function (includeEmpty) {
-  var entry
-  if (this.recorded.length > 0 || includeEmpty) {
-    entry = this.recorded.join('')
-    if (entry === 'NULL' && !includeEmpty) {
-      entry = null
-    }
-    if (entry !== null) entry = this.transform(entry)
-    this.entries.push(entry)
-    this.recorded = []
-  }
-}
-
-ArrayParser.prototype.parse = function (nested) {
-  var character, parser, quote
-  while (!this.isEof()) {
-    character = this.nextCharacter()
-    if (character.value === '{' && !quote) {
-      this.dimension++
-      if (this.dimension > 1) {
-        parser = new ArrayParser(this.source.substr(this.position - 1), this.transform)
-        this.entries.push(parser.parse(true))
-        this.position += parser.position - 2
-      }
-    } else if (character.value === '}' && !quote) {
-      this.dimension--
-      if (!this.dimension) {
-        this.newEntry()
-        if (nested) return this.entries
-      }
-    } else if (character.value === '"' && !character.escaped) {
-      if (quote) this.newEntry(true)
-      quote = !quote
-    } else if (character.value === ',' && !quote) {
-      this.newEntry()
-    } else {
-      this.record(character.value)
-    }
-  }
-  if (this.dimension !== 0) {
-    throw new Error('array dimension not balanced')
-  }
-  return this.entries
-}
-
-function identity (value) {
-  return value
-}
-
-
-/***/ }),
-/* 29 */
-/***/ (function(module, exports) {
-
-module.exports = require("url");
-
-/***/ }),
-/* 30 */
 /***/ (function(module, exports) {
 
 exports = module.exports = ap;
@@ -3498,7 +3375,96 @@ exports.curryRight = function curryRight (fn) {
 
 
 /***/ }),
-/* 31 */
+/* 25 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/**
+ * -----------------------------------------------------------------------------
+ * Class        : db.ts
+ * Description  :
+ * Parameters   :
+ * Usage        :
+ * Notes        :
+ * Created      : @author Neil Smith <Neil.SMith@Computors.com>
+ * Created Date : 17 Feb 2017
+ * -----------------------------------------------------------------------------
+ * Date?        Whom?       Notes
+ * _____________________________________________________________________________
+ */
+
+const connPostgres_1 = __webpack_require__(27);
+class db {
+    constructor(_configService) {
+        this._configService = _configService;
+        // this._configService = new configService();
+        this._thingy = "Poop";
+        console.log(_configService.getDBParams());
+        switch (this._configService.getDBParams()["type"]) {
+            case 'pg':
+                this._dbInstance = new connPostgres_1.connPostgres(_configService); // require('connPostgres');
+                break;
+            case 'mysql':
+                this._dbInstance = __webpack_require__(26);
+                break;
+            default:
+        }
+        // console.log(JSON.stringify(this._dbInstance.getConnectString()));
+        this.getRows();
+    }
+    getRows() {
+        this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp");
+        return;
+    }
+    writeColumns(_rows, _message) {
+        console.log("A message " + _message);
+        for (var item of _rows["rows"]) {
+            // this._columns.push(item);
+            console.log("My Item " + JSON.stringify(item.column_name));
+        }
+        // let rp = new Replace('myfile', );
+    }
+    dbInstance() {
+        return this._dbInstance;
+    }
+}
+exports.db = db;
+
+
+/***/ }),
+/* 26 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+class connMysql {
+    constructor(_cs) {
+        this._cs = _cs;
+        this.configure();
+    }
+    configure() {
+        this._pConn = this._cs.getDBParams();
+    }
+    getConnectString() {
+        return "";
+    }
+    ;
+    getQuery() {
+        return "";
+    }
+    getRows() {
+        return [""];
+    }
+    testConnection() {
+        return false;
+    }
+    ;
+}
+exports.connMysql = connMysql;
+
+
+/***/ }),
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3519,30 +3485,32 @@ exports.curryRight = function curryRight (fn) {
 class connPostgres {
     constructor(_cs) {
         this._cs = _cs;
-        this._pg = __webpack_require__(24);
+        this._pg = __webpack_require__(14);
         this.configure();
     }
     configure() {
         this._pConn = this._cs.getDBParams();
         this._client = new this._pg.Client(this.getConnectString());
     }
-    getRows() {
+    getRows(_callback, _message) {
+        let _rows;
         try {
             let _cs = this.getConnectString();
             let _qry = this.getQuery();
             let _cl = this._client;
-            // console.log(JSON.stringify(this._client));
-            // return [""];
+            let _dbconf = this._cs;
             this._client.connect(function (err) {
                 if (err)
                     throw err;
-                // execute a query on our database
-                _cl.query(_qry, function (err, result) {
+                console.log("The query is " + _qry);
+                _cl.query(_qry, null, function (err, _res) {
                     if (err)
                         throw err;
-                    // just print the result to the console
-                    console.log(result); //.rows[0]); // outputs: { name: 'brianc' }
-                    // disconnect the client
+                    if (_res.length === undefined) {
+                        console.log("No rows found");
+                    }
+                    _callback(_res, _message);
+                    // Disconnect the client
                     _cl.end(function (err) {
                         if (err)
                             throw err;
@@ -3551,9 +3519,9 @@ class connPostgres {
             });
         }
         catch (err) {
-            console.log(err);
+            console.log("Query error: " + err);
         }
-        return ["Noodle", "Doodle"];
+        return [];
     }
     getConnectString() {
         try {
@@ -3575,7 +3543,7 @@ exports.connPostgres = connPostgres;
 
 
 /***/ }),
-/* 32 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(__filename) {
@@ -3583,8 +3551,8 @@ exports.connPostgres = connPostgres;
  * Module dependencies.
  */
 
-var fs = __webpack_require__(1)
-  , path = __webpack_require__(11)
+var fs = __webpack_require__(6)
+  , path = __webpack_require__(2)
   , join = path.join
   , dirname = path.dirname
   , exists = fs.existsSync || path.existsSync
@@ -3748,7 +3716,7 @@ exports.getRoot = function getRoot (file) {
 /* WEBPACK VAR INJECTION */}.call(exports, "/index.js"))
 
 /***/ }),
-/* 33 */
+/* 29 */
 /***/ (function(module, exports) {
 
 //binary data writer tuned for creating
@@ -3883,7 +3851,7 @@ Writer.prototype.flush = function(code) {
 
 
 /***/ }),
-/* 34 */
+/* 30 */
 /***/ (function(module, exports) {
 
 /**
@@ -4454,20 +4422,38 @@ exports.Pool = Pool
 
 
 /***/ }),
-/* 35 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(32)('addon.node').PQ;
+var fs = __webpack_require__(6)
+  , lstat = fs.lstatSync;
+
+exports.readlinkSync = function (p) {
+  if (lstat(p).isSymbolicLink()) {
+    return fs.readlinkSync(p);
+  } else {
+    return p;
+  }
+};
+
+
+
+
+/***/ }),
+/* 32 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(28)('addon.node').PQ;
 
 //print out the include dir
 //if you want to include this in a binding.gyp file
 if(!module.parent) {
-  var path = __webpack_require__(11);
+  var path = __webpack_require__(2);
   console.log(path.normalize(__dirname + '/src'));
 }
 
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var assert = __webpack_require__(16);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var assert = __webpack_require__(5);
 
 for(var key in EventEmitter.prototype) {
   PQ.prototype[key] = EventEmitter.prototype[key];
@@ -4817,103 +4803,13 @@ PQ.prototype.cancel = function() {
   return this.$cancel();
 };
 
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(62)(module), "/"))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(59)(module), "/"))
 
 /***/ }),
-/* 36 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
-"use strict";
-
-/* eslint-disable no-unused-vars */
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-var propIsEnumerable = Object.prototype.propertyIsEnumerable;
-
-function toObject(val) {
-	if (val === null || val === undefined) {
-		throw new TypeError('Object.assign cannot be called with null or undefined');
-	}
-
-	return Object(val);
-}
-
-function shouldUseNative() {
-	try {
-		if (!Object.assign) {
-			return false;
-		}
-
-		// Detect buggy property enumeration order in older V8 versions.
-
-		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
-		var test1 = new String('abc');  // eslint-disable-line
-		test1[5] = 'de';
-		if (Object.getOwnPropertyNames(test1)[0] === '5') {
-			return false;
-		}
-
-		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
-		var test2 = {};
-		for (var i = 0; i < 10; i++) {
-			test2['_' + String.fromCharCode(i)] = i;
-		}
-		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
-			return test2[n];
-		});
-		if (order2.join('') !== '0123456789') {
-			return false;
-		}
-
-		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
-		var test3 = {};
-		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
-			test3[letter] = letter;
-		});
-		if (Object.keys(Object.assign({}, test3)).join('') !==
-				'abcdefghijklmnopqrst') {
-			return false;
-		}
-
-		return true;
-	} catch (e) {
-		// We don't expect any of the above to throw, but better to be safe.
-		return false;
-	}
-}
-
-module.exports = shouldUseNative() ? Object.assign : function (target, source) {
-	var from;
-	var to = toObject(target);
-	var symbols;
-
-	for (var s = 1; s < arguments.length; s++) {
-		from = Object(arguments[s]);
-
-		for (var key in from) {
-			if (hasOwnProperty.call(from, key)) {
-				to[key] = from[key];
-			}
-		}
-
-		if (Object.getOwnPropertySymbols) {
-			symbols = Object.getOwnPropertySymbols(from);
-			for (var i = 0; i < symbols.length; i++) {
-				if (propIsEnumerable.call(from, symbols[i])) {
-					to[symbols[i]] = from[symbols[i]];
-				}
-			}
-		}
-	}
-
-	return to;
-};
-
-
-/***/ }),
-/* 37 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var assert = __webpack_require__(16)
+var assert = __webpack_require__(5)
 
 var Reader = module.exports = function(options) {
   //TODO - remove for version 1.0
@@ -4973,13 +4869,13 @@ Reader.prototype.read = function() {
 
 
 /***/ }),
-/* 38 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var url = __webpack_require__(29);
+var url = __webpack_require__(19);
 
 //Parse method copied from https://github.com/brianc/node-postgres
 //Copyright (c) 2010-2014 Brian Carlson (brian.m.carlson@gmail.com)
@@ -5042,14 +4938,14 @@ module.exports = {
 
 
 /***/ }),
-/* 39 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Libpq = __webpack_require__(35);
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-var assert = __webpack_require__(16);
-var types = __webpack_require__(41);
+var Libpq = __webpack_require__(32);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+var assert = __webpack_require__(5);
+var types = __webpack_require__(37);
 
 var Client = module.exports = function(config) {
   if(!(this instanceof Client)) {
@@ -5290,7 +5186,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
   });
 };
 
-var CopyStream = __webpack_require__(40);
+var CopyStream = __webpack_require__(36);
 Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
   this._stopReading();
@@ -5335,16 +5231,16 @@ Client.prototype.escapeIdentifier = function(value) {
 };
 
 //export the version number so we can check it in node-postgres
-module.exports.version = __webpack_require__(44).version
+module.exports.version = __webpack_require__(40).version
 
 
 /***/ }),
-/* 40 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Duplex = __webpack_require__(17).Duplex;
-var Writable = __webpack_require__(17).Writable;
-var util = __webpack_require__(13);
+var Duplex = __webpack_require__(7).Duplex;
+var Writable = __webpack_require__(7).Writable;
+var util = __webpack_require__(0);
 
 var CopyStream = module.exports = function(pq, options) {
   Duplex.call(this, options);
@@ -5503,12 +5399,12 @@ var consumeResults = function(pq, cb) {
 
 
 /***/ }),
-/* 41 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var textParsers = __webpack_require__(43);
-var binaryParsers = __webpack_require__(42);
-var arrayParser = __webpack_require__(20);
+var textParsers = __webpack_require__(39);
+var binaryParsers = __webpack_require__(38);
+var arrayParser = __webpack_require__(10);
 
 var typeParsers = {
   text: {},
@@ -5556,7 +5452,7 @@ module.exports = {
 
 
 /***/ }),
-/* 42 */
+/* 38 */
 /***/ (function(module, exports) {
 
 var parseBits = function(data, bits, offset, invert, callback) {
@@ -5816,10 +5712,10 @@ module.exports = {
 
 
 /***/ }),
-/* 43 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var arrayParser = __webpack_require__(20);
+var arrayParser = __webpack_require__(10);
 
 //parses PostgreSQL server formatted date strings into javascript date objects
 var parseDate = function(isoDate) {
@@ -6094,25 +5990,25 @@ module.exports = {
 
 
 /***/ }),
-/* 44 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = {
 	"_args": [
 		[
 			{
-				"raw": "pg-native",
+				"raw": "pg-native@^1.10.0",
 				"scope": null,
 				"escapedName": "pg-native",
 				"name": "pg-native",
-				"rawSpec": "",
-				"spec": "latest",
-				"type": "tag"
+				"rawSpec": "^1.10.0",
+				"spec": ">=1.10.0 <2.0.0",
+				"type": "range"
 			},
 			"/home/neil/DevGit/zf2dbmodelgen/modgen"
 		]
 	],
-	"_from": "pg-native@latest",
+	"_from": "pg-native@>=1.10.0 <2.0.0",
 	"_id": "pg-native@1.10.0",
 	"_inCache": true,
 	"_location": "/pg-native",
@@ -6128,13 +6024,13 @@ module.exports = {
 		"string_decoder": "0.10.31"
 	},
 	"_requested": {
-		"raw": "pg-native",
+		"raw": "pg-native@^1.10.0",
 		"scope": null,
 		"escapedName": "pg-native",
 		"name": "pg-native",
-		"rawSpec": "",
-		"spec": "latest",
-		"type": "tag"
+		"rawSpec": "^1.10.0",
+		"spec": ">=1.10.0 <2.0.0",
+		"type": "range"
 	},
 	"_requiredBy": [
 		"#USER",
@@ -6143,7 +6039,7 @@ module.exports = {
 	"_resolved": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.0.tgz",
 	"_shasum": "abe299214afa2be51db5f5104e14770c738230fd",
 	"_shrinkwrap": null,
-	"_spec": "pg-native",
+	"_spec": "pg-native@^1.10.0",
 	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen",
 	"author": {
 		"name": "Brian M. Carlson"
@@ -6201,13 +6097,13 @@ module.exports = {
 };
 
 /***/ }),
-/* 45 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var genericPool = __webpack_require__(34)
-var util = __webpack_require__(13)
-var EventEmitter = __webpack_require__(10).EventEmitter
-var objectAssign = __webpack_require__(36)
+var genericPool = __webpack_require__(30)
+var util = __webpack_require__(0)
+var EventEmitter = __webpack_require__(1).EventEmitter
+var objectAssign = __webpack_require__(42)
 
 var Pool = module.exports = function (options, Client) {
   if (!(this instanceof Pool)) {
@@ -6216,7 +6112,7 @@ var Pool = module.exports = function (options, Client) {
   EventEmitter.call(this)
   this.options = objectAssign({}, options)
   this.log = this.options.log || function () { }
-  this.Client = this.options.Client || Client || __webpack_require__(24).Client
+  this.Client = this.options.Client || Client || __webpack_require__(14).Client
   this.Promise = this.options.Promise || Promise
 
   this.options.max = this.options.max || this.options.poolSize || 10
@@ -6353,7 +6249,97 @@ Pool.prototype.end = function (cb) {
 
 
 /***/ }),
-/* 46 */
+/* 42 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+/* eslint-disable no-unused-vars */
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+function toObject(val) {
+	if (val === null || val === undefined) {
+		throw new TypeError('Object.assign cannot be called with null or undefined');
+	}
+
+	return Object(val);
+}
+
+function shouldUseNative() {
+	try {
+		if (!Object.assign) {
+			return false;
+		}
+
+		// Detect buggy property enumeration order in older V8 versions.
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
+		var test1 = new String('abc');  // eslint-disable-line
+		test1[5] = 'de';
+		if (Object.getOwnPropertyNames(test1)[0] === '5') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test2 = {};
+		for (var i = 0; i < 10; i++) {
+			test2['_' + String.fromCharCode(i)] = i;
+		}
+		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
+			return test2[n];
+		});
+		if (order2.join('') !== '0123456789') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test3 = {};
+		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
+			test3[letter] = letter;
+		});
+		if (Object.keys(Object.assign({}, test3)).join('') !==
+				'abcdefghijklmnopqrst') {
+			return false;
+		}
+
+		return true;
+	} catch (e) {
+		// We don't expect any of the above to throw, but better to be safe.
+		return false;
+	}
+}
+
+module.exports = shouldUseNative() ? Object.assign : function (target, source) {
+	var from;
+	var to = toObject(target);
+	var symbols;
+
+	for (var s = 1; s < arguments.length; s++) {
+		from = Object(arguments[s]);
+
+		for (var key in from) {
+			if (hasOwnProperty.call(from, key)) {
+				to[key] = from[key];
+			}
+		}
+
+		if (Object.getOwnPropertySymbols) {
+			symbols = Object.getOwnPropertySymbols(from);
+			for (var i = 0; i < symbols.length; i++) {
+				if (propIsEnumerable.call(from, symbols[i])) {
+					to[symbols[i]] = from[symbols[i]];
+				}
+			}
+		}
+	}
+
+	return to;
+};
+
+
+/***/ }),
+/* 43 */
 /***/ (function(module, exports) {
 
 var parseBits = function(data, bits, offset, invert, callback) {
@@ -6613,15 +6599,15 @@ module.exports = {
 
 
 /***/ }),
-/* 47 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var array = __webpack_require__(28)
-var ap = __webpack_require__(30)
-var arrayParser = __webpack_require__(21);
-var parseDate = __webpack_require__(57);
-var parseInterval = __webpack_require__(58);
-var parseByteA = __webpack_require__(56);
+var array = __webpack_require__(18)
+var ap = __webpack_require__(24)
+var arrayParser = __webpack_require__(11);
+var parseDate = __webpack_require__(54);
+var parseInterval = __webpack_require__(55);
+var parseByteA = __webpack_require__(53);
 
 function allowNull (fn) {
   return function nullAllowed (value) {
@@ -6800,7 +6786,7 @@ module.exports = {
 
 
 /***/ }),
-/* 48 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -6811,10 +6797,10 @@ module.exports = {
  * README.md file in the root directory of this source tree.
  */
 
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
-var utils = __webpack_require__(27);
-var NativeResult = __webpack_require__(49);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
+var utils = __webpack_require__(17);
+var NativeResult = __webpack_require__(46);
 
 var NativeQuery = module.exports = function(native) {
   EventEmitter.call(this);
@@ -6944,7 +6930,7 @@ NativeQuery.prototype.submit = function(client) {
 
 
 /***/ }),
-/* 49 */
+/* 46 */
 /***/ (function(module, exports) {
 
 /**
@@ -6986,12 +6972,12 @@ NativeResult.prototype.addRow = function(row) {
 
 
 /***/ }),
-/* 50 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Client = __webpack_require__(22);
-var util = __webpack_require__(13);
-var Pool = __webpack_require__(45);
+var Client = __webpack_require__(12);
+var util = __webpack_require__(0);
+var Pool = __webpack_require__(41);
 
 module.exports = function(Client) {
 
@@ -7010,7 +6996,7 @@ module.exports = function(Client) {
 
 
 /***/ }),
-/* 51 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -7021,11 +7007,11 @@ module.exports = function(Client) {
  * README.md file in the root directory of this source tree.
  */
 
-var EventEmitter = __webpack_require__(10).EventEmitter;
-var util = __webpack_require__(13);
+var EventEmitter = __webpack_require__(1).EventEmitter;
+var util = __webpack_require__(0);
 
-var Result = __webpack_require__(52);
-var utils = __webpack_require__(27);
+var Result = __webpack_require__(49);
+var utils = __webpack_require__(17);
 
 var Query = function(config, values, callback) {
   // use of "new" optional
@@ -7222,7 +7208,7 @@ module.exports = Query;
 
 
 /***/ }),
-/* 52 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -7233,7 +7219,7 @@ module.exports = Query;
  * README.md file in the root directory of this source tree.
  */
 
-var types = __webpack_require__(14);
+var types = __webpack_require__(3);
 
 //result object returned from query
 //in the 'end' event and also
@@ -7343,7 +7329,7 @@ module.exports = Result;
 
 
 /***/ }),
-/* 53 */
+/* 50 */
 /***/ (function(module, exports) {
 
 module.exports = {
@@ -7386,7 +7372,7 @@ module.exports = {
 		"type": "range"
 	},
 	"_requiredBy": [
-		"/"
+		"#DEV:/"
 	],
 	"_resolved": "https://registry.npmjs.org/pg/-/pg-6.1.2.tgz",
 	"_shasum": "2c896a7434502e2b938c100fc085b4e974a186db",
@@ -7460,16 +7446,16 @@ module.exports = {
 };
 
 /***/ }),
-/* 54 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var path = __webpack_require__(11)
-  , Stream = __webpack_require__(17).Stream
-  , Split = __webpack_require__(60)
-  , util = __webpack_require__(13)
+var path = __webpack_require__(2)
+  , Stream = __webpack_require__(7).Stream
+  , Split = __webpack_require__(57)
+  , util = __webpack_require__(0)
   , defaultPort = 5432
   , isWin = (process.platform === 'win32')
   , warnStream = process.stderr
@@ -7700,15 +7686,15 @@ var isValidEntry = module.exports.isValidEntry = function(entry){
 
 
 /***/ }),
-/* 55 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var path = __webpack_require__(11)
-  , fs = __webpack_require__(1)
-  , helper = __webpack_require__(54)
+var path = __webpack_require__(2)
+  , fs = __webpack_require__(6)
+  , helper = __webpack_require__(51)
 ;
 
 
@@ -7730,7 +7716,7 @@ module.exports.warnTo = helper.warnTo;
 
 
 /***/ }),
-/* 56 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -7768,7 +7754,7 @@ module.exports = function parseBytea (input) {
 
 
 /***/ }),
-/* 57 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -7857,13 +7843,13 @@ function timeZoneOffset (isoDate) {
 
 
 /***/ }),
-/* 58 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var extend = __webpack_require__(63)
+var extend = __webpack_require__(60)
 
 module.exports = PostgresInterval
 
@@ -7930,7 +7916,7 @@ function parse (interval) {
 
 
 /***/ }),
-/* 59 */
+/* 56 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// export the class if we are in a Node-like system.
@@ -9131,7 +9117,7 @@ if (true)
 
 
 /***/ }),
-/* 60 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 //filter will reemit the data if cb(err,pass) pass is truthy
@@ -9141,8 +9127,8 @@ if (true)
 // the most basic reduce just emits one 'data' event after it has recieved 'end'
 
 
-var through = __webpack_require__(61)
-var Decoder = __webpack_require__(67).StringDecoder
+var through = __webpack_require__(58)
+var Decoder = __webpack_require__(65).StringDecoder
 
 module.exports = split
 
@@ -9200,10 +9186,10 @@ function split (matcher, mapper, options) {
 
 
 /***/ }),
-/* 61 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Stream = __webpack_require__(17)
+var Stream = __webpack_require__(7)
 
 // through
 //
@@ -9314,7 +9300,7 @@ function through (write, end, opts) {
 
 
 /***/ }),
-/* 62 */
+/* 59 */
 /***/ (function(module, exports) {
 
 module.exports = function(module) {
@@ -9342,7 +9328,7 @@ module.exports = function(module) {
 
 
 /***/ }),
-/* 63 */
+/* 60 */
 /***/ (function(module, exports) {
 
 module.exports = extend
@@ -9365,34 +9351,62 @@ function extend(target) {
 
 
 /***/ }),
-/* 64 */
+/* 61 */
+/***/ (function(module, exports) {
+
+module.exports = require("child_process");
+
+/***/ }),
+/* 62 */
 /***/ (function(module, exports) {
 
 module.exports = require("crypto");
 
 /***/ }),
-/* 65 */
+/* 63 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 66 */
+/* 64 */
 /***/ (function(module, exports) {
 
 module.exports = require("net");
 
 /***/ }),
-/* 67 */
+/* 65 */
 /***/ (function(module, exports) {
 
 module.exports = require("string_decoder");
 
 /***/ }),
-/* 68 */
+/* 66 */
 /***/ (function(module, exports) {
 
 module.exports = require("tls");
+
+/***/ }),
+/* 67 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+const setup_1 = __webpack_require__(21);
+const configService_1 = __webpack_require__(20);
+var program = __webpack_require__(22);
+program
+    .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
+    .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
+    .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
+    .option('-a, --alias <Alias>', 'Alias a table; i.e. t_user for User')
+    .parse(process.argv);
+program.datecreated = new Date().toLocaleString();
+// console.log("TableName :: " + _tablename);
+// console.log(program);
+let cs = new configService_1.configService(program);
+let x = new setup_1.Setup(cs);
+
 
 /***/ })
 /******/ ]);

@@ -19,25 +19,27 @@ export class configService {
     private cf = require("../dbconfig.json");
     private _ns: string;
     private _table: string;
+    
+    private _rows: string[];
 
     /*
       Build our config
     */
     constructor(_clArgs: any) {
         try {
-          this._ns = _clArgs["namespace"];
-          this._table = _clArgs["tablename"];
+            this._ns = _clArgs["namespace"];
+            this._table = _clArgs["tablename"];
         } catch (err) {
-          console.log("Error creating configService :: " + err);
+            console.log("Error creating configService :: " + err);
         }
 
     }
 
-    public getNamespace():string{
-      return this._ns;
+    public getNamespace(): string {
+        return this._ns;
     }
-    public getTable():string{
-      return this._table;
+    public getTable(): string {
+        return this._table;
     }
 
     public getDBParams(_key?: string): dbConn {
@@ -48,4 +50,7 @@ export class configService {
         return this.cf[_key];
     }
 
+    public setRows(_rows: string[]): void {
+        this._rows = _rows;
+    }
 }

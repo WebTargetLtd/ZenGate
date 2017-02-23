@@ -3,6 +3,7 @@ const connPostgres_1 = require("./db/connPostgres");
 class db {
     constructor(_configService) {
         this._configService = _configService;
+        this._thingy = "Poop";
         console.log(_configService.getDBParams());
         switch (this._configService.getDBParams()["type"]) {
             case 'pg':
@@ -16,7 +17,14 @@ class db {
         this.getRows();
     }
     getRows() {
-        return this._dbInstance.getRows();
+        this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp");
+        return;
+    }
+    writeColumns(_rows, _message) {
+        console.log("A message " + _message);
+        for (var item of _rows["rows"]) {
+            console.log("My Item " + JSON.stringify(item.column_name));
+        }
     }
     dbInstance() {
         return this._dbInstance;

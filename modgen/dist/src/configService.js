@@ -22,6 +22,9 @@ class configService {
         }
         return this.cf[_key];
     }
+    setRows(_rows) {
+        this._rows = _rows;
+    }
 }
 exports.configService = configService;
 //# sourceMappingURL=configService.js.map

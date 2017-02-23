@@ -31,25 +31,21 @@ export class connPostgres implements Idb {
         this._client = new this._pg.Client(this.getConnectString());
     }
 
-    getRows(): string[] {
-
+    getRows(_callback:any, _message:string): string[] {
+      let _rows:string[];
         try {
             let _cs = this.getConnectString();
             let _qry = this.getQuery();
             let _cl = this._client;
-            // console.log(JSON.stringify(this._client));
-            // return [""];
+            let _dbconf = this._cs;
             this._client.connect(function(err: any) {
                 if (err) throw err;
-
-                // execute a query on our database
-                _cl.query(_qry, function(err: any, result: any) {
+                console.log("The query is " + _qry);
+                _cl.query(_qry, null, function(err: any, _res: any) {
                     if (err) throw err;
-
-                    // just print the result to the console
-                    console.log(result); //.rows[0]); // outputs: { name: 'brianc' }
-
-                    // disconnect the client
+                    if (_res.length === undefined){ console.log("No rows found"); }
+                    _callback(_res, _message);
+                    // Disconnect the client
                     _cl.end(function(err: any) {
                         if (err) throw err;
                     });
@@ -57,9 +53,9 @@ export class connPostgres implements Idb {
             });
         }
         catch (err) {
-            console.log(err);
+            console.log("Query error: " + err);
         }
-        return ["Noodle", "Doodle"];
+        return [];
     }
 
     getConnectString(): string {

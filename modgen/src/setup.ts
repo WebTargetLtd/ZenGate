@@ -17,8 +17,9 @@ import { cla } from './consts/cla';
 import { configService } from './configService';
 
 export class Setup {
-    constructor(private _args:configService) {
-      let _db = new db(_args);
+    constructor(private _cs:configService) {
+
+      let _db = new db(_cs);
       // _db.retrieve(this.doReplacements);
       // console.log("Namespace is " + _args["namespace"]);
       // this.doReplacements();

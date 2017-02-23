@@ -9,18 +9,24 @@ class connPostgres {
         this._pConn = this._cs.getDBParams();
         this._client = new this._pg.Client(this.getConnectString());
     }
-    getRows() {
+    getRows(_callback, _message) {
+        let _rows;
         try {
             let _cs = this.getConnectString();
             let _qry = this.getQuery();
             let _cl = this._client;
+            let _dbconf = this._cs;
             this._client.connect(function (err) {
                 if (err)
                     throw err;
-                _cl.query(_qry, function (err, result) {
+                console.log("The query is " + _qry);
+                _cl.query(_qry, null, function (err, _res) {
                     if (err)
                         throw err;
-                    console.log(result);
+                    if (_res.length === undefined) {
+                        console.log("No rows found");
+                    }
+                    _callback(_res, _message);
                     _cl.end(function (err) {
                         if (err)
                             throw err;
@@ -29,9 +35,9 @@ class connPostgres {
             });
         }
         catch (err) {
-            console.log(err);
+            console.log("Query error: " + err);
         }
-        return ["Noodle", "Doodle"];
+        return [];
     }
     getConnectString() {
         try {
