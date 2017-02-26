@@ -16,8 +16,8 @@ import { Idb } from './Idb';
 import { dbConn } from './dbConn';
 import { configService } from '../configService';
 
-
-export class connPostgres implements Idb {
+export class connPostgres {
+// implements Idb {
 
     private _client: any;
     private _pConn: dbConn;
@@ -28,10 +28,12 @@ export class connPostgres implements Idb {
     }
     configure() {
         this._pConn = this._cs.getDBParams();
+
         this._client = new this._pg.Client(this.getConnectString());
+        // console.log(this._client);
     }
 
-    getRows(_callback:any, _message:string): string[] {
+    getRows(): string[] {
       let _rows:string[];
         try {
             let _cs = this.getConnectString();
@@ -44,11 +46,13 @@ export class connPostgres implements Idb {
                 _cl.query(_qry, null, function(err: any, _res: any) {
                     if (err) throw err;
                     if (_res.length === undefined){ console.log("No rows found"); }
-                    _callback(_res, _message);
+
+                    // _callback(_res, _message);
                     // Disconnect the client
                     _cl.end(function(err: any) {
                         if (err) throw err;
                     });
+                    return _res;
                 });
             });
         }

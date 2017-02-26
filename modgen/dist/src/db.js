@@ -1,13 +1,11 @@
 "use strict";
-const connPostgres_1 = require("./db/connPostgres");
+const connPgSQL_1 = require("./db/connPgSQL");
 class db {
     constructor(_configService) {
         this._configService = _configService;
-        this._thingy = "Poop";
-        console.log(_configService.getDBParams());
         switch (this._configService.getDBParams()["type"]) {
             case 'pg':
-                this._dbInstance = new connPostgres_1.connPostgres(_configService);
+                this._dbInstance = new connPgSQL_1.connPgSQL(_configService);
                 break;
             case 'mysql':
                 this._dbInstance = require('./db/connMysql');
@@ -17,8 +15,13 @@ class db {
         this.getRows();
     }
     getRows() {
-        this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp");
-        return;
+        let g = new Promise((resolve, reject) => {
+            resolve(this._dbInstance.getRows());
+        }).then((res) => {
+            console.log("The RES is " + res);
+            return res;
+        });
+        return [""];
     }
     writeColumns(_rows, _message) {
         console.log("A message " + _message);

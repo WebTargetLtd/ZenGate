@@ -14,6 +14,8 @@
 
 import { cla } from './consts/cla';
 import { connPostgres } from './db/connPostgres';
+import { connPgSQL } from './db/connPgSQL';
+
 import { configService } from './configService';
 import { Replace } from './replace';
 
@@ -25,11 +27,9 @@ export class db {
 
     constructor(private _configService: configService) {
         // this._configService = new configService();
-        this._thingy = "Poop";
-        console.log(_configService.getDBParams());
         switch (this._configService.getDBParams()["type"]) {
             case 'pg':
-                this._dbInstance = new connPostgres(_configService); // require('connPostgres');
+                this._dbInstance = new connPgSQL(_configService); // require('connPostgres');
                 break;
             case 'mysql':
                 this._dbInstance = require('./db/connMysql');
@@ -41,8 +41,22 @@ export class db {
         this.getRows();
     }
     getRows(): string[] {
-        this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp");
-        return;
+
+      let g = new Promise((resolve, reject) => {
+
+          // Resolve getcolumns
+          // Resolve replacement
+          // Resolve write file
+          resolve(this._dbInstance.getRows());
+      }).then((res) => {
+          console.log("The RES is " + res);
+          return res;
+          // console.log("The RES is " + res);
+      });
+      return [""];
+
+        // this._dbInstance.getRows(this.writeColumns, "Blimpy McBlimp" );
+
     }
     writeColumns(_rows: string[], _message:string): void {
         console.log("A message " + _message);

@@ -9,7 +9,7 @@ class connPostgres {
         this._pConn = this._cs.getDBParams();
         this._client = new this._pg.Client(this.getConnectString());
     }
-    getRows(_callback, _message) {
+    getRows() {
         let _rows;
         try {
             let _cs = this.getConnectString();
@@ -26,11 +26,11 @@ class connPostgres {
                     if (_res.length === undefined) {
                         console.log("No rows found");
                     }
-                    _callback(_res, _message);
                     _cl.end(function (err) {
                         if (err)
                             throw err;
                     });
+                    return _res;
                 });
             });
         }
