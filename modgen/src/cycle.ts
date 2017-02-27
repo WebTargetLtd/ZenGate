@@ -1,24 +1,62 @@
 import { configService } from './configService';
+import { db } from './db';
+import { Replace } from './replace';
 
 
 export class Cycle {
 
-    public constructor(private _confService:configService) {
+    private _db: db;
+    private _columns: string[];
 
+    public constructor(private _confService: configService) {
+        try {
+            this._db = new db(_confService);
+            this.cycle();
+
+        } catch (error) {
+
+        }
     }
 
+    doReplacements(_columns:string[]) {
+        let xTable = new Replace(this._confService.getFileroot() + 'XTable.php', [
+                ["${table}", this._confService.getAlias()],
+                ["${namespace}", this._confService.getNamespace()],
+                ["${created}", this._confService.getDateCreated()],
+                ["${author}", this._confService.getAuthor()]
+            ]);
+        // console.log(xTable.createPublics(_columns));
+        let X = new Replace(this._confService.getFileroot() + 'X.php', [
+                ["{$table}", this._confService.getAlias()],
+                ["{$namespace}", this._confService.getNamespace()],
+                ["{$created}", this._confService.getDateCreated()],
+                ["{$author}", this._confService.getAuthor()],
+                ["{$publics}", xTable.createPublics(_columns)]
+
+            ]);
+        
+        let xTRes = new Promise((resolve, reject) => {
+            resolve(xTable.getFile());
+            
+        }).then((res) => {
+            xTable.doReplace(res);
+            console.log("PAP" + res);
+        }).catch((error) => {
+            
+            console.log("Erorr " + error);
+        });
+    };
+
+
     public cycle(): void {
-
-        // Get all the strings[] and compress them into an array to chuck in
-
         let g = new Promise((resolve, reject) => {
-
             // Resolve getcolumns
             // Resolve replacement
             // Resolve write file
-            resolve(this._confService.getTable());
-        }).then((res) => {
-            console.log("The RES is " + res);
+            resolve(this._db.getRows());
+        }).then((res: string[]) => {
+            // this._columns = res;
+            this.doReplacements(res);
         });
 
 

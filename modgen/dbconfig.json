@@ -15,5 +15,8 @@
         "password": "cleverpassword",
         "dbname": "MildenSteels"
     },
-    "default": "rimacondb"
+    "default": "rimacondb",
+    "author": "Neil.Smith@WebTarget.co.uk",
+    "fileroot" : "/home/neil/DevGit/zf2dbmodelgen/modgen/templates/src/",
+    "outputfolder" : "/home/neil/DevGit/zf2dbmodelgen/modgen/output/"
 }
