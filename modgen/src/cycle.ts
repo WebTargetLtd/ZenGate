@@ -7,15 +7,28 @@ export class Cycle {
 
     private _db: db;
     private _columns: string[];
+    private _replace:Replace;
 
     public constructor(private _confService: configService) {
         try {
             this._db = new db(_confService);
-            this.cycle();
+            this.doThing();
+            // this.cycle();
+
+
 
         } catch (error) {
 
         }
+    }
+    doThing(){
+        let xTable = new Replace(this._confService.getFileroot() + 'XTable.php', [
+                ["${table}", this._confService.getAlias()],
+                ["${namespace}", this._confService.getNamespace()],
+                ["${created}", this._confService.getDateCreated()],
+                ["${author}", this._confService.getAuthor()]
+            ]);
+        xTable.getFile();
     }
 
     doReplacements(_columns:string[]) {

@@ -2911,8 +2911,8 @@ module.exports = TableName;
 /* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var textParsers = __webpack_require__(103);
-var binaryParsers = __webpack_require__(102);
+var textParsers = __webpack_require__(102);
+var binaryParsers = __webpack_require__(101);
 var arrayParser = __webpack_require__(39);
 
 exports.getTypeParser = getTypeParser;
@@ -5149,7 +5149,7 @@ module.exports = Connection;
 
 var Native = __webpack_require__(65);
 var TypeOverrides = __webpack_require__(37);
-var semver = __webpack_require__(101);
+var semver = __webpack_require__(106);
 var pkg = __webpack_require__(98);
 var assert = __webpack_require__(19);
 var EventEmitter = __webpack_require__(4).EventEmitter;
@@ -5417,6 +5417,7 @@ module.exports = {
 		"packet-reader": "0.2.0",
 		"pg-connection-string": "0.1.3",
 		"pg-types": "1.11.0",
+		"semver": "4.3.2",
 		"split": "1.0.0"
 	},
 	"_requested": {
@@ -6139,10 +6140,20 @@ class Cycle {
         this._confService = _confService;
         try {
             this._db = new db_1.db(_confService);
-            this.cycle();
+            this.doThing();
+            // this.cycle();
         }
         catch (error) {
         }
+    }
+    doThing() {
+        let xTable = new replace_1.Replace(this._confService.getFileroot() + 'XTable.php', [
+            ["${table}", this._confService.getAlias()],
+            ["${namespace}", this._confService.getNamespace()],
+            ["${created}", this._confService.getDateCreated()],
+            ["${author}", this._confService.getAuthor()]
+        ]);
+        xTable.getFile();
     }
     doReplacements(_columns) {
         let xTable = new replace_1.Replace(this._confService.getFileroot() + 'XTable.php', [
@@ -7557,9 +7568,77 @@ exports.connPgSQL = connPgSQL;
 
 /***/ }),
 /* 53 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-throw new Error("Module parse failed: /home/neil/DevGit/zf2dbmodelgen/modgen/node_modules/awesome-typescript-loader/dist/entry.js!/home/neil/DevGit/zf2dbmodelgen/modgen/src/replace.ts 'import' and 'export' may only appear at the top level (3:0)\nYou may need an appropriate loader to handle this file type.\n| // https://code-maven.com/reading-a-file-with-nodejs\r\n| http: //stackoverflow.com/questions/39584241/es6-string-interpolation-from-file-content\r\n| export class Replace {\r\n|     constructor(_filename, _data) {\r\n|         this._filename = _filename;\r");
+"use strict";
+// https://code-maven.com/reading-a-file-with-nodejs
+// http://stackoverflow.com/questions/39584241/es6-string-interpolation-from-file-content
+
+Object.defineProperty(exports, "__esModule", { value: true });
+class Replace {
+    constructor(_filename, _data) {
+        this._filename = _filename;
+        this._data = _data;
+        this._fs = __webpack_require__(56);
+        try {
+        }
+        catch (err) {
+            console.log(err);
+        }
+    }
+    getFile() {
+        var contents = this._fs.readFileSync(this._filename, 'utf8');
+        console.log("Some things :: " + contents);
+        return contents;
+        /*
+        return new Promise((resolve, reject) => {
+            resolve(this._fs.readFile(this._filename, "utf-8", (err: string, data: string) => { }));
+        }).then((output) => {
+            return output;
+        }).catch((err) => {
+            console.log("Catch Error on replace::getFile() : " + err);
+        });
+        */
+    }
+    doReplace(_filecontents) {
+        console.log(_filecontents);
+        let output;
+        for (var _item of _filecontents) {
+            // console.log(_item[0] + " - " + _item[1]);
+            output = output.split(_item[0]).join(_item[1]);
+        }
+        return output;
+    }
+    doReplace2() {
+        let output;
+        console.log(this._data);
+        return new Promise((resolve, reject) => {
+            resolve(this._fs.readFile(this._filename, "utf-8", (err, data) => {
+                output = data;
+                console.log("MEh");
+                for (var _item of this._data) {
+                    console.log(_item[0] + " - " + _item[1]);
+                    output = output.split(_item[0]).join(_item[1]);
+                }
+            }));
+        }).then((output) => {
+            return output;
+        }).catch((err) => {
+            console.log("Catch Error on replace::doReplace() : " + err);
+        });
+    }
+    createPublics(_fields) {
+        let _varList = "";
+        for (var field of _fields) {
+            _varList += "public $" + field + ';\n';
+        }
+        return _varList;
+    }
+    createExchangeArray(_fields) {
+    }
+}
+exports.Replace = Replace;
+
 
 /***/ }),
 /* 54 */
@@ -7870,8 +7949,180 @@ Writer.prototype.flush = function(code) {
 
 
 /***/ }),
-/* 56 */,
-/* 57 */,
+/* 56 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/**
+ * Copyright (c) 2015-2016 Shawn Dellysse
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
+
+
+var promisify = __webpack_require__(57);
+module.exports = promisify(global.Promise, false);
+
+
+/***/ }),
+/* 57 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2015-2016 Shawn Dellysse
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+var fs = __webpack_require__(7);
+
+var functionNamesToPromisfy = {
+    "rename": true,
+    "chown": true,
+    "truncate": true,
+    "ftruncate": true,
+    "fchown": true,
+    "lchown": true,
+    "chmod": true,
+    "fchmod": true,
+    "lchmod": true,
+    "stat": true,
+    "lstat": true,
+    "fstat": true,
+    "link": true,
+    "symlink": true,
+    "readlink": true,
+    "realpath": true,
+    "unlink": true,
+    "rmdir": true,
+    "mkdir": true,
+    "readdir": true,
+    "close": true,
+    "open": true,
+    "utimes": true,
+    "futimes": true,
+    "fsync": true,
+    "write": true,
+    "read": true,
+    "readFile": true,
+    "writeFile": true,
+    "appendFile": true,
+    "access": true
+};
+
+// Cache the wrappers per-PromiseImpl so we only create one set of wrappers
+// per PromiseImpl. Format is like
+// [global.Promise, wrapperForGlobalPromise, bluebird, wrappersForBluebird, ...]
+var cache = [];
+
+var createPromiseWrapper = function (PromiseImpl) {
+    var promisify = function (func) {
+        return function promisedWrapper () {
+            var self = this;
+            var wrapperArgs = [];
+            for (var i = 0, len = arguments.length; i < len; i++) {
+                wrapperArgs[i] = arguments[i];
+            }
+
+            return new PromiseImpl(function (resolve, reject) {
+                // In case the wrapped function throws an error synchronously, wrap
+                // in try/catch.
+                try {
+                    func.apply(self, wrapperArgs.concat([ function () {
+                        var error = arguments[0];
+                        if (error != null) {
+                            return reject(error);
+                        }
+                        var argsLength = arguments.length;
+
+
+                        // Everything is offset by one because the first arg is an error
+                        // indicator. So an argsLength of 1 or less means no value
+                        // was returned.
+                        if (argsLength <= 1) {
+                            return resolve();
+
+                        // argsLength of 2 means one value was returned, fulfill the
+                        // promise with this value.
+                        } else if (argsLength === 2) {
+                            return resolve(arguments[1]);
+
+                        // if argsLength is greater than two that means we have more
+                        // than one value that was returned. Fulfill this promise with
+                        // an array instead of a single value.
+                        } else if (argsLength > 2) {
+                            var argumentsReceived = [];
+                            for (var i = 1; i < argsLength; i++) {
+                                argumentsReceived[i - 1] = arguments[i];
+                            }
+                            return resolve(argumentsReceived);
+                        }
+                    } ]));
+                } catch (error) {
+                    return reject(error);
+                }
+            });
+        };
+    };
+
+    var wrapper = {};
+    for (var name in fs) {
+        if (functionNamesToPromisfy[name]) {
+            wrapper[name] = promisify(fs[name]);
+
+        // exists is a depcreated oddball but it's still there
+        } else if (name === "exists") {
+            wrapper[name] = function (pathname) {
+                return new PromiseImpl(function (resolve, reject) {
+                    fs.exists(pathname, resolve);
+                });
+            };
+        } else {
+            wrapper[name] = fs[name];
+        }
+    }
+
+    return wrapper;
+};
+
+module.exports = function (PromiseImpl, shouldCache) {
+    if (PromiseImpl == null) {
+        throw new Error("Missing Promise implementation");
+    }
+    if (shouldCache == null) {
+        shouldCache = true;
+    }
+
+    if (shouldCache) {
+        if (cache.indexOf(PromiseImpl) === -1) {
+            cache.push(PromiseImpl, createPromiseWrapper(PromiseImpl));
+        }
+        return cache[cache.indexOf(PromiseImpl) + 1];
+    } else {
+        return createPromiseWrapper(PromiseImpl);
+    }
+};
+
+
+/***/ }),
 /* 58 */
 /***/ (function(module, exports) {
 
@@ -16668,6 +16919,653 @@ module.exports = function(connInfo, cb) {
 
 /***/ }),
 /* 101 */
+/***/ (function(module, exports) {
+
+var parseBits = function(data, bits, offset, invert, callback) {
+  offset = offset || 0;
+  invert = invert || false;
+  callback = callback || function(lastValue, newValue, bits) { return (lastValue * Math.pow(2, bits)) + newValue; };
+  var offsetBytes = offset >> 3;
+
+  var inv = function(value) {
+    if (invert) {
+      return ~value & 0xff;
+    }
+
+    return value;
+  };
+
+  // read first (maybe partial) byte
+  var mask = 0xff;
+  var firstBits = 8 - (offset % 8);
+  if (bits < firstBits) {
+    mask = (0xff << (8 - bits)) & 0xff;
+    firstBits = bits;
+  }
+
+  if (offset) {
+    mask = mask >> (offset % 8);
+  }
+
+  var result = 0;
+  if ((offset % 8) + bits >= 8) {
+    result = callback(0, inv(data[offsetBytes]) & mask, firstBits);
+  }
+
+  // read bytes
+  var bytes = (bits + offset) >> 3;
+  for (var i = offsetBytes + 1; i < bytes; i++) {
+    result = callback(result, inv(data[i]), 8);
+  }
+
+  // bits to read, that are not a complete byte
+  var lastBits = (bits + offset) % 8;
+  if (lastBits > 0) {
+    result = callback(result, inv(data[bytes]) >> (8 - lastBits), lastBits);
+  }
+
+  return result;
+};
+
+var parseFloatFromBits = function(data, precisionBits, exponentBits) {
+  var bias = Math.pow(2, exponentBits - 1) - 1;
+  var sign = parseBits(data, 1);
+  var exponent = parseBits(data, exponentBits, 1);
+
+  if (exponent === 0) {
+    return 0;
+  }
+
+  // parse mantissa
+  var precisionBitsCounter = 1;
+  var parsePrecisionBits = function(lastValue, newValue, bits) {
+    if (lastValue === 0) {
+      lastValue = 1;
+    }
+
+    for (var i = 1; i <= bits; i++) {
+      precisionBitsCounter /= 2;
+      if ((newValue & (0x1 << (bits - i))) > 0) {
+        lastValue += precisionBitsCounter;
+      }
+    }
+
+    return lastValue;
+  };
+
+  var mantissa = parseBits(data, precisionBits, exponentBits + 1, false, parsePrecisionBits);
+
+  // special cases
+  if (exponent == (Math.pow(2, exponentBits + 1) - 1)) {
+    if (mantissa === 0) {
+      return (sign === 0) ? Infinity : -Infinity;
+    }
+
+    return NaN;
+  }
+
+  // normale number
+  return ((sign === 0) ? 1 : -1) * Math.pow(2, exponent - bias) * mantissa;
+};
+
+var parseInt16 = function(value) {
+  if (parseBits(value, 1) == 1) {
+    return -1 * (parseBits(value, 15, 1, true) + 1);
+  }
+
+  return parseBits(value, 15, 1);
+};
+
+var parseInt32 = function(value) {
+  if (parseBits(value, 1) == 1) {
+    return -1 * (parseBits(value, 31, 1, true) + 1);
+  }
+
+  return parseBits(value, 31, 1);
+};
+
+var parseFloat32 = function(value) {
+  return parseFloatFromBits(value, 23, 8);
+};
+
+var parseFloat64 = function(value) {
+  return parseFloatFromBits(value, 52, 11);
+};
+
+var parseNumeric = function(value) {
+  var sign = parseBits(value, 16, 32);
+  if (sign == 0xc000) {
+    return NaN;
+  }
+
+  var weight = Math.pow(10000, parseBits(value, 16, 16));
+  var result = 0;
+
+  var digits = [];
+  var ndigits = parseBits(value, 16);
+  for (var i = 0; i < ndigits; i++) {
+    result += parseBits(value, 16, 64 + (16 * i)) * weight;
+    weight /= 10000;
+  }
+
+  var scale = Math.pow(10, parseBits(value, 16, 48));
+  return ((sign === 0) ? 1 : -1) * Math.round(result * scale) / scale;
+};
+
+var parseDate = function(isUTC, value) {
+  var sign = parseBits(value, 1);
+  var rawValue = parseBits(value, 63, 1);
+
+  // discard usecs and shift from 2000 to 1970
+  var result = new Date((((sign === 0) ? 1 : -1) * rawValue / 1000) + 946684800000);
+
+  if (!isUTC) {
+    result.setTime(result.getTime() + result.getTimezoneOffset() * 60000);
+  }
+
+  // add microseconds to the date
+  result.usec = rawValue % 1000;
+  result.getMicroSeconds = function() {
+    return this.usec;
+  };
+  result.setMicroSeconds = function(value) {
+    this.usec = value;
+  };
+  result.getUTCMicroSeconds = function() {
+    return this.usec;
+  };
+
+  return result;
+};
+
+var parseArray = function(value) {
+  var dim = parseBits(value, 32);
+
+  var flags = parseBits(value, 32, 32);
+  var elementType = parseBits(value, 32, 64);
+
+  var offset = 96;
+  var dims = [];
+  for (var i = 0; i < dim; i++) {
+    // parse dimension
+    dims[i] = parseBits(value, 32, offset);
+    offset += 32;
+
+    // ignore lower bounds
+    offset += 32;
+  }
+
+  var parseElement = function(elementType) {
+    // parse content length
+    var length = parseBits(value, 32, offset);
+    offset += 32;
+
+    // parse null values
+    if (length == 0xffffffff) {
+      return null;
+    }
+
+    var result;
+    if ((elementType == 0x17) || (elementType == 0x14)) {
+      // int/bigint
+      result = parseBits(value, length * 8, offset);
+      offset += length * 8;
+      return result;
+    }
+    else if (elementType == 0x19) {
+      // string
+      result = value.toString(this.encoding, offset >> 3, (offset += (length << 3)) >> 3);
+      return result;
+    }
+    else {
+      console.log("ERROR: ElementType not implemented: " + elementType);
+    }
+  };
+
+  var parse = function(dimension, elementType) {
+    var array = [];
+    var i;
+
+    if (dimension.length > 1) {
+      var count = dimension.shift();
+      for (i = 0; i < count; i++) {
+        array[i] = parse(dimension, elementType);
+      }
+      dimension.unshift(count);
+    }
+    else {
+      for (i = 0; i < dimension[0]; i++) {
+        array[i] = parseElement(elementType);
+      }
+    }
+
+    return array;
+  };
+
+  return parse(dims, elementType);
+};
+
+var parseText = function(value) {
+  return value.toString('utf8');
+};
+
+var parseBool = function(value) {
+  if(value === null) return null;
+  return (parseBits(value, 8) > 0);
+};
+
+var init = function(register) {
+  register(21, parseInt16);
+  register(23, parseInt32);
+  register(26, parseInt32);
+  register(1700, parseNumeric);
+  register(700, parseFloat32);
+  register(701, parseFloat64);
+  register(16, parseBool);
+  register(1114, parseDate.bind(null, false));
+  register(1184, parseDate.bind(null, true));
+  register(1000, parseArray);
+  register(1007, parseArray);
+  register(1016, parseArray);
+  register(1008, parseArray);
+  register(1009, parseArray);
+  register(25, parseText);
+};
+
+module.exports = {
+  init: init
+};
+
+
+/***/ }),
+/* 102 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var array = __webpack_require__(40)
+var ap = __webpack_require__(49)
+var arrayParser = __webpack_require__(39);
+var parseDate = __webpack_require__(104);
+var parseInterval = __webpack_require__(105);
+var parseByteA = __webpack_require__(103);
+
+function allowNull (fn) {
+  return function nullAllowed (value) {
+    if (value === null) return value
+    return fn(value)
+  }
+}
+
+function parseBool (value) {
+  if (value === null) return value
+  return value === 't';
+}
+
+function parseBoolArray (value) {
+  if (!value) return null
+  return array.parse(value, parseBool)
+}
+
+function parseIntegerArray (value) {
+  if (!value) return null
+  return array.parse(value, allowNull(ap.partialRight(parseInt, 10)))
+}
+
+function parseBigIntegerArray (value) {
+  if (!value) return null
+  return array.parse(value, allowNull(function (entry) {
+    return parseBigInteger(entry).trim()
+  }))
+}
+
+var parseFloatArray = function(value) {
+  if(!value) { return null; }
+  var p = arrayParser.create(value, function(entry) {
+    if(entry !== null) {
+      entry = parseFloat(entry);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseStringArray = function(value) {
+  if(!value) { return null; }
+
+  var p = arrayParser.create(value);
+  return p.parse();
+};
+
+var parseDateArray = function(value) {
+  if (!value) { return null; }
+
+  var p = arrayParser.create(value, function(entry) {
+    if (entry !== null) {
+      entry = parseDate(entry);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseByteAArray = function(value) {
+  var arr = parseStringArray(value);
+  if (!arr) return arr;
+
+  return arr.map(function(element) {
+    return parseByteA(element);
+  });
+};
+
+var parseInteger = function(value) {
+  return parseInt(value, 10);
+};
+
+var parseBigInteger = function(value) {
+  var valStr = String(value);
+  if (/^\d+$/.test(valStr)) { return valStr; }
+  return value;
+};
+
+var parseJsonArray = function(value) {
+  var arr = parseStringArray(value);
+
+  if (!arr) {
+    return arr;
+  }
+
+  return arr.map(function(el) { return JSON.parse(el); });
+};
+
+var parsePoint = function(value) {
+  if (value[0] !== '(') { return null; }
+
+  value = value.substring( 1, value.length - 1 ).split(',');
+
+  return {
+    x: parseFloat(value[0])
+  , y: parseFloat(value[1])
+  };
+};
+
+var parseCircle = function(value) {
+  if (value[0] !== '<' && value[1] !== '(') { return null; }
+
+  var point = '(';
+  var radius = '';
+  var pointParsed = false;
+  for (var i = 2; i < value.length - 1; i++){
+    if (!pointParsed) {
+      point += value[i];
+    }
+
+    if (value[i] === ')') {
+      pointParsed = true;
+      continue;
+    } else if (!pointParsed) {
+      continue;
+    }
+
+    if (value[i] === ','){
+      continue;
+    }
+
+    radius += value[i];
+  }
+  var result = parsePoint(point);
+  result.radius = parseFloat(radius);
+
+  return result;
+};
+
+var init = function(register) {
+  register(20, parseBigInteger); // int8
+  register(21, parseInteger); // int2
+  register(23, parseInteger); // int4
+  register(26, parseInteger); // oid
+  register(700, parseFloat); // float4/real
+  register(701, parseFloat); // float8/double
+  register(16, parseBool);
+  register(1082, parseDate); // date
+  register(1114, parseDate); // timestamp without timezone
+  register(1184, parseDate); // timestamp
+  register(600, parsePoint); // point
+  register(718, parseCircle); // circle
+  register(1000, parseBoolArray);
+  register(1001, parseByteAArray);
+  register(1005, parseIntegerArray); // _int2
+  register(1007, parseIntegerArray); // _int4
+  register(1028, parseIntegerArray); // oid[]
+  register(1016, parseBigIntegerArray); // _int8
+  register(1021, parseFloatArray); // _float4
+  register(1022, parseFloatArray); // _float8
+  register(1231, parseFloatArray); // _numeric
+  register(1014, parseStringArray); //char
+  register(1015, parseStringArray); //varchar
+  register(1008, parseStringArray);
+  register(1009, parseStringArray);
+  register(1115, parseDateArray); // timestamp without time zone[]
+  register(1182, parseDateArray); // _date
+  register(1185, parseDateArray); // timestamp with time zone[]
+  register(1186, parseInterval);
+  register(17, parseByteA);
+  register(114, JSON.parse.bind(JSON)); // json
+  register(3802, JSON.parse.bind(JSON)); // jsonb
+  register(199, parseJsonArray); // json[]
+  register(3807, parseJsonArray); // jsonb[]
+  register(2951, parseStringArray); // uuid[]
+  register(791, parseStringArray); // money[]
+  register(1183, parseStringArray); // time[]
+};
+
+module.exports = {
+  init: init
+};
+
+
+/***/ }),
+/* 103 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = function parseBytea (input) {
+  if (/^\\x/.test(input)) {
+    // new 'hex' style response (pg >9.0)
+    return new Buffer(input.substr(2), 'hex')
+  }
+  var output = ''
+  var i = 0
+  while (i < input.length) {
+    if (input[i] !== '\\') {
+      output += input[i]
+      ++i
+    } else {
+      if (/[0-7]{3}/.test(input.substr(i + 1, 3))) {
+        output += String.fromCharCode(parseInt(input.substr(i + 1, 3), 8))
+        i += 4
+      } else {
+        var backslashes = 1
+        while (i + backslashes < input.length && input[i + backslashes] === '\\') {
+          backslashes++
+        }
+        for (var k = 0; k < Math.floor(backslashes / 2); ++k) {
+          output += '\\'
+        }
+        i += Math.floor(backslashes / 2) * 2
+      }
+    }
+  }
+  return new Buffer(output, 'binary')
+}
+
+
+/***/ }),
+/* 104 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var DATE_TIME = /(\d{1,})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,})?/
+var DATE = /^(\d{1,})-(\d{2})-(\d{2})$/
+var TIME_ZONE = /([Z+-])(\d{2})?:?(\d{2})?:?(\d{2})?/
+var BC = /BC$/
+var INFINITY = /^-?infinity$/
+
+module.exports = function parseDate (isoDate) {
+  if (INFINITY.test(isoDate)) {
+    // Capitalize to Infinity before passing to Number
+    return Number(isoDate.replace('i', 'I'))
+  }
+  var matches = DATE_TIME.exec(isoDate)
+
+  if (!matches) {
+    // Force YYYY-MM-DD dates to be parsed as local time
+    return DATE.test(isoDate) ?
+      getDate(isoDate) :
+      null
+  }
+
+  var isBC = BC.test(isoDate)
+  var year = parseInt(matches[1], 10)
+  var isFirstCentury = year > 0 && year < 100
+  year = (isBC ? '-' : '') + year
+
+  var month = parseInt(matches[2], 10) - 1
+  var day = matches[3]
+  var hour = parseInt(matches[4], 10)
+  var minute = parseInt(matches[5], 10)
+  var second = parseInt(matches[6], 10)
+
+  var ms = matches[7]
+  ms = ms ? 1000 * parseFloat(ms) : 0
+
+  var date
+  var offset = timeZoneOffset(isoDate)
+  if (offset != null) {
+    var utc = Date.UTC(year, month, day, hour, minute, second, ms)
+    date = new Date(utc - offset)
+  } else {
+    date = new Date(year, month, day, hour, minute, second, ms)
+  }
+
+  if (isFirstCentury) {
+    date.setUTCFullYear(year)
+  }
+
+  return date
+}
+
+function getDate (isoDate) {
+  var matches = DATE.exec(isoDate)
+  var year = parseInt(matches[1], 10)
+  var month = parseInt(matches[2], 10) - 1
+  var day = matches[3]
+  // YYYY-MM-DD will be parsed as local time
+  var date = new Date(year, month, day)
+  date.setFullYear(year)
+  return date
+}
+
+// match timezones:
+// Z (UTC)
+// -05
+// +06:30
+function timeZoneOffset (isoDate) {
+  var zone = TIME_ZONE.exec(isoDate.split(' ')[1])
+  if (!zone) return
+  var type = zone[1]
+
+  if (type === 'Z') {
+    return 0
+  }
+  var sign = type === '-' ? -1 : 1
+  var offset = parseInt(zone[2], 10) * 3600 +
+    parseInt(zone[3] || 0, 10) * 60 +
+    parseInt(zone[4] || 0, 10)
+
+  return offset * sign * 1000
+}
+
+
+/***/ }),
+/* 105 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var extend = __webpack_require__(119)
+
+module.exports = PostgresInterval
+
+function PostgresInterval (raw) {
+  if (!(this instanceof PostgresInterval)) {
+    return new PostgresInterval(raw)
+  }
+  extend(this, parse(raw))
+}
+var properties = ['seconds', 'minutes', 'hours', 'days', 'months', 'years']
+PostgresInterval.prototype.toPostgres = function () {
+  var filtered = properties.filter(this.hasOwnProperty, this)
+  if (filtered.length === 0) return '0'
+  return filtered
+    .map(function (property) {
+      return this[property] + ' ' + property
+    }, this)
+    .join(' ')
+}
+
+var NUMBER = '([+-]?\\d+)'
+var YEAR = NUMBER + '\\s+years?'
+var MONTH = NUMBER + '\\s+mons?'
+var DAY = NUMBER + '\\s+days?'
+var TIME = '([+-])?([\\d]*):(\\d\\d):(\\d\\d):?(\\d\\d\\d)?'
+var INTERVAL = new RegExp([YEAR, MONTH, DAY, TIME].map(function (regexString) {
+  return '(' + regexString + ')?'
+})
+.join('\\s*'))
+
+// Positions of values in regex match
+var positions = {
+  years: 2,
+  months: 4,
+  days: 6,
+  hours: 9,
+  minutes: 10,
+  seconds: 11,
+  milliseconds: 12
+}
+// We can use negative time
+var negatives = ['hours', 'minutes', 'seconds']
+
+function parse (interval) {
+  if (!interval) return {}
+  var matches = INTERVAL.exec(interval)
+  var isNegative = matches[8] === '-'
+  return Object.keys(positions)
+    .reduce(function (parsed, property) {
+      var position = positions[property]
+      var value = matches[position]
+      // no empty string
+      if (!value) return parsed
+      value = parseInt(value, 10)
+      // no zeros
+      if (!value) return parsed
+      if (isNegative && ~negatives.indexOf(property)) {
+        value *= -1
+      }
+      parsed[property] = value
+      return parsed
+    }, {})
+}
+
+
+/***/ }),
+/* 106 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// export the class if we are in a Node-like system.
@@ -17865,653 +18763,6 @@ if (true)
 				(__WEBPACK_AMD_DEFINE_FACTORY__.call(exports, __webpack_require__, exports, module)) :
 				__WEBPACK_AMD_DEFINE_FACTORY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-
-
-/***/ }),
-/* 102 */
-/***/ (function(module, exports) {
-
-var parseBits = function(data, bits, offset, invert, callback) {
-  offset = offset || 0;
-  invert = invert || false;
-  callback = callback || function(lastValue, newValue, bits) { return (lastValue * Math.pow(2, bits)) + newValue; };
-  var offsetBytes = offset >> 3;
-
-  var inv = function(value) {
-    if (invert) {
-      return ~value & 0xff;
-    }
-
-    return value;
-  };
-
-  // read first (maybe partial) byte
-  var mask = 0xff;
-  var firstBits = 8 - (offset % 8);
-  if (bits < firstBits) {
-    mask = (0xff << (8 - bits)) & 0xff;
-    firstBits = bits;
-  }
-
-  if (offset) {
-    mask = mask >> (offset % 8);
-  }
-
-  var result = 0;
-  if ((offset % 8) + bits >= 8) {
-    result = callback(0, inv(data[offsetBytes]) & mask, firstBits);
-  }
-
-  // read bytes
-  var bytes = (bits + offset) >> 3;
-  for (var i = offsetBytes + 1; i < bytes; i++) {
-    result = callback(result, inv(data[i]), 8);
-  }
-
-  // bits to read, that are not a complete byte
-  var lastBits = (bits + offset) % 8;
-  if (lastBits > 0) {
-    result = callback(result, inv(data[bytes]) >> (8 - lastBits), lastBits);
-  }
-
-  return result;
-};
-
-var parseFloatFromBits = function(data, precisionBits, exponentBits) {
-  var bias = Math.pow(2, exponentBits - 1) - 1;
-  var sign = parseBits(data, 1);
-  var exponent = parseBits(data, exponentBits, 1);
-
-  if (exponent === 0) {
-    return 0;
-  }
-
-  // parse mantissa
-  var precisionBitsCounter = 1;
-  var parsePrecisionBits = function(lastValue, newValue, bits) {
-    if (lastValue === 0) {
-      lastValue = 1;
-    }
-
-    for (var i = 1; i <= bits; i++) {
-      precisionBitsCounter /= 2;
-      if ((newValue & (0x1 << (bits - i))) > 0) {
-        lastValue += precisionBitsCounter;
-      }
-    }
-
-    return lastValue;
-  };
-
-  var mantissa = parseBits(data, precisionBits, exponentBits + 1, false, parsePrecisionBits);
-
-  // special cases
-  if (exponent == (Math.pow(2, exponentBits + 1) - 1)) {
-    if (mantissa === 0) {
-      return (sign === 0) ? Infinity : -Infinity;
-    }
-
-    return NaN;
-  }
-
-  // normale number
-  return ((sign === 0) ? 1 : -1) * Math.pow(2, exponent - bias) * mantissa;
-};
-
-var parseInt16 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 15, 1, true) + 1);
-  }
-
-  return parseBits(value, 15, 1);
-};
-
-var parseInt32 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 31, 1, true) + 1);
-  }
-
-  return parseBits(value, 31, 1);
-};
-
-var parseFloat32 = function(value) {
-  return parseFloatFromBits(value, 23, 8);
-};
-
-var parseFloat64 = function(value) {
-  return parseFloatFromBits(value, 52, 11);
-};
-
-var parseNumeric = function(value) {
-  var sign = parseBits(value, 16, 32);
-  if (sign == 0xc000) {
-    return NaN;
-  }
-
-  var weight = Math.pow(10000, parseBits(value, 16, 16));
-  var result = 0;
-
-  var digits = [];
-  var ndigits = parseBits(value, 16);
-  for (var i = 0; i < ndigits; i++) {
-    result += parseBits(value, 16, 64 + (16 * i)) * weight;
-    weight /= 10000;
-  }
-
-  var scale = Math.pow(10, parseBits(value, 16, 48));
-  return ((sign === 0) ? 1 : -1) * Math.round(result * scale) / scale;
-};
-
-var parseDate = function(isUTC, value) {
-  var sign = parseBits(value, 1);
-  var rawValue = parseBits(value, 63, 1);
-
-  // discard usecs and shift from 2000 to 1970
-  var result = new Date((((sign === 0) ? 1 : -1) * rawValue / 1000) + 946684800000);
-
-  if (!isUTC) {
-    result.setTime(result.getTime() + result.getTimezoneOffset() * 60000);
-  }
-
-  // add microseconds to the date
-  result.usec = rawValue % 1000;
-  result.getMicroSeconds = function() {
-    return this.usec;
-  };
-  result.setMicroSeconds = function(value) {
-    this.usec = value;
-  };
-  result.getUTCMicroSeconds = function() {
-    return this.usec;
-  };
-
-  return result;
-};
-
-var parseArray = function(value) {
-  var dim = parseBits(value, 32);
-
-  var flags = parseBits(value, 32, 32);
-  var elementType = parseBits(value, 32, 64);
-
-  var offset = 96;
-  var dims = [];
-  for (var i = 0; i < dim; i++) {
-    // parse dimension
-    dims[i] = parseBits(value, 32, offset);
-    offset += 32;
-
-    // ignore lower bounds
-    offset += 32;
-  }
-
-  var parseElement = function(elementType) {
-    // parse content length
-    var length = parseBits(value, 32, offset);
-    offset += 32;
-
-    // parse null values
-    if (length == 0xffffffff) {
-      return null;
-    }
-
-    var result;
-    if ((elementType == 0x17) || (elementType == 0x14)) {
-      // int/bigint
-      result = parseBits(value, length * 8, offset);
-      offset += length * 8;
-      return result;
-    }
-    else if (elementType == 0x19) {
-      // string
-      result = value.toString(this.encoding, offset >> 3, (offset += (length << 3)) >> 3);
-      return result;
-    }
-    else {
-      console.log("ERROR: ElementType not implemented: " + elementType);
-    }
-  };
-
-  var parse = function(dimension, elementType) {
-    var array = [];
-    var i;
-
-    if (dimension.length > 1) {
-      var count = dimension.shift();
-      for (i = 0; i < count; i++) {
-        array[i] = parse(dimension, elementType);
-      }
-      dimension.unshift(count);
-    }
-    else {
-      for (i = 0; i < dimension[0]; i++) {
-        array[i] = parseElement(elementType);
-      }
-    }
-
-    return array;
-  };
-
-  return parse(dims, elementType);
-};
-
-var parseText = function(value) {
-  return value.toString('utf8');
-};
-
-var parseBool = function(value) {
-  if(value === null) return null;
-  return (parseBits(value, 8) > 0);
-};
-
-var init = function(register) {
-  register(21, parseInt16);
-  register(23, parseInt32);
-  register(26, parseInt32);
-  register(1700, parseNumeric);
-  register(700, parseFloat32);
-  register(701, parseFloat64);
-  register(16, parseBool);
-  register(1114, parseDate.bind(null, false));
-  register(1184, parseDate.bind(null, true));
-  register(1000, parseArray);
-  register(1007, parseArray);
-  register(1016, parseArray);
-  register(1008, parseArray);
-  register(1009, parseArray);
-  register(25, parseText);
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 103 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var array = __webpack_require__(40)
-var ap = __webpack_require__(49)
-var arrayParser = __webpack_require__(39);
-var parseDate = __webpack_require__(105);
-var parseInterval = __webpack_require__(106);
-var parseByteA = __webpack_require__(104);
-
-function allowNull (fn) {
-  return function nullAllowed (value) {
-    if (value === null) return value
-    return fn(value)
-  }
-}
-
-function parseBool (value) {
-  if (value === null) return value
-  return value === 't';
-}
-
-function parseBoolArray (value) {
-  if (!value) return null
-  return array.parse(value, parseBool)
-}
-
-function parseIntegerArray (value) {
-  if (!value) return null
-  return array.parse(value, allowNull(ap.partialRight(parseInt, 10)))
-}
-
-function parseBigIntegerArray (value) {
-  if (!value) return null
-  return array.parse(value, allowNull(function (entry) {
-    return parseBigInteger(entry).trim()
-  }))
-}
-
-var parseFloatArray = function(value) {
-  if(!value) { return null; }
-  var p = arrayParser.create(value, function(entry) {
-    if(entry !== null) {
-      entry = parseFloat(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseStringArray = function(value) {
-  if(!value) { return null; }
-
-  var p = arrayParser.create(value);
-  return p.parse();
-};
-
-var parseDateArray = function(value) {
-  if (!value) { return null; }
-
-  var p = arrayParser.create(value, function(entry) {
-    if (entry !== null) {
-      entry = parseDate(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseByteAArray = function(value) {
-  var arr = parseStringArray(value);
-  if (!arr) return arr;
-
-  return arr.map(function(element) {
-    return parseByteA(element);
-  });
-};
-
-var parseInteger = function(value) {
-  return parseInt(value, 10);
-};
-
-var parseBigInteger = function(value) {
-  var valStr = String(value);
-  if (/^\d+$/.test(valStr)) { return valStr; }
-  return value;
-};
-
-var parseJsonArray = function(value) {
-  var arr = parseStringArray(value);
-
-  if (!arr) {
-    return arr;
-  }
-
-  return arr.map(function(el) { return JSON.parse(el); });
-};
-
-var parsePoint = function(value) {
-  if (value[0] !== '(') { return null; }
-
-  value = value.substring( 1, value.length - 1 ).split(',');
-
-  return {
-    x: parseFloat(value[0])
-  , y: parseFloat(value[1])
-  };
-};
-
-var parseCircle = function(value) {
-  if (value[0] !== '<' && value[1] !== '(') { return null; }
-
-  var point = '(';
-  var radius = '';
-  var pointParsed = false;
-  for (var i = 2; i < value.length - 1; i++){
-    if (!pointParsed) {
-      point += value[i];
-    }
-
-    if (value[i] === ')') {
-      pointParsed = true;
-      continue;
-    } else if (!pointParsed) {
-      continue;
-    }
-
-    if (value[i] === ','){
-      continue;
-    }
-
-    radius += value[i];
-  }
-  var result = parsePoint(point);
-  result.radius = parseFloat(radius);
-
-  return result;
-};
-
-var init = function(register) {
-  register(20, parseBigInteger); // int8
-  register(21, parseInteger); // int2
-  register(23, parseInteger); // int4
-  register(26, parseInteger); // oid
-  register(700, parseFloat); // float4/real
-  register(701, parseFloat); // float8/double
-  register(16, parseBool);
-  register(1082, parseDate); // date
-  register(1114, parseDate); // timestamp without timezone
-  register(1184, parseDate); // timestamp
-  register(600, parsePoint); // point
-  register(718, parseCircle); // circle
-  register(1000, parseBoolArray);
-  register(1001, parseByteAArray);
-  register(1005, parseIntegerArray); // _int2
-  register(1007, parseIntegerArray); // _int4
-  register(1028, parseIntegerArray); // oid[]
-  register(1016, parseBigIntegerArray); // _int8
-  register(1021, parseFloatArray); // _float4
-  register(1022, parseFloatArray); // _float8
-  register(1231, parseFloatArray); // _numeric
-  register(1014, parseStringArray); //char
-  register(1015, parseStringArray); //varchar
-  register(1008, parseStringArray);
-  register(1009, parseStringArray);
-  register(1115, parseDateArray); // timestamp without time zone[]
-  register(1182, parseDateArray); // _date
-  register(1185, parseDateArray); // timestamp with time zone[]
-  register(1186, parseInterval);
-  register(17, parseByteA);
-  register(114, JSON.parse.bind(JSON)); // json
-  register(3802, JSON.parse.bind(JSON)); // jsonb
-  register(199, parseJsonArray); // json[]
-  register(3807, parseJsonArray); // jsonb[]
-  register(2951, parseStringArray); // uuid[]
-  register(791, parseStringArray); // money[]
-  register(1183, parseStringArray); // time[]
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 104 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = function parseBytea (input) {
-  if (/^\\x/.test(input)) {
-    // new 'hex' style response (pg >9.0)
-    return new Buffer(input.substr(2), 'hex')
-  }
-  var output = ''
-  var i = 0
-  while (i < input.length) {
-    if (input[i] !== '\\') {
-      output += input[i]
-      ++i
-    } else {
-      if (/[0-7]{3}/.test(input.substr(i + 1, 3))) {
-        output += String.fromCharCode(parseInt(input.substr(i + 1, 3), 8))
-        i += 4
-      } else {
-        var backslashes = 1
-        while (i + backslashes < input.length && input[i + backslashes] === '\\') {
-          backslashes++
-        }
-        for (var k = 0; k < Math.floor(backslashes / 2); ++k) {
-          output += '\\'
-        }
-        i += Math.floor(backslashes / 2) * 2
-      }
-    }
-  }
-  return new Buffer(output, 'binary')
-}
-
-
-/***/ }),
-/* 105 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var DATE_TIME = /(\d{1,})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,})?/
-var DATE = /^(\d{1,})-(\d{2})-(\d{2})$/
-var TIME_ZONE = /([Z+-])(\d{2})?:?(\d{2})?:?(\d{2})?/
-var BC = /BC$/
-var INFINITY = /^-?infinity$/
-
-module.exports = function parseDate (isoDate) {
-  if (INFINITY.test(isoDate)) {
-    // Capitalize to Infinity before passing to Number
-    return Number(isoDate.replace('i', 'I'))
-  }
-  var matches = DATE_TIME.exec(isoDate)
-
-  if (!matches) {
-    // Force YYYY-MM-DD dates to be parsed as local time
-    return DATE.test(isoDate) ?
-      getDate(isoDate) :
-      null
-  }
-
-  var isBC = BC.test(isoDate)
-  var year = parseInt(matches[1], 10)
-  var isFirstCentury = year > 0 && year < 100
-  year = (isBC ? '-' : '') + year
-
-  var month = parseInt(matches[2], 10) - 1
-  var day = matches[3]
-  var hour = parseInt(matches[4], 10)
-  var minute = parseInt(matches[5], 10)
-  var second = parseInt(matches[6], 10)
-
-  var ms = matches[7]
-  ms = ms ? 1000 * parseFloat(ms) : 0
-
-  var date
-  var offset = timeZoneOffset(isoDate)
-  if (offset != null) {
-    var utc = Date.UTC(year, month, day, hour, minute, second, ms)
-    date = new Date(utc - offset)
-  } else {
-    date = new Date(year, month, day, hour, minute, second, ms)
-  }
-
-  if (isFirstCentury) {
-    date.setUTCFullYear(year)
-  }
-
-  return date
-}
-
-function getDate (isoDate) {
-  var matches = DATE.exec(isoDate)
-  var year = parseInt(matches[1], 10)
-  var month = parseInt(matches[2], 10) - 1
-  var day = matches[3]
-  // YYYY-MM-DD will be parsed as local time
-  var date = new Date(year, month, day)
-  date.setFullYear(year)
-  return date
-}
-
-// match timezones:
-// Z (UTC)
-// -05
-// +06:30
-function timeZoneOffset (isoDate) {
-  var zone = TIME_ZONE.exec(isoDate.split(' ')[1])
-  if (!zone) return
-  var type = zone[1]
-
-  if (type === 'Z') {
-    return 0
-  }
-  var sign = type === '-' ? -1 : 1
-  var offset = parseInt(zone[2], 10) * 3600 +
-    parseInt(zone[3] || 0, 10) * 60 +
-    parseInt(zone[4] || 0, 10)
-
-  return offset * sign * 1000
-}
-
-
-/***/ }),
-/* 106 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var extend = __webpack_require__(119)
-
-module.exports = PostgresInterval
-
-function PostgresInterval (raw) {
-  if (!(this instanceof PostgresInterval)) {
-    return new PostgresInterval(raw)
-  }
-  extend(this, parse(raw))
-}
-var properties = ['seconds', 'minutes', 'hours', 'days', 'months', 'years']
-PostgresInterval.prototype.toPostgres = function () {
-  var filtered = properties.filter(this.hasOwnProperty, this)
-  if (filtered.length === 0) return '0'
-  return filtered
-    .map(function (property) {
-      return this[property] + ' ' + property
-    }, this)
-    .join(' ')
-}
-
-var NUMBER = '([+-]?\\d+)'
-var YEAR = NUMBER + '\\s+years?'
-var MONTH = NUMBER + '\\s+mons?'
-var DAY = NUMBER + '\\s+days?'
-var TIME = '([+-])?([\\d]*):(\\d\\d):(\\d\\d):?(\\d\\d\\d)?'
-var INTERVAL = new RegExp([YEAR, MONTH, DAY, TIME].map(function (regexString) {
-  return '(' + regexString + ')?'
-})
-.join('\\s*'))
-
-// Positions of values in regex match
-var positions = {
-  years: 2,
-  months: 4,
-  days: 6,
-  hours: 9,
-  minutes: 10,
-  seconds: 11,
-  milliseconds: 12
-}
-// We can use negative time
-var negatives = ['hours', 'minutes', 'seconds']
-
-function parse (interval) {
-  if (!interval) return {}
-  var matches = INTERVAL.exec(interval)
-  var isNegative = matches[8] === '-'
-  return Object.keys(positions)
-    .reduce(function (parsed, property) {
-      var position = positions[property]
-      var value = matches[position]
-      // no empty string
-      if (!value) return parsed
-      value = parseInt(value, 10)
-      // no zeros
-      if (!value) return parsed
-      if (isNegative && ~negatives.indexOf(property)) {
-        value *= -1
-      }
-      parsed[property] = value
-      return parsed
-    }, {})
-}
 
 
 /***/ }),

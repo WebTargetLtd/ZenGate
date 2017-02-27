@@ -1,5 +1,5 @@
 // https://code-maven.com/reading-a-file-with-nodejs
-http://stackoverflow.com/questions/39584241/es6-string-interpolation-from-file-content
+// http://stackoverflow.com/questions/39584241/es6-string-interpolation-from-file-content
 
 export class Replace {
 
@@ -14,7 +14,11 @@ export class Replace {
         }
     }
 
-    public getFile(): Promise<string> {
+    public getFile(): string {
+        var contents = this._fs.readFileSync(this._filename, 'utf8');
+        console.log("Some things :: " + contents);
+        return contents;
+        /*
         return new Promise((resolve, reject) => {
             resolve(this._fs.readFile(this._filename, "utf-8", (err: string, data: string) => { }));
         }).then((output) => {
@@ -22,6 +26,7 @@ export class Replace {
         }).catch((err) => {
             console.log("Catch Error on replace::getFile() : " + err);
         });
+        */
     }
     public doReplace(_filecontents: string): string {
         console.log(_filecontents);
