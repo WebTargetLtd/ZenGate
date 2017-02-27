@@ -13,6 +13,14 @@ export class Replace {
             console.log(err);
         }
     }
+    public newReplace(_filestring: string): void {
+        try {
+            // _filestring
+        } catch (error) {
+            console.log("newReplace ::" + error);
+        }
+    }
+
 
     public getFile(): string {
         var contents = this._fs.readFileSync(this._filename, 'utf8');
@@ -35,10 +43,9 @@ export class Replace {
             // console.log(_item[0] + " - " + _item[1]);
             output = output.split(_item[0]).join(_item[1]);
         }
-
         return output;
-
     }
+
     public doReplace2(): Promise<string> {
         let output: string;
         console.log(this._data);

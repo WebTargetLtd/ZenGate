@@ -165,7 +165,7 @@ function getSafeConnection(cn) {
         return copy;
     }
     // or else it is a connection string;
-    return cn.replace(/:(?![\/])([^@]+)/, (_, m) => {
+    return cn.replace(/:(?![\/])([^@]+)/, function (_, m) {
         return ':' + new Array(m.length + 1).join('#');
     });
 }
@@ -205,7 +205,7 @@ function getLocalStack(startIdx) {
     // from the call stack, we take only lines starting with the client's
     // source code, and only those that contain a full path inside brackets,
     // indicating a reference to the client's source code:
-    return new Error().stack.split('\n').slice(startIdx).filter(line => {
+    return new Error().stack.split('\n').slice(startIdx).filter(function (line) {
         return line.match(/\(.*(\\+|\/+).*\)/); // contains \ or / inside ()
     }).join('\n');
 }
@@ -348,7 +348,12 @@ function formatValue(value, fm, obj) {
 // as per PostgreSQL documentation: http://www.postgresql.org/docs/9.4/static/arrays.html
 // Arrays of any depth/dimension are supported.
 function formatArray(array) {
-    var loop = a => '[' + $arr.map(a, v => v instanceof Array ? loop(v) : formatValue(v)).join() + ']';
+    function loop(a) {
+        return '[' + $arr.map(a, function (v) {
+                return v instanceof Array ? loop(v) : formatValue(v);
+            }).join() + ']';
+    }
+
     return 'array' + loop(array);
 }
 
@@ -358,7 +363,9 @@ function formatArray(array) {
 // Both single value and array or values are supported.
 function formatCSV(values) {
     if (values instanceof Array) {
-        return $arr.map(values, v => formatValue(v)).join();
+        return $arr.map(values, function (v) {
+            return formatValue(v);
+        }).join();
     }
     return values === undefined ? '' : formatValue(values);
 }
@@ -367,10 +374,10 @@ function formatCSV(values) {
 // Query formatting helpers;
 var formatAs = {
 
-    object: (query, obj, raw, options) => {
+    object: function (query, obj, raw, options) {
         options = options && typeof options === 'object' ? options : {};
         var pattern = /\$(?:({)|(\()|(<)|(\[)|(\/))\s*[a-zA-Z0-9\$_]+(\^|~|#|:raw|:name|:json|:csv|:value)?\s*(?:(?=\2)(?=\3)(?=\4)(?=\5)}|(?=\1)(?=\3)(?=\4)(?=\5)\)|(?=\1)(?=\2)(?=\4)(?=\5)>|(?=\1)(?=\2)(?=\3)(?=\5)]|(?=\1)(?=\2)(?=\3)(?=\4)\/)/g;
-        return query.replace(pattern, name => {
+        return query.replace(pattern, function (name) {
             var v = formatAs.stripName(name.replace(/^\$[{(<[/]|[\s})>\]/]/g, ''), raw);
             if (v.name in obj) {
                 return formatValue(obj[v.name], v.fm, obj);
@@ -390,9 +397,9 @@ var formatAs = {
         });
     },
 
-    array: (query, array, raw, options) => {
+    array: function (query, array, raw, options) {
         options = options && typeof options === 'object' ? options : {};
-        return query.replace(/\$([1-9][0-9]{0,3}(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?)/g, name => {
+        return query.replace(/\$([1-9][0-9]{0,3}(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?)/g, function (name) {
             var v = formatAs.stripName(name.substr(1), raw);
             var idx = v.name - 1;
             if (idx < array.length) {
@@ -409,14 +416,14 @@ var formatAs = {
         });
     },
 
-    value: (query, value, raw) => {
-        return query.replace(/\$1(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?/g, name => {
+    value: function (query, value, raw) {
+        return query.replace(/\$1(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?/g, function (name) {
             var v = formatAs.stripName(name, raw);
             return formatValue(value, v.fm);
         });
     },
 
-    stripName: (name, raw) => {
+    stripName: function (name, raw) {
         var mod = name.match(/\^|~|#|:raw|:name|:json|:csv|:value/);
         if (mod) {
             return {
@@ -441,7 +448,7 @@ function isNull(value) {
 /////////////////////////////////////////
 // Wraps a text string in single quotes;
 function TEXT(text) {
-    return '\'' + text + '\'';
+    return "'" + text + "'";
 }
 
 ////////////////////////////////////////////////
@@ -573,7 +580,7 @@ var $as = {
      *
      *  The result is not escaped, if `raw` was passed in as `true`.
      */
-    text: (value, raw) => {
+    text: function (value, raw) {
         value = resolveFunc(value);
         if (isNull(value)) {
             throwIfRaw(raw);
@@ -622,7 +629,7 @@ var $as = {
      * //=> INSERT INTO table("one","two") VALUES(1, 2)
      *
      */
-    name: name => {
+    name: function (name) {
         name = resolveFunc(name);
         if (name) {
             if (typeof name === 'string') {
@@ -633,7 +640,7 @@ var $as = {
                     if (!keys.length) {
                         throw new Error('Cannot retrieve sql names from an empty array/object.');
                     }
-                    return $arr.map(keys, value => {
+                    return $arr.map(keys, function (value) {
                         if (!value || typeof value !== 'string') {
                             throw new Error('Invalid sql name: ' + JSON.stringify(value));
                         }
@@ -664,7 +671,7 @@ var $as = {
      * @returns {string}
      * Formatted and properly escaped string, but without surrounding quotes for text types.
      */
-    value: value => {
+    value: function (value) {
         value = resolveFunc(value);
         if (isNull(value)) {
             throw new TypeError('Open values cannot be null or undefined.');
@@ -687,7 +694,7 @@ var $as = {
      *
      * @returns {string}
      */
-    buffer: (obj, raw) => {
+    buffer: function (obj, raw) {
         obj = resolveFunc(obj);
         if (isNull(obj)) {
             throwIfRaw(raw);
@@ -710,7 +717,7 @@ var $as = {
      *
      * @returns {string}
      */
-    bool: value => {
+    bool: function (value) {
         value = resolveFunc(value);
         if (isNull(value)) {
             return 'null';
@@ -732,7 +739,7 @@ var $as = {
      *
      * @returns {string}
      */
-    date: (d, raw) => {
+    date: function (d, raw) {
         d = resolveFunc(d);
         if (isNull(d)) {
             throwIfRaw(raw);
@@ -756,7 +763,7 @@ var $as = {
      *
      * @returns {string}
      */
-    number: num => {
+    number: function (num) {
         num = resolveFunc(num);
         if (isNull(num)) {
             return 'null';
@@ -791,7 +798,7 @@ var $as = {
      *
      * @returns {string}
      */
-    array: arr => {
+    array: function (arr) {
         arr = resolveFunc(arr);
         if (isNull(arr)) {
             return 'null';
@@ -813,7 +820,9 @@ var $as = {
      *
      * @returns {string}
      */
-    csv: values => formatCSV(resolveFunc(values)),
+    csv: function (values) {
+        return formatCSV(resolveFunc(values));
+    },
 
     /**
      * @method formatting.json
@@ -829,7 +838,7 @@ var $as = {
      *
      * @returns {string}
      */
-    json: (obj, raw) => {
+    json: function (obj, raw) {
         obj = resolveFunc(obj);
         if (isNull(obj)) {
             throwIfRaw(raw);
@@ -856,7 +865,7 @@ var $as = {
      *
      * @returns {string}
      */
-    func: (func, raw, obj) => {
+    func: function (func, raw, obj) {
         if (isNull(func)) {
             throwIfRaw(raw);
             return 'null';
@@ -942,7 +951,7 @@ var $as = {
      *
      * The function will throw an error, if any occurs during formatting.
      */
-    format: (query, values, options) => {
+    format: function (query, values, options) {
         if (query && typeof query.formatDBType === 'function') {
             query = query.formatDBType();
         }
@@ -1008,8 +1017,8 @@ function map(arr, cb, obj) {
             res[i] = cb.call(obj, arr[i], i, arr);
         }
     } else {
-        for (var k = 0; k < arr.length; k++) {
-            res[k] = cb(arr[k], k, arr);
+        for (var i = 0; i < arr.length; i++) {
+            res[i] = cb(arr[i], i, arr);
         }
     }
     return res;
@@ -1031,9 +1040,9 @@ function filter(arr, cb, obj) {
             }
         }
     } else {
-        for (var k = 0; k < arr.length; k++) {
-            if (cb(arr[k], k, arr)) {
-                res.push(arr[k]);
+        for (var i = 0; i < arr.length; i++) {
+            if (cb(arr[i], i, arr)) {
+                res.push(arr[i]);
             }
         }
     }
@@ -1053,8 +1062,8 @@ function forEach(arr, cb, obj) {
             cb.call(obj, arr[i], i, arr);
         }
     } else {
-        for (var k = 0; k < arr.length; k++) {
-            cb(arr[k], k, arr);
+        for (var i = 0; i < arr.length; i++) {
+            cb(arr[i], i, arr);
         }
     }
 }
@@ -1071,8 +1080,8 @@ function countIf(arr, cb, obj) {
             count += cb.call(obj, arr[i], i, arr) ? 1 : 0;
         }
     } else {
-        for (var k = 0; k < arr.length; k++) {
-            count += cb(arr[k], k, arr) ? 1 : 0;
+        for (var i = 0; i < arr.length; i++) {
+            count += cb(arr[i], i, arr) ? 1 : 0;
         }
     }
     return count;
@@ -1144,14 +1153,14 @@ var $events = {
      *
      *     // pg-promise initialization options...
      *
-     *     connect: (client, dc, isFresh) => {
+     *     connect: function (client, dc, isFresh) {
      *         var cp = client.connectionParameters;
      *         console.log("Connected to database:", cp.database);
      *     }
      *
      * };
      */
-    connect: (ctx, client, isFresh) => {
+    connect: function (ctx, client, isFresh) {
         if (typeof ctx.options.connect === 'function') {
             try {
                 ctx.options.connect(client, ctx.dc, isFresh);
@@ -1185,14 +1194,14 @@ var $events = {
      *
      *     // pg-promise initialization options...
      *
-     *     disconnect: (client, dc) => {
+     *     disconnect: function(client, dc) {
      *        var cp = client.connectionParameters;
      *        console.log("Disconnecting from database:", cp.database);
      *     }
      *
      * };
      */
-    disconnect: (ctx, client) => {
+    disconnect: function (ctx, client) {
         if (typeof ctx.options.disconnect === 'function') {
             try {
                 ctx.options.disconnect(client, ctx.dc);
@@ -1263,7 +1272,7 @@ var $events = {
      * while executing a task or transaction.
      *
      */
-    query: (options, context) => {
+    query: function (options, context) {
         if (typeof options.query === 'function') {
             try {
                 options.query(context);
@@ -1311,7 +1320,7 @@ var $events = {
      * // Example below shows the fastest way to camelize column names:
      *
      * var options = {
-     *     receive: (data, result, e) => {
+     *     receive: function (data, result, e) {
      *         camelizeColumns(data);
      *     }
      * };
@@ -1330,7 +1339,7 @@ var $events = {
      *     }
      * }
      */
-    receive: (options, data, result, context) => {
+    receive: function (options, data, result, context) {
         if (typeof options.receive === 'function') {
             try {
                 options.receive(data, result, context);
@@ -1357,7 +1366,7 @@ var $events = {
      * @example
      *
      * var options = {
-     *     task: e => {
+     *     task: function (e) {
      *         if (e.ctx.finish) {
      *             // this is a task->finish event;
      *             console.log("Finish Time:", e.ctx.finish);
@@ -1374,7 +1383,7 @@ var $events = {
      * };
      *
      */
-    task: (options, context) => {
+    task: function (options, context) {
         if (typeof options.task === 'function') {
             try {
                 options.task(context);
@@ -1400,7 +1409,7 @@ var $events = {
      * @example
      *
      * var options = {
-     *     transact: e => {
+     *     transact: function (e) {
      *         if (e.ctx.finish) {
      *             // this is a transaction->finish event;
      *             console.log("Finish Time:", e.ctx.finish);
@@ -1417,7 +1426,7 @@ var $events = {
      * };
      *
      */
-    transact: (options, context) => {
+    transact: function (options, context) {
         if (typeof options.transact === 'function') {
             try {
                 options.transact(context);
@@ -1449,7 +1458,7 @@ var $events = {
      *
      *     // pg-promise initialization options...
      *
-     *     error: (err, e) => {
+     *     error: function (err, e) {
      *
      *         // e.dc = Database Context
      *
@@ -1474,7 +1483,7 @@ var $events = {
      * };
      *
      */
-    error: (options, err, context) => {
+    error: function (options, err, context) {
         if (typeof options.error === 'function') {
             try {
                 options.error(err, context);
@@ -1516,10 +1525,10 @@ var $events = {
      * // that will insert one binary image and resolve with the new record id.
      *
      * var options = {
-     *     extend: (obj, dc) => {
+     *     extend: function (obj, dc) {
      *         // obj = this;
      *         // dc = database context;
-     *         obj.addImage = data => {
+     *         obj.addImage = function (data) {
      *             return obj.one("insert into images(data) values($1) returning id", '\\x' + data);
      *         }
      *     }
@@ -1534,16 +1543,18 @@ var $events = {
      * function repUsers(obj, dc) {
      *     // NOTE: You can change the implementation based on `dc`;
      *     return {
-     *         add: (name, active) => {
+     *         add: function (name, active) {
      *             return obj.none("insert into users values($1, $2)", [name, active]);
      *         },
-     *         delete: id => obj.none("delete from users where id = $1", id)
+     *         delete: function (id) {
+     *             return obj.none("delete from users where id = $1", id);
+     *         }
      *     }
      * }
      *
      * // Overriding 'extend' event;
      * var options = {
-     *     extend: (obj, dc) => {
+     *     extend: function (obj, dc) {
      *         // obj = this;
      *         // dc = database context;
      *         this.users = repUsers(this, dc);
@@ -1553,15 +1564,15 @@ var $events = {
      *
      * // Usage example:
      * db.users.add("John", true)
-     *     .then(() => {
+     *     .then(function () {
      *         // user added successfully;
      *     })
-     *     .catch(error => {
+     *     .catch(function (error) {
      *         // failed to add the user;
      *     });
      *
      */
-    extend: (options, obj, dc) => {
+    extend: function (options, obj, dc) {
         if (typeof options.extend === 'function') {
             try {
                 options.extend.call(obj, obj, dc);
@@ -1580,7 +1591,7 @@ var $events = {
      * @param {String|Error} e - unhandled error.
      * @private
      */
-    unexpected: (event, e) => {
+    unexpected: function (event, e) {
         // If you should ever get here, your app is definitely broken, and you need to fix
         // your event handler to prevent unhandled errors during event notifications.
         //
@@ -1590,7 +1601,7 @@ var $events = {
         /* istanbul ignore if */
         if (!$npm.main.suppressErrors) {
             var stack = e instanceof Error ? e.stack : new Error().stack;
-            $npm.con.error('Unexpected error in \'%s\' event handler.\n%s\n', event, stack);
+            $npm.con.error("Unexpected error in '%s' event handler.\n%s\n", event, stack);
         }
     }
 };
@@ -1701,7 +1712,7 @@ var $arr = __webpack_require__(6);
  *     },
  *     {
  *         name: 'amount',
- *         init: col => {
+ *         init: function (col) {
  *             // set to 100, if the value is 0:
  *             return col.value === 0 ? 100 : col.value;
  *         }
@@ -1709,7 +1720,7 @@ var $arr = __webpack_require__(6);
  *     {
  *         name: 'total-val',
  *         prop: 'total',
- *         skip: col => {
+ *         skip: function (col) {
  *             // skip from updates, if 'amount' is 0:
  *             return this.amount === 0; // = col.source.amount
  *         }
@@ -1765,14 +1776,14 @@ function ColumnSet(columns, options) {
     }
 
     if (!columns || typeof columns !== 'object') {
-        throw new TypeError('Invalid parameter \'columns\' specified.');
+        throw new TypeError("Invalid parameter 'columns' specified.");
     }
 
-    var inherit, names, variables, updates, isSimple = true;
+    var inherit, names, variables, updates, cndCount = 0, isSimple = true;
 
     if (!$npm.utils.isNull(options)) {
         if (typeof options !== 'object') {
-            throw new TypeError('Invalid parameter \'options\' specified.');
+            throw new TypeError("Invalid parameter 'options' specified.");
         }
         if (!$npm.utils.isNull(options.table)) {
             if (options.table instanceof $npm.TableName) {
@@ -1805,7 +1816,7 @@ function ColumnSet(columns, options) {
      */
     if (Array.isArray(columns)) {
         var colNames = {};
-        this.columns = $arr.map(columns, c => {
+        this.columns = $arr.map(columns, function (c) {
             var col = (c instanceof $npm.Column) ? c : new $npm.Column(c);
             if (col.name in colNames) {
                 throw new Error('Duplicate column name "' + col.name + '".');
@@ -1830,11 +1841,13 @@ function ColumnSet(columns, options) {
 
     for (var i = 0; i < this.columns.length; i++) {
         var c = this.columns[i];
+        if (c.cnd) {
+            cndCount++;
+        }
         // ColumnSet is simple when the source objects require no preparation,
         // and should be used directly:
         if (c.prop || c.init || 'def' in c) {
             isSimple = false;
-            break;
         }
     }
 
@@ -1855,9 +1868,11 @@ function ColumnSet(columns, options) {
      * //=> "id","cells","doc"
      */
     Object.defineProperty(this, 'names', {
-        get: () => {
+        get: function () {
             if (!names) {
-                names = $arr.map(this.columns, c => c.escapedName).join();
+                names = $arr.map(this.columns, function (c) {
+                    return c.escapedName;
+                }).join();
             }
             return names;
         }
@@ -1880,9 +1895,11 @@ function ColumnSet(columns, options) {
      * //=> ${id^},${cells}::int[],${doc:json}
      */
     Object.defineProperty(this, 'variables', {
-        get: () => {
+        get: function () {
             if (!variables) {
-                variables = $arr.map(this.columns, c => c.variable + c.castText).join();
+                variables = $arr.map(this.columns, function (c) {
+                    return c.variable + c.castText;
+                }).join();
             }
             return variables;
         }
@@ -1907,7 +1924,7 @@ function ColumnSet(columns, options) {
             return updates;
         }
         var dynamic;
-        var list = $arr.filter(this.columns, c => {
+        var list = $arr.filter(this.columns, function (c) {
             if (c.cnd) {
                 return false;
             }
@@ -1921,7 +1938,9 @@ function ColumnSet(columns, options) {
             return true;
         });
 
-        list = $arr.map(list, c => c.escapedName + '=' + c.variable + c.castText).join();
+        list = $arr.map(list, function (c) {
+            return c.escapedName + '=' + c.variable + c.castText;
+        }).join();
 
         if (!dynamic) {
             updates = list;
@@ -2059,11 +2078,11 @@ function ColumnSet(columns, options) {
             cs = new ColumnSet(columns);
         }
         var colNames = {}, cols = [];
-        $arr.forEach(this.columns, (c, idx) => {
+        $arr.forEach(this.columns, function (c, idx) {
             cols.push(c);
             colNames[c.name] = idx;
         });
-        $arr.forEach(cs.columns, c => {
+        $arr.forEach(cs.columns, function (c) {
             if (c.name in colNames) {
                 cols[colNames[c.name]] = c;
             } else {
@@ -2101,7 +2120,7 @@ function ColumnSet(columns, options) {
             return source; // a simple ColumnSet requires no object preparation;
         }
         var target = {};
-        $arr.forEach(this.columns, c => {
+        $arr.forEach(this.columns, function (c) {
             var a = colDesc(c, source);
             if (c.init) {
                 target[a.name] = c.init.call(source, a);
@@ -2155,7 +2174,7 @@ ColumnSet.prototype.toString = function (level) {
     }
     if (this.columns.length) {
         lines.push(gap1 + 'columns: [');
-        $arr.forEach(this.columns, c => {
+        $arr.forEach(this.columns, function (c) {
             lines.push(c.toString(2));
         });
         lines.push(gap1 + ']');
@@ -2260,8 +2279,12 @@ var $npm = {
  * var sql = require('./sql').users; // our sql for users;
  *
  * module.exports = {
- *     addUser: (name, age) => db.none(sql.add, [name, age]),
- *     findUser: name => db.any(sql.search, name)
+ *     addUser: function (name, age) {
+ *         return db.none(sql.add, [name, age]);
+ *     },
+ *     findUser: function (name) {
+ *         return db.any(sql.search, name);
+ *     }
  * };
  *
  */
@@ -2380,7 +2403,9 @@ function QueryFile(file, options) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'query', {
-        get: () => sql
+        get: function () {
+            return sql;
+        }
     });
 
     /**
@@ -2394,7 +2419,9 @@ function QueryFile(file, options) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'error', {
-        get: () => error
+        get: function () {
+            return error;
+        }
     });
 
     /**
@@ -2407,7 +2434,9 @@ function QueryFile(file, options) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'file', {
-        get: () => file
+        get: function () {
+            return file;
+        }
     });
 
     /**
@@ -2420,7 +2449,9 @@ function QueryFile(file, options) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'options', {
-        get: () => opt
+        get: function () {
+            return opt;
+        }
     });
 
     this.prepare();
@@ -2734,7 +2765,7 @@ function QueryFileError(error, qf) {
     this.stack = temp.stack;
     if (error instanceof $npm.minify.SQLParsingError) {
         this.error = error;
-        this.message = 'Failed to parse the SQL.';
+        this.message = "Failed to parse the SQL.";
     } else {
         this.message = error.message;
     }
@@ -2859,12 +2890,12 @@ function TableName(table, schema) {
     }
 
     if (!$npm.utils.isText(table)) {
-        throw new TypeError('Table name must be a non-empty text string.');
+        throw new TypeError("Table name must be a non-empty text string.");
     }
 
     if (!$npm.utils.isNull(schema)) {
         if (typeof schema !== 'string') {
-            throw new TypeError('Invalid schema name.');
+            throw new TypeError("Invalid schema name.");
         }
         if (schema.length > 0) {
             this.schema = schema;
@@ -3616,19 +3647,19 @@ function Column(col) {
     } else {
         if (col && typeof col === 'object' && 'name' in col) {
             if (!$npm.utils.isText(col.name)) {
-                throw new TypeError('Invalid \'name\' value: ' + JSON.stringify(col.name) + '. A non-empty string was expected.');
+                throw new TypeError("Invalid 'name' value: " + JSON.stringify(col.name) + ". A non-empty string was expected.");
             }
             if ($npm.utils.isNull(col.prop) && !isValidVariable(col.name)) {
-                throw new TypeError('Invalid \'name\' syntax: ' + JSON.stringify(col.name) + '. A valid variable name was expected.');
+                throw new TypeError("Invalid 'name' syntax: " + JSON.stringify(col.name) + ". A valid variable name was expected.");
             }
             this.name = col.name; // column name + property name (if 'prop' isn't specified)
 
             if (!$npm.utils.isNull(col.prop)) {
                 if (!$npm.utils.isText(col.prop)) {
-                    throw new TypeError('Invalid \'prop\' value: ' + JSON.stringify(col.prop) + '. A non-empty string was expected.');
+                    throw new TypeError("Invalid 'prop' value: " + JSON.stringify(col.prop) + ". A non-empty string was expected.");
                 }
                 if (!isValidVariable(col.prop)) {
-                    throw new TypeError('Invalid \'prop\' syntax: ' + JSON.stringify(col.prop) + '. A valid variable name was expected.');
+                    throw new TypeError("Invalid 'prop' syntax: " + JSON.stringify(col.prop) + ". A valid variable name was expected.");
                 }
                 if (col.prop !== col.name) {
                     // optional property name, if different from the column's name;
@@ -3637,7 +3668,7 @@ function Column(col) {
             }
             if (!$npm.utils.isNull(col.mod)) {
                 if (typeof col.mod !== 'string' || !isValidMod(col.mod)) {
-                    throw new TypeError('Invalid \'mod\' value: ' + JSON.stringify(col.mod) + '.');
+                    throw new TypeError("Invalid 'mod' value: " + JSON.stringify(col.mod) + ".");
                 }
                 this.mod = col.mod; // optional format modifier;
             }
@@ -3657,7 +3688,7 @@ function Column(col) {
                 this.skip = col.skip;
             }
         } else {
-            throw new TypeError('Invalid column details.');
+            throw new TypeError("Invalid column details.");
         }
     }
 
@@ -3690,7 +3721,7 @@ function parseCast(name) {
             return s;
         }
     }
-    throw new TypeError('Invalid \'cast\' value: ' + JSON.stringify(name) + '.');
+    throw new TypeError("Invalid 'cast' value: " + JSON.stringify(name) + ".");
 }
 
 function parseColumn(name) {
@@ -3710,7 +3741,7 @@ function parseColumn(name) {
         }
         return res;
     }
-    throw new TypeError('Invalid column syntax: ' + JSON.stringify(name) + '.');
+    throw new TypeError("Invalid column syntax: " + JSON.stringify(name) + ".");
 }
 
 function isValidMod(mod) {
@@ -3957,7 +3988,7 @@ function $query(ctx, query, values, qrm, config) {
         params = pgFormatting ? values : undefined;
 
     if (!query) {
-        error = new TypeError('Empty or undefined query.');
+        error = new TypeError("Empty or undefined query.");
     }
 
     if (!error && typeof query === 'object') {
@@ -3996,7 +4027,7 @@ function $query(ctx, query, values, qrm, config) {
 
     if (!error) {
         if (!pgFormatting && !$npm.utils.isText(query)) {
-            error = new TypeError(isFunc ? 'Invalid function name.' : 'Invalid query format.');
+            error = new TypeError(isFunc ? "Invalid function name." : "Invalid query format.");
         }
         if (query instanceof ExternalQuery) {
             var qp = query.parse();
@@ -4013,7 +4044,7 @@ function $query(ctx, query, values, qrm, config) {
             qrm = $npm.result.any; // default query result;
         } else {
             if (qrm !== parseInt(qrm) || (qrm & badMask) === badMask || qrm < 1 || qrm > 6) {
-                error = new TypeError('Invalid Query Result Mask specified.');
+                error = new TypeError("Invalid Query Result Mask specified.");
             }
         }
     }
@@ -4036,7 +4067,7 @@ function $query(ctx, query, values, qrm, config) {
         }
     }
 
-    return $p((resolve, reject) => {
+    return $p(function (resolve, reject) {
 
         if (notifyReject()) {
             return;
@@ -4047,7 +4078,7 @@ function $query(ctx, query, values, qrm, config) {
         }
         var start = Date.now();
         try {
-            ctx.db.client.query(query, params, (err, result) => {
+            ctx.db.client.query(query, params, function (err, result) {
                 var data;
                 if (!err) {
                     $npm.utils.addReadProp(result, 'duration', Date.now() - start);
@@ -4110,7 +4141,7 @@ function $query(ctx, query, values, qrm, config) {
             if (ctx.db) {
                 client = ctx.db.client;
             } else {
-                error = new Error('Loose request outside an expired connection.');
+                error = new Error("Loose request outside an expired connection.");
             }
             return {
                 client: client,
@@ -4137,7 +4168,7 @@ function $query(ctx, query, values, qrm, config) {
     });
 }
 
-module.exports = config => {
+module.exports = function (config) {
     return function (ctx, query, values, qrm) {
         return $query.call(this, ctx, query, values, qrm, config);
     };
@@ -4260,7 +4291,7 @@ Object.freeze(isolationLevel);
  * myTransaction.txMode = tmSRD; // assign transaction mode;
  *
  * db.tx(myTransaction)
- *     .then(() => {
+ *     .then(function() {
  *         // success;
  *     });
  *
@@ -4324,7 +4355,7 @@ function TransactionMode(tiLevel, readOnly, deferrable) {
 
     capBegin = begin.toUpperCase();
 
-    this.begin = cap => {
+    this.begin = function (cap) {
         return cap ? capBegin : begin;
     };
 }
@@ -5386,31 +5417,31 @@ module.exports = {
 	"_args": [
 		[
 			{
-				"raw": "pg-promise@^5.6.0",
+				"raw": "pg-promise",
 				"scope": null,
 				"escapedName": "pg-promise",
 				"name": "pg-promise",
-				"rawSpec": "^5.6.0",
-				"spec": ">=5.6.0 <6.0.0",
-				"type": "range"
+				"rawSpec": "",
+				"spec": "latest",
+				"type": "tag"
 			},
 			"/home/neil/DevGit/zf2dbmodelgen/modgen"
 		]
 	],
-	"_from": "pg-promise@>=5.6.0 <6.0.0",
-	"_id": "pg-promise@5.6.2",
+	"_from": "pg-promise@latest",
+	"_id": "pg-promise@5.6.0",
 	"_inCache": true,
 	"_location": "/pg-promise",
-	"_nodeVersion": "7.6.0",
+	"_nodeVersion": "4.7.1",
 	"_npmOperationalInternal": {
 		"host": "packages-18-east.internal.npmjs.com",
-		"tmp": "tmp/pg-promise-5.6.2.tgz_1488139788158_0.16624677297659218"
+		"tmp": "tmp/pg-promise-5.6.0.tgz_1488031568113_0.2753716658335179"
 	},
 	"_npmUser": {
 		"name": "vitaly.tomilov",
 		"email": "vitaly.tomilov@gmail.com"
 	},
-	"_npmVersion": "4.1.2",
+	"_npmVersion": "2.15.11",
 	"_phantomChildren": {
 		"buffer-writer": "1.0.1",
 		"generic-pool": "2.4.2",
@@ -5421,21 +5452,22 @@ module.exports = {
 		"split": "1.0.0"
 	},
 	"_requested": {
-		"raw": "pg-promise@^5.6.0",
+		"raw": "pg-promise",
 		"scope": null,
 		"escapedName": "pg-promise",
 		"name": "pg-promise",
-		"rawSpec": "^5.6.0",
-		"spec": ">=5.6.0 <6.0.0",
-		"type": "range"
+		"rawSpec": "",
+		"spec": "latest",
+		"type": "tag"
 	},
 	"_requiredBy": [
+		"#USER",
 		"/"
 	],
-	"_resolved": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.2.tgz",
-	"_shasum": "bdceb2936af10df5810600481e16955f12f32bb9",
+	"_resolved": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.0.tgz",
+	"_shasum": "ff5a482cb6764a508ad0a8b7c81dae1adfee4d1d",
 	"_shrinkwrap": null,
-	"_spec": "pg-promise@^5.6.0",
+	"_spec": "pg-promise",
 	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen",
 	"author": {
 		"name": "Vitaly Tomilov",
@@ -5457,7 +5489,6 @@ module.exports = {
 		"JSONStream": "1.x",
 		"bluebird": "3.x",
 		"coveralls": "2.x",
-		"eslint": "3.x",
 		"istanbul": "0.4",
 		"jasmine-node": "1.x",
 		"jsdoc": "3.x",
@@ -5466,8 +5497,8 @@ module.exports = {
 	},
 	"directories": {},
 	"dist": {
-		"shasum": "bdceb2936af10df5810600481e16955f12f32bb9",
-		"tarball": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.2.tgz"
+		"shasum": "ff5a482cb6764a508ad0a8b7c81dae1adfee4d1d",
+		"tarball": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.0.tgz"
 	},
 	"engines": {
 		"node": ">=4.0",
@@ -5477,7 +5508,7 @@ module.exports = {
 		"lib",
 		"typescript"
 	],
-	"gitHead": "4798828dd674321e961e9aabb66964968663d3a1",
+	"gitHead": "e1e81fa19a7fba36f56d0cdf2bb101487842017e",
 	"homepage": "https://github.com/vitaly-t/pg-promise",
 	"keywords": [
 		"pg",
@@ -5502,13 +5533,12 @@ module.exports = {
 	"scripts": {
 		"coverage": "istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test",
 		"doc": "jsdoc -c ./jsdoc/jsDoc.json ./jsdoc/README.md",
-		"lint": "eslint ./lib",
 		"test": "jasmine-node test",
 		"test-native": "jasmine-node test --config PG_NATIVE true",
-		"travis": "npm run lint && istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
+		"travis": "istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
 	},
 	"typings": "typescript/pg-promise.d.ts",
-	"version": "5.6.2"
+	"version": "5.6.0"
 };
 
 /***/ }),
@@ -6153,7 +6183,8 @@ class Cycle {
             ["${created}", this._confService.getDateCreated()],
             ["${author}", this._confService.getAuthor()]
         ]);
-        xTable.getFile();
+        let xFile = xTable.getFile();
+        let ff = eval('`' + xFile + '`');
     }
     doReplacements(_columns) {
         let xTable = new replace_1.Replace(this._confService.getFileroot() + 'XTable.php', [
@@ -7584,6 +7615,14 @@ class Replace {
         }
         catch (err) {
             console.log(err);
+        }
+    }
+    newReplace(_filestring) {
+        try {
+            // _filestring
+        }
+        catch (error) {
+            console.log("newReplace ::" + error);
         }
     }
     getFile() {
@@ -10671,18 +10710,18 @@ module.exports = {
 	"_args": [
 		[
 			{
-				"raw": "pg-native",
+				"raw": "pg-native@^1.10.0",
 				"scope": null,
 				"escapedName": "pg-native",
 				"name": "pg-native",
-				"rawSpec": "",
-				"spec": "latest",
-				"type": "tag"
+				"rawSpec": "^1.10.0",
+				"spec": ">=1.10.0 <2.0.0",
+				"type": "range"
 			},
 			"/home/neil/DevGit/zf2dbmodelgen/modgen"
 		]
 	],
-	"_from": "pg-native@latest",
+	"_from": "pg-native@>=1.10.0 <2.0.0",
 	"_id": "pg-native@1.10.0",
 	"_inCache": true,
 	"_location": "/pg-native",
@@ -10698,13 +10737,13 @@ module.exports = {
 		"string_decoder": "0.10.31"
 	},
 	"_requested": {
-		"raw": "pg-native",
+		"raw": "pg-native@^1.10.0",
 		"scope": null,
 		"escapedName": "pg-native",
 		"name": "pg-native",
-		"rawSpec": "",
-		"spec": "latest",
-		"type": "tag"
+		"rawSpec": "^1.10.0",
+		"spec": ">=1.10.0 <2.0.0",
+		"type": "range"
 	},
 	"_requiredBy": [
 		"#USER",
@@ -10713,7 +10752,7 @@ module.exports = {
 	"_resolved": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.0.tgz",
 	"_shasum": "abe299214afa2be51db5f5104e14770c738230fd",
 	"_shrinkwrap": null,
-	"_spec": "pg-native",
+	"_spec": "pg-native@^1.10.0",
 	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen",
 	"author": {
 		"name": "Brian M. Carlson"
@@ -10783,28 +10822,31 @@ module.exports = {
  * @author Vitaly Tomilov
  * @private
  */
-module.exports = config => {
+module.exports = function (config) {
 
     /////////////////////////////////
     // Generator-to-Promise adapter;
     //
     // Based on: https://www.promisejs.org/generators/#both
-    return generator => {
+    return function (generator) {
         var $p = config.promise;
         return function () {
             var g = generator.apply(this, arguments);
 
-            var handle = result => {
+            function handle(result) {
                 if (result.done) {
                     return $p.resolve(result.value);
                 }
                 return $p.resolve(result.value)
-                    .then(data => handle(g.next(data)))
-                    .catch(err => handle(g.throw(err)));
-            };
+                    .then(function (res) {
+                        return handle(g.next(res));
+                    }, function (err) {
+                        return handle(g.throw(err));
+                    });
+            }
 
             return handle(g.next());
-        };
+        }
     };
 
 };
@@ -10874,8 +10916,8 @@ var $npm = {
 };
 
 function poolConnect(ctx, config) {
-    return config.promise((resolve, reject) => {
-        config.pgp.pg.connect(ctx.cn, (err, client, done) => {
+    return config.promise(function (resolve, reject) {
+        config.pgp.pg.connect(ctx.cn, function (err, client, done) {
             if (err) {
                 $npm.events.error(ctx.options, err, {
                     cn: $npm.utils.getSafeConnection(ctx.cn),
@@ -10892,7 +10934,7 @@ function poolConnect(ctx, config) {
                 resolve({
                     isFresh: isFresh,
                     client: client,
-                    done: () => {
+                    done: function () {
                         client.end = end;
                         done();
                         $npm.events.disconnect(ctx, client);
@@ -10905,9 +10947,9 @@ function poolConnect(ctx, config) {
 }
 
 function directConnect(ctx, config) {
-    return config.promise((resolve, reject) => {
+    return config.promise(function (resolve, reject) {
         var client = new config.pgp.pg.Client(ctx.cn);
-        client.connect(err => {
+        client.connect(function (err) {
             if (err) {
                 $npm.events.error(ctx.options, err, {
                     cn: $npm.utils.getSafeConnection(ctx.cn),
@@ -10920,7 +10962,7 @@ function directConnect(ctx, config) {
                 resolve({
                     isFresh: true,
                     client: client,
-                    done: () => {
+                    done: function () {
                         client.end = end;
                         client.end();
                         $npm.events.disconnect(ctx, client);
@@ -10934,12 +10976,12 @@ function directConnect(ctx, config) {
 
 function lockClientEnd(client) {
     var end = client.end;
-    client.end = () => {
+    client.end = function () {
         // This call can happen only in the following two cases:
         // 1. the client made the call directly, against the library's documentation (invalid code)
         // 2. connection with the server broke while under heavy communications, and the connection
         //    pool is trying to terminate all clients forcefully.
-        $npm.con.error('Abnormal client.end() call, due to invalid code or failed server connection.\n%s\n',
+        $npm.con.error("Abnormal client.end() call, due to invalid code or failed server connection.\n%s\n",
             $npm.utils.getLocalStack(3));
         end.call(client);
     };
@@ -10953,10 +10995,16 @@ function setCtx(client, ctx) {
     });
 }
 
-module.exports = config => ({
-    pool: ctx => poolConnect(ctx, config),
-    direct: ctx => directConnect(ctx, config)
-});
+module.exports = function (config) {
+    return {
+        pool: function (ctx) {
+            return poolConnect(ctx, config);
+        },
+        direct: function (ctx) {
+            return directConnect(ctx, config);
+        }
+    };
+};
 
 
 /***/ }),
@@ -11112,7 +11160,7 @@ function Database(cn, dc, config) {
      * var sco; // shared connection object;
      *
      * db.connect()
-     *     .then(obj => {
+     *     .then(function (obj) {
      *         // obj.client = new connected Client object;
      *
      *         sco = obj; // save the connection object;
@@ -11120,13 +11168,13 @@ function Database(cn, dc, config) {
      *         // execute all the queries you need:
      *         return sco.any('SELECT * FROM Users');
      *     })
-     *     .then(data => {
+     *     .then(function (data) {
      *         // success
      *     })
-     *     .catch(error => {
+     *     .catch(function (error) {
      *         // error
      *     })
-     *     .finally(() => {
+     *     .finally(function () {
      *         // release the connection, if it was successful:
      *         if (sco) {
      *             sco.done();
@@ -11140,21 +11188,21 @@ function Database(cn, dc, config) {
             // Generic query method;
             query: function (query, values, qrm) {
                 if (!ctx.db) {
-                    throw new Error('Cannot execute a query on a disconnected client.');
+                    throw new Error("Cannot execute a query on a disconnected client.");
                 }
                 return config.$npm.query.call(this, ctx, query, values, qrm);
             },
             // Connection release method;
-            done: () => {
+            done: function () {
                 if (!ctx.db) {
-                    throw new Error('Cannot invoke done() on a disconnected client.');
+                    throw new Error("Cannot invoke done() on a disconnected client.");
                 }
                 ctx.disconnect();
             }
         };
         var method = (options && options.direct) ? 'direct' : 'pool';
         return config.$npm.connect[method](ctx)
-            .then(db => {
+            .then(function (db) {
                 ctx.connect(db);
                 self.client = db.client;
                 extend(ctx, self);
@@ -11199,15 +11247,15 @@ function Database(cn, dc, config) {
     this.query = function (query, values, qrm) {
         var self = this, ctx = createContext();
         return config.$npm.connect.pool(ctx)
-            .then(db => {
+            .then(function (db) {
                 ctx.connect(db);
                 return config.$npm.query.call(self, ctx, query, values, qrm);
             })
-            .then(data => {
+            .then(function (data) {
                 ctx.disconnect();
                 return data;
             })
-            .catch(error => {
+            .catch(function (error) {
                 ctx.disconnect();
                 return $p.reject(error);
             });
@@ -11239,7 +11287,7 @@ function Database(cn, dc, config) {
      * var resolvedPromise = $p.resolve('some data');
      * var rejectedPromise = $p.reject('some reason');
      *
-     * var newPromise = $p((resolve, reject) => {
+     * var newPromise = $p(function(resolve, reject) {
      *     // call either resolve(data) or reject(reason) here
      * });
      */
@@ -11253,7 +11301,7 @@ function Database(cn, dc, config) {
 
     function transform(value, cb, thisArg) {
         if (typeof cb === 'function') {
-            value = value.then(data => {
+            value = value.then(function (data) {
                 return cb.call(thisArg, data);
             });
         }
@@ -11716,8 +11764,8 @@ function Database(cn, dc, config) {
          *
          * ```js
          * db.any(query, values)
-         *     .then(data => {
-         *         return data.map((row, index, data) => {
+         *     .then(function(data) {
+         *         return data.map(function(row, index, data) {
          *              // return a new element
          *         });
          *     });
@@ -11811,7 +11859,7 @@ function Database(cn, dc, config) {
          */
         obj.map = function (query, values, cb, thisArg) {
             return obj.any.call(this, query, values)
-                .then(data => {
+                .then(function (data) {
                     var result = $arr.map(data, cb, thisArg);
                     $npm.utils.addReadProp(result, 'duration', data.duration, true);
                     return result;
@@ -11827,8 +11875,8 @@ function Database(cn, dc, config) {
          *
          * ```js
          * db.any(query, values)
-         *     .then(data => {
-         *         data.forEach((row, index, data) => {
+         *     .then(function(data) {
+         *         data.forEach(function(row, index, data) {
          *              // process the row
          *         });
          *         return data;
@@ -11892,7 +11940,7 @@ function Database(cn, dc, config) {
          */
         obj.each = function (query, values, cb, thisArg) {
             return obj.any.call(this, query, values)
-                .then(data => {
+                .then(function (data) {
                     $arr.forEach(data, cb, thisArg);
                     return data;
                 });
@@ -11933,7 +11981,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // using the regular callback syntax:
-         * db.task(t => {
+         * db.task(function(t) {
          *         // t = this
          *         // t.ctx = task context object
          *
@@ -11942,11 +11990,11 @@ function Database(cn, dc, config) {
          *                 return t.any('SELECT * FROM Events WHERE userId = $1', user.id);
          *             });
          *     })
-         *     .then(data => {
+         *     .then(function(data) {
          *         // success
          *         // data = as returned from the task's callback
          *     })
-         *     .catch(error => {
+         *     .catch(function(error) {
          *         // error
          *     });
          *
@@ -11979,11 +12027,11 @@ function Database(cn, dc, config) {
          *         let user = yield t.one('SELECT id FROM Users WHERE name = $1', 'John');
          *         return yield t.any('SELECT * FROM Events WHERE userId = $1', user.id);
          *     })
-         *     .then(data => {
+         *     .then(function(data) {
          *         // success
          *         // data = as returned from the task's callback
          *     })
-         *     .catch(error => {
+         *     .catch(function(error) {
          *         // error
          *     });
          *
@@ -12032,7 +12080,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // using the regular callback syntax:
-         * db.tx(t => {
+         * db.tx(function(t) {
          *         // t = this
          *         // t.ctx = transaction context object
          *
@@ -12041,11 +12089,11 @@ function Database(cn, dc, config) {
          *                 return t.none('INSERT INTO Events(userId, name) VALUES($1, $2)', [user.id, 'created']);
          *             });
          *     })
-         *     .then(data => {
+         *     .then(function(data) {
          *         // success
          *         // data = as returned from the transaction's callback
          *     })
-         *     .catch(error => {
+         *     .catch(function(error) {
          *         // error
          *     });
          *
@@ -12081,11 +12129,11 @@ function Database(cn, dc, config) {
          *         let user = yield t.one('INSERT INTO Users(name, age) VALUES($1, $2) RETURNING id', ['Mike', 25]);
          *         return yield t.none('INSERT INTO Events(userId, name) VALUES($1, $2)', [user.id, 'created']);
          *     })
-         *     .then(data => {
+         *     .then(function(data) {
          *         // success
          *         // data = as returned from the transaction's callback
          *     })
-         *     .catch(error => {
+         *     .catch(function(error) {
          *         // error
          *     });
          *
@@ -12121,7 +12169,7 @@ function Database(cn, dc, config) {
             var cb = taskCtx.cb;
 
             if (typeof cb !== 'function') {
-                return $p.reject(new TypeError('Callback function is required for the ' + (isTX ? 'transaction.' : 'task.')));
+                return $p.reject(new TypeError("Callback function is required for the " + (isTX ? "transaction." : "task.")));
             }
 
             if (tag === undefined) {
@@ -12147,16 +12195,16 @@ function Database(cn, dc, config) {
 
             // connection required;
             return config.$npm.connect.pool(taskCtx)
-                .then(db => {
+                .then(function (db) {
                     taskCtx.connect(db);
                     $npm.utils.addReadProp(tsk.ctx, 'isFresh', db.isFresh);
                     return config.$npm.task.exec(taskCtx, tsk, isTX, config);
                 })
-                .then(data => {
+                .then(function (data) {
                     taskCtx.disconnect();
                     return data;
                 })
-                .catch(error => {
+                .catch(function (error) {
                     taskCtx.disconnect();
                     return $p.reject(error);
                 });
@@ -12181,7 +12229,7 @@ function checkForDuplicates(cn, config) {
     var cnKey = normalizeConnection(cn);
     if (cnKey in dbObjects) {
         if (!config.options.noWarnings) {
-            $npm.con.warn('WARNING: Creating a duplicate database object for the same connection.\n%s\n',
+            $npm.con.warn("WARNING: Creating a duplicate database object for the same connection.\n%s\n",
                 $npm.utils.getLocalStack(5));
         }
     } else {
@@ -12198,7 +12246,7 @@ function checkForDuplicates(cn, config) {
 function normalizeConnection(cn) {
     if (typeof cn === 'object') {
         var obj = {}, keys = Object.keys(cn).sort();
-        $arr.forEach(keys, name => {
+        $arr.forEach(keys, function (name) {
             obj[name] = cn[name];
         });
         cn = obj;
@@ -12233,7 +12281,7 @@ function onError(err, client) {
     });
 }
 
-module.exports = config => {
+module.exports = function (config) {
     var npm = config.$npm;
     npm.connect = npm.connect || $npm.connect(config);
     npm.query = npm.query || $npm.query(config);
@@ -12257,15 +12305,15 @@ module.exports = config => {
  * // to format queries properly, via pg-promise;
  * var qs = new QueryStream('select * from users');
  *
- * db.stream(qs, stream => {
+ * db.stream(qs, function (stream) {
  *         // initiate streaming into the console:
  *         stream.pipe(JSONStream.stringify()).pipe(process.stdout);
  *     })
- *     .then(data => {
+ *     .then(function (data) {
  *         console.log("Total rows processed:", data.processed,
  *           "Duration in milliseconds:", data.duration);
  *     })
- *     .catch(error => {
+ *     .catch(function (error) {
  *         // error;
  *     });
  */
@@ -12323,7 +12371,7 @@ function ParameterizedQueryError(error, ps) {
     this.stack = temp.stack;
     if (error instanceof $npm.QueryFileError) {
         this.error = error;
-        this.message = 'Failed to initialize \'text\' from a QueryFile.';
+        this.message = "Failed to initialize 'text' from a QueryFile.";
     } else {
         this.message = error;
     }
@@ -12424,7 +12472,7 @@ function PreparedStatementError(error, ps) {
     this.stack = temp.stack;
     if (error instanceof $npm.QueryFileError) {
         this.error = error;
-        this.message = 'Failed to initialize \'text\' from a QueryFile.';
+        this.message = "Failed to initialize 'text' from a QueryFile.";
     } else {
         this.message = error;
     }
@@ -12516,9 +12564,9 @@ var queryResultErrorCode = {
 Object.freeze(queryResultErrorCode);
 
 var errorMessages = [
-    {name: 'noData', message: 'No data returned from the query.'},
-    {name: 'notEmpty', message: 'No return data was expected.'},
-    {name: 'multiple', message: 'Multiple rows were not expected.'}
+    {name: "noData", message: "No data returned from the query."},
+    {name: "notEmpty", message: "No return data was expected."},
+    {name: "multiple", message: "Multiple rows were not expected."}
 ];
 
 /**
@@ -12579,7 +12627,7 @@ var errorMessages = [
  *
  *   // pg-promise initialization options...
  *
- *   error: (err, e) => {
+ *   error: function (err, e) {
  *       if (err instanceof QueryResultError) {
  *           // A query returned unexpected number of records, and thus rejected;
  *           
@@ -12663,6 +12711,7 @@ module.exports = {
 };
 
 
+
 /***/ }),
 /* 78 */
 /***/ (function(module, exports, __webpack_require__) {
@@ -12714,13 +12763,13 @@ var $npm = {
  * @property {function} concat
  * {@link helpers.concat concat} static method.
  */
-module.exports = config => {
+module.exports = function (config) {
     var res = {
-        insert: (data, columns, table) => {
+        insert: function (data, columns, table) {
             var capSQL = config.options && config.options.capSQL;
             return $npm.insert(data, columns, table, capSQL);
         },
-        update: (data, columns, table, options) => {
+        update: function (data, columns, table, options) {
             var capSQL = config.options && config.options.capSQL;
             return $npm.update(data, columns, table, options, capSQL);
         },
@@ -12788,9 +12837,9 @@ var $arr = __webpack_require__(6);
  */
 function concat(queries) {
     if (!Array.isArray(queries)) {
-        throw new TypeError('Parameter \'queries\' must be an array.');
+        throw new TypeError("Parameter 'queries' must be an array.");
     }
-    var all = $arr.map(queries, (q, index) => {
+    var all = $arr.map(queries, function (q, index) {
         if (typeof q === 'string') {
             // a simple query string without parameters:
             return clean(q);
@@ -12808,7 +12857,9 @@ function concat(queries) {
         throw new Error('Invalid query element at index ' + index + '.');
     });
 
-    return $arr.filter(all, q => q).join(';');
+    return $arr.filter(all, function (q) {
+        return q;
+    }).join(';');
 }
 
 function clean(q) {
@@ -12929,13 +12980,13 @@ var $arr = __webpack_require__(6);
 function insert(data, columns, table, capSQL) {
 
     if (!data || typeof data !== 'object') {
-        throw new TypeError('Invalid parameter \'data\' specified.');
+        throw new TypeError("Invalid parameter 'data' specified.");
     }
 
     var isArray = Array.isArray(data);
 
     if (isArray && !data.length) {
-        throw new TypeError('Cannot generate an INSERT from an empty array.');
+        throw new TypeError("Cannot generate an INSERT from an empty array.");
     }
 
     if (columns instanceof $npm.ColumnSet) {
@@ -12944,17 +12995,17 @@ function insert(data, columns, table, capSQL) {
         }
     } else {
         if (isArray && $npm.utils.isNull(columns)) {
-            throw new TypeError('Parameter \'columns\' is required when inserting multiple records.');
+            throw new TypeError("Parameter 'columns' is required when inserting multiple records.");
         }
         columns = new $npm.ColumnSet(columns || data);
     }
 
     if (!columns.columns.length) {
-        throw new Error('Cannot generate an INSERT without any columns.');
+        throw new Error("Cannot generate an INSERT without any columns.");
     }
 
     if (!table) {
-        throw new Error('Table name is unknown.');
+        throw new Error("Table name is unknown.");
     }
 
     if (!(table instanceof $npm.TableName)) {
@@ -12967,9 +13018,9 @@ function insert(data, columns, table, capSQL) {
     query = format(query, [table.name, columns.names]);
 
     if (isArray) {
-        return query + $arr.map(data, (d, index) => {
+        return query + $arr.map(data, function (d, index) {
                 if (!d || typeof d !== 'object') {
-                    throw new Error('Invalid insert object at index ' + index + '.');
+                    throw new Error("Invalid insert object at index " + index + ".");
                 }
                 return '(' + format(columns.variables, columns.prepare(d)) + ')';
             }).join();
@@ -12978,8 +13029,8 @@ function insert(data, columns, table, capSQL) {
 }
 
 var sql = {
-    lowCase: 'insert into $1^($2^) values',
-    capCase: 'INSERT INTO $1^($2^) VALUES'
+    lowCase: "insert into $1^($2^) values",
+    capCase: "INSERT INTO $1^($2^) VALUES"
 };
 
 module.exports = insert;
@@ -13051,7 +13102,7 @@ var $npm = {
 function sets(data, columns) {
 
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        throw new TypeError('Invalid parameter \'data\' specified.');
+        throw new TypeError("Invalid parameter 'data' specified.");
     }
 
     if (!(columns instanceof $npm.ColumnSet)) {
@@ -13187,13 +13238,13 @@ var $arr = __webpack_require__(6);
 function update(data, columns, table, options, capSQL) {
 
     if (!data || typeof data !== 'object') {
-        throw new TypeError('Invalid parameter \'data\' specified.');
+        throw new TypeError("Invalid parameter 'data' specified.");
     }
 
     var isArray = Array.isArray(data);
 
     if (isArray && !data.length) {
-        throw new TypeError('Cannot generate an UPDATE from an empty array.');
+        throw new TypeError("Cannot generate an UPDATE from an empty array.");
     }
 
     if (columns instanceof $npm.ColumnSet) {
@@ -13202,7 +13253,7 @@ function update(data, columns, table, options, capSQL) {
         }
     } else {
         if (isArray && $npm.utils.isNull(columns)) {
-            throw new TypeError('Parameter \'columns\' is required when updating multiple records.');
+            throw new TypeError("Parameter 'columns' is required when updating multiple records.");
         }
         columns = new $npm.ColumnSet(columns || data);
     }
@@ -13220,23 +13271,27 @@ function update(data, columns, table, options, capSQL) {
             }
         }
 
-        var q = capSQL ? sql.multi.capCase : sql.multi.lowCase;
+        var query = capSQL ? sql.multi.capCase : sql.multi.lowCase;
 
-        var actualColumns = $arr.filter(columns.columns, c => !c.cnd);
+        var actualColumns = $arr.filter(columns.columns, function (c) {
+            return !c.cnd;
+        });
 
         checkColumns(actualColumns);
         checkTable();
 
-        var targetCols = $arr.map(actualColumns, c => c.escapedName + '=' + valueAlias + '.' + c.escapedName).join();
+        var targetCols = $arr.map(actualColumns, function (c) {
+            return c.escapedName + '=' + valueAlias + '.' + c.escapedName;
+        }).join();
 
-        var values = $arr.map(data, (d, index) => {
+        var values = $arr.map(data, function (d, index) {
             if (!d || typeof d !== 'object') {
-                throw new Error('Invalid update object at index ' + index + '.');
+                throw new Error("Invalid update object at index " + index + ".");
             }
             return '(' + format(columns.variables, columns.prepare(d)) + ')';
         }).join();
 
-        return format(q, [table.name, tableAlias, targetCols, values, valueAlias, columns.names]);
+        return format(query, [table.name, tableAlias, targetCols, values, valueAlias, columns.names]);
     }
 
     var updates = columns.assign(data);
@@ -13253,25 +13308,25 @@ function update(data, columns, table, options, capSQL) {
             table = new $npm.TableName(table);
         }
         if (!table) {
-            throw new Error('Table name is unknown.');
+            throw new Error("Table name is unknown.");
         }
     }
 
     function checkColumns(cols) {
         if (!cols.length) {
-            throw new Error('Cannot generate an UPDATE without any columns.');
+            throw new Error("Cannot generate an UPDATE without any columns.");
         }
     }
 }
 
 var sql = {
     single: {
-        lowCase: 'update $1^ set ',
-        capCase: 'UPDATE $1^ SET '
+        lowCase: "update $1^ set ",
+        capCase: "UPDATE $1^ SET "
     },
     multi: {
-        lowCase: 'update $1^ as $2^ set $3^ from (values$4^) as $5^($6^)',
-        capCase: 'UPDATE $1^ AS $2^ SET $3^ FROM (VALUES$4^) AS $5^($6^)'
+        lowCase: "update $1^ as $2^ set $3^ from (values$4^) as $5^($6^)",
+        capCase: "UPDATE $1^ AS $2^ SET $3^ FROM (VALUES$4^) AS $5^($6^)"
     }
 };
 
@@ -13361,28 +13416,28 @@ var $arr = __webpack_require__(6);
 function values(data, columns) {
 
     if (!data || typeof data !== 'object') {
-        throw new TypeError('Invalid parameter \'data\' specified.');
+        throw new TypeError("Invalid parameter 'data' specified.");
     }
 
     var isArray = Array.isArray(data);
 
     if (!(columns instanceof $npm.ColumnSet)) {
         if (isArray && $npm.utils.isNull(columns)) {
-            throw new TypeError('Parameter \'columns\' is required when generating multi-row values.');
+            throw new TypeError("Parameter 'columns' is required when generating multi-row values.");
         }
         columns = new $npm.ColumnSet(columns || data);
     }
 
     if (!columns.columns.length) {
-        throw new Error('Cannot generate values without any columns.');
+        throw new Error("Cannot generate values without any columns.");
     }
 
     var format = $npm.formatting.as.format;
 
     if (isArray) {
-        return $arr.map(data, (d, index) => {
+        return $arr.map(data, function (d, index) {
             if (!d || typeof d !== 'object') {
-                throw new Error('Invalid object at index ' + index + '.');
+                throw new Error("Invalid object at index " + index + ".");
             }
             return '(' + format(columns.variables, columns.prepare(d)) + ')';
         }).join();
@@ -13527,7 +13582,7 @@ function $main(options) {
         options = {};
     } else {
         if (typeof options !== 'object') {
-            throw new TypeError('Invalid initialization options.');
+            throw new TypeError("Invalid initialization options.");
         }
 
         // list of supported initialization options:
@@ -13537,7 +13592,7 @@ function $main(options) {
         if (!options.noWarnings) {
             for (var prop in options) {
                 if (validOptions.indexOf(prop) === -1) {
-                    $npm.con.warn('WARNING: Invalid property \'%s\' in initialization options.\n%s\n', prop, $npm.utils.getLocalStack(3));
+                    $npm.con.warn("WARNING: Invalid property '%s' in initialization options.\n%s\n", prop, $npm.utils.getLocalStack(3));
                     break;
                 }
             }
@@ -13565,17 +13620,17 @@ function $main(options) {
     if (options.pgNative) {
         pg = $npm.pg.native;
         if ($npm.utils.isNull(pg)) {
-            throw new Error('Failed to initialize Native Bindings.');
+            throw new Error("Failed to initialize Native Bindings.");
         }
     }
 
     var Database = __webpack_require__(74)(config);
 
-    var inst = (cn, dc) => {
+    var inst = function (cn, dc) {
         if ($npm.utils.isText(cn) || (cn && typeof cn === 'object')) {
             return new Database(cn, dc, config);
         }
-        throw new TypeError('Invalid connection details.');
+        throw new TypeError("Invalid connection details.");
     };
 
     $npm.utils.addReadProperties(inst, rootNameSpace);
@@ -13600,7 +13655,7 @@ function $main(options) {
      *
      * Available as `pgp.end`, after initializing the library.
      */
-    $npm.utils.addReadProp(inst, 'end', () => {
+    $npm.utils.addReadProp(inst, 'end', function () {
         pg.end();
     });
 
@@ -13808,7 +13863,7 @@ function parsePromiseLib(pl) {
         }
     }
 
-    throw new TypeError('Invalid promise library specified.');
+    throw new TypeError("Invalid promise library specified.");
 }
 
 function init(promiseLib) {
@@ -13849,19 +13904,19 @@ function $stream(ctx, qs, initCB, config) {
     // istanbul ignore next:
     // we do not provide code coverage for the Native Bindings specifics
     if (ctx.options.pgNative) {
-        return $p.reject(new Error('Streaming doesn\'t work with Native Bindings.'));
+        return $p.reject(new Error("Streaming doesn't work with Native Bindings."));
     }
     if (!$npm.utils.isObject(qs, ['state', '_reading'])) {
         // stream object wasn't passed in correctly;
-        return $p.reject(new TypeError('Invalid or missing stream object.'));
+        return $p.reject(new TypeError("Invalid or missing stream object."));
     }
     if (qs._reading || qs.state !== 'initialized') {
         // stream object is in the wrong state;
-        return $p.reject(new Error('Invalid stream state.'));
+        return $p.reject(new Error("Invalid stream state."));
     }
     if (typeof initCB !== 'function') {
         // parameter `initCB` must be passed as the initialization callback;
-        return $p.reject(new TypeError('Invalid or missing stream initialization callback.'));
+        return $p.reject(new TypeError("Invalid or missing stream initialization callback."));
     }
     var error = $npm.events.query(ctx.options, getContext());
     if (error) {
@@ -13873,8 +13928,8 @@ function $stream(ctx, qs, initCB, config) {
     try {
         stream = ctx.db.client.query(qs);
         fetch = stream._fetch;
-        stream._fetch = (size, func) => {
-            fetch.call(stream, size, (err, rows) => {
+        stream._fetch = function (size, func) {
+            fetch.call(stream, size, function (err, rows) {
                 if (!err && rows.length) {
                     nRows += rows.length;
                     var context = getContext();
@@ -13900,8 +13955,8 @@ function $stream(ctx, qs, initCB, config) {
         $npm.events.error(ctx.options, error, getContext());
         return $p.reject(error);
     }
-    return $p((resolve, reject) => {
-        stream.once('end', () => {
+    return $p(function (resolve, reject) {
+        stream.once('end', function () {
             stream._fetch = fetch;
             if (error) {
                 onError(error);
@@ -13912,7 +13967,7 @@ function $stream(ctx, qs, initCB, config) {
                 });
             }
         });
-        stream.once('error', err => {
+        stream.once('error', function (err) {
             stream._fetch = fetch;
             onError(err);
         });
@@ -13932,7 +13987,7 @@ function $stream(ctx, qs, initCB, config) {
         if (ctx.db) {
             client = ctx.db.client;
         } else {
-            error = new Error('Loose request outside an expired connection.');
+            error = new Error("Loose request outside an expired connection.");
         }
         return {
             client: client,
@@ -13985,18 +14040,18 @@ var $npm = {
  * {@link Task.page page}
  *
  * @example
- * db.task(t => {
- *       // t = task protocol context;
- *       // t.ctx = task config + state context;
+ * db.task(function (t) {
+ *       // this = t = task protocol context;
+ *       // this.ctx = task config + state context;
  *       return t.one("select * from users where id=$1", 123)
- *           .then(user => {
+ *           .then(function (user) {
  *               return t.any("select * from events where login=$1", user.name);
  *           });
  *   })
- * .then(events => {
+ * .then(function (events) {
  *       // success;
  *   })
- * .catch(error => {
+ * .catch(function (error) {
  *       // error;
  *   });
  *
@@ -14022,6 +14077,7 @@ function Task(ctx, tag, isTX, config) {
      *
      * Properties `context`, `dc`, `isTX`, `tag`, `start` and `isFresh` are set before the callback,
      * while properties `finish`, `success` and `result` are set after the callback has returned.
+     *
      *
      * @property {object} context
      * If the operation was invoked with an object context - `task.call(obj,...)` or
@@ -14069,7 +14125,7 @@ function Task(ctx, tag, isTX, config) {
     // generic query method;
     this.query = function (query, values, qrm) {
         if (!ctx.db) {
-            throw new Error('Unexpected call outside of ' + (isTX ? 'transaction.' : 'task.'));
+            throw new Error("Unexpected call outside of " + (isTX ? "transaction." : "task."));
         }
         return config.$npm.query.call(this, ctx, query, values, qrm);
     };
@@ -14129,7 +14185,7 @@ function Task(ctx, tag, isTX, config) {
 
 //////////////////////////
 // Executes a task;
-Task.exec = (ctx, obj, isTX, config) => {
+Task.exec = function (ctx, obj, isTX, config) {
 
     var $p = config.promise;
 
@@ -14181,19 +14237,19 @@ Task.exec = (ctx, obj, isTX, config) => {
 
     if (isTX) {
         // executing a transaction;
-        spName = 'level_' + ctx.txLevel;
+        spName = "level_" + ctx.txLevel;
         return begin()
-            .then(() => {
+            .then(function () {
                     return callback()
-                        .then(data => {
+                        .then(function (data) {
                             cbData = data; // save callback data;
                             success = true;
                             return commit();
-                        }, reason => {
+                        }, function (reason) {
                             cbReason = reason; // save callback failure reason;
                             return rollback();
                         })
-                        .then(() => {
+                        .then(function () {
                                 if (success) {
                                     update(false, true, cbData);
                                     return cbData;
@@ -14241,18 +14297,18 @@ Task.exec = (ctx, obj, isTX, config) => {
 
     // executing a task;
     return callback()
-        .then(data => {
+        .then(function (data) {
             update(false, true, data);
             return data;
         })
-        .catch(error => {
+        .catch(function (error) {
             update(false, false, error);
             return $p.reject(error);
         });
 
 };
 
-module.exports = config => {
+module.exports = function (config) {
     var npm = config.$npm;
 
     // istanbul ignore next:
@@ -14392,8 +14448,10 @@ function ParameterizedQuery(text, values) {
      * A non-empty query string or a {@link QueryFile} object.
      */
     Object.defineProperty(this, 'text', {
-        get: () => state.text,
-        set: value => {
+        get: function () {
+            return state.text;
+        },
+        set: function (value) {
             if (value !== state.text) {
                 state.text = value;
                 changed = true;
@@ -14413,8 +14471,10 @@ function ParameterizedQuery(text, values) {
      *   is then automatically wrapped into an array
      */
     Object.defineProperty(this, 'values', {
-        get: () => PQ.values,
-        set: value => {
+        get: function () {
+            return PQ.values;
+        },
+        set: function (value) {
             setValues(value);
         }
     });
@@ -14429,8 +14489,10 @@ function ParameterizedQuery(text, values) {
      * @see {@link http://www.postgresql.org/docs/devel/static/protocol-flow.html#PROTOCOL-FLOW-EXT-QUERY Extended Query}
      */
     Object.defineProperty(this, 'binary', {
-        get: () => state.binary,
-        set: value => {
+        get: function () {
+            return state.binary;
+        },
+        set: function (value) {
             if (value !== state.binary) {
                 state.binary = value;
                 changed = true;
@@ -14448,8 +14510,10 @@ function ParameterizedQuery(text, values) {
      *    By default, rows arrive as objects.
      */
     Object.defineProperty(this, 'rowMode', {
-        get: () => state.rowMode,
-        set: value => {
+        get: function () {
+            return state.rowMode;
+        },
+        set: function (value) {
             if (value !== state.rowMode) {
                 state.rowMode = value;
                 changed = true;
@@ -14468,7 +14532,9 @@ function ParameterizedQuery(text, values) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'error', {
-        get: () => currentError
+        get: function () {
+            return currentError;
+        }
     });
 
     if ($npm.utils.isObject(text, ['text'])) {
@@ -14488,7 +14554,7 @@ function ParameterizedQuery(text, values) {
      *
      * @returns {{text, values}|errors.ParameterizedQueryError}
      */
-    this.parse = () => {
+    this.parse = function () {
 
         var qf = state.text instanceof $npm.QueryFile ? state.text : null;
 
@@ -14515,7 +14581,7 @@ function ParameterizedQuery(text, values) {
             PQ.text = state.text;
         }
         if (!$npm.utils.isText(PQ.text)) {
-            errors.push('Property \'text\' must be a non-empty text string.');
+            errors.push("Property 'text' must be a non-empty text string.");
         }
 
         if (!$npm.utils.isNull(values)) {
@@ -14714,8 +14780,10 @@ function PreparedStatement(name, text, values) {
      * subsequently used to execute or deallocate a previously prepared statement.
      */
     Object.defineProperty(this, 'name', {
-        get: () => state.name,
-        set: value => {
+        get: function () {
+            return state.name;
+        },
+        set: function (value) {
             if (value !== state.name) {
                 state.name = value;
                 changed = true;
@@ -14733,8 +14801,10 @@ function PreparedStatement(name, text, values) {
      * for Prepared Statements are cached, with {@link PreparedStatement#name name} being the cache key.
      */
     Object.defineProperty(this, 'text', {
-        get: () => state.text,
-        set: value => {
+        get: function () {
+            return state.text;
+        },
+        set: function (value) {
             if (value !== state.text) {
                 state.text = value;
                 changed = true;
@@ -14754,8 +14824,10 @@ function PreparedStatement(name, text, values) {
      *   is then automatically wrapped into an array
      */
     Object.defineProperty(this, 'values', {
-        get: () => PS.values,
-        set: value => {
+        get: function () {
+            return PS.values;
+        },
+        set: function (value) {
             setValues(value);
         }
     });
@@ -14770,8 +14842,10 @@ function PreparedStatement(name, text, values) {
      * @see {@link http://www.postgresql.org/docs/devel/static/protocol-flow.html#PROTOCOL-FLOW-EXT-QUERY Extended Query}
      */
     Object.defineProperty(this, 'binary', {
-        get: () => state.binary,
-        set: value => {
+        get: function () {
+            return state.binary;
+        },
+        set: function (value) {
             if (value !== state.binary) {
                 state.binary = value;
                 changed = true;
@@ -14789,8 +14863,10 @@ function PreparedStatement(name, text, values) {
      *    By default, rows arrive as objects.
      */
     Object.defineProperty(this, 'rowMode', {
-        get: () => state.rowMode,
-        set: value => {
+        get: function () {
+            return state.rowMode;
+        },
+        set: function (value) {
             if (value !== state.rowMode) {
                 state.rowMode = value;
                 changed = true;
@@ -14806,8 +14882,10 @@ function PreparedStatement(name, text, values) {
      * The default is 0, which means that all rows must be returned at once.
      */
     Object.defineProperty(this, 'rows', {
-        get: () => state.rows,
-        set: value => {
+        get: function () {
+            return state.rows;
+        },
+        set: function (value) {
             if (value !== state.rows) {
                 state.rows = value;
                 changed = true;
@@ -14825,7 +14903,9 @@ function PreparedStatement(name, text, values) {
      * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'error', {
-        get: () => currentError
+        get: function () {
+            return currentError;
+        }
     });
 
     if ($npm.utils.isObject(name, ['name'])) {
@@ -14847,7 +14927,7 @@ function PreparedStatement(name, text, values) {
      *
      * @returns {{name, text, values}|errors.PreparedStatementError}
      */
-    this.parse = () => {
+    this.parse = function () {
 
         var qf = state.text instanceof $npm.QueryFile ? state.text : null;
 
@@ -14863,7 +14943,7 @@ function PreparedStatement(name, text, values) {
         currentError = undefined;
 
         if (!$npm.utils.isText(PS.name)) {
-            errors.push('Property \'name\' must be a non-empty text string.');
+            errors.push("Property 'name' must be a non-empty text string.");
         }
 
         if (qf) {
@@ -14878,7 +14958,7 @@ function PreparedStatement(name, text, values) {
             PS.text = state.text;
         }
         if (!$npm.utils.isText(PS.text)) {
-            errors.push('Property \'text\' must be a non-empty text string.');
+            errors.push("Property 'text' must be a non-empty text string.");
         }
 
         if (!$npm.utils.isNull(values)) {
@@ -14991,7 +15071,7 @@ var EOL = __webpack_require__(1).EOL;
  *
  */
 function camelize(text) {
-    text = text.replace(/[\-_\s\.]+(.)?/g, (match, chr) => {
+    text = text.replace(/[\-_\s\.]+(.)?/g, function (match, chr) {
         return chr ? chr.toUpperCase() : '';
     });
     return text.substr(0, 1).toLowerCase() + text.substr(1);
@@ -15026,7 +15106,7 @@ function camelizeVar(text) {
 
 function _enumSql(dir, options, cb, namePath) {
     var tree = {};
-    $npm.fs.readdirSync(dir).forEach(file => {
+    $npm.fs.readdirSync(dir).forEach(function (file) {
         var stat, fullPath = $npm.path.join(dir, file);
         try {
             stat = $npm.fs.statSync(fullPath);
@@ -15048,7 +15128,7 @@ function _enumSql(dir, options, cb, namePath) {
                 if (Object.keys(t).length) {
                     if (!dirName.length || dirName in tree) {
                         if (!options.ignoreErrors) {
-                            throw new Error('Empty or duplicate camelized folder name: ' + fullPath);
+                            throw new Error("Empty or duplicate camelized folder name: " + fullPath);
                         }
                     }
                     tree[dirName] = t;
@@ -15059,7 +15139,7 @@ function _enumSql(dir, options, cb, namePath) {
                 var name = camelizeVar(file.replace(/\.[^/.]+$/, ''));
                 if (!name.length || name in tree) {
                     if (!options.ignoreErrors) {
-                        throw new Error('Empty or duplicate camelized file name: ' + fullPath);
+                        throw new Error("Empty or duplicate camelized file name: " + fullPath);
                     }
                 }
                 tree[name] = fullPath;
@@ -15143,7 +15223,7 @@ function _enumSql(dir, options, cb, namePath) {
  */
 function enumSql(dir, options, cb) {
     if (!$npm.utils.isText(dir)) {
-        throw new TypeError('Parameter \'dir\' must be a non-empty text string.');
+        throw new TypeError("Parameter 'dir' must be a non-empty text string.");
     }
     if (!options || typeof options !== 'object') {
         options = {};
@@ -15207,7 +15287,7 @@ function enumSql(dir, options, cb) {
  *
  * // generating the module's code:
  * var code = "var load = require('./loadSql');" + EOL + EOL + "module.exports = " +
- *         pgp.utils.objectToCode(tree, value => {
+ *         pgp.utils.objectToCode(tree, function (value) {
  *             return 'load(' + JSON.stringify(value) + ')';
  *         }) + ';';
  *
@@ -15250,7 +15330,7 @@ function enumSql(dir, options, cb) {
  *
  * var QueryFile = require('pg-promise').QueryFile;
  *
- * module.exports = file => {
+ * module.exports = function(file) {
  *     return new QueryFile(file, {minify: true});
  * };
  *
@@ -15258,7 +15338,7 @@ function enumSql(dir, options, cb) {
 function objectToCode(obj, cb) {
 
     if (!obj || typeof obj !== 'object') {
-        throw new TypeError('Parameter \'obj\' must be a non-null object.');
+        throw new TypeError("Parameter 'obj' must be a non-null object.");
     }
 
     cb = (typeof cb === 'function') ? cb : null;
@@ -15395,7 +15475,7 @@ function buildSqlModule(config) {
             var defConfig = $npm.path.join($npm.utils.startDir, 'sql-config.json');
             // istanbul ignore else;
             if (!$npm.fs.existsSync(defConfig)) {
-                throw new Error('Default SQL configuration file not found: ' + defConfig);
+                throw new Error("Default SQL configuration file not found: " + defConfig);
             }
             // cannot test this automatically, because it requires that file 'sql-config.json'
             // resides within the Jasmine folder, since it is the client during the test.
@@ -15403,18 +15483,18 @@ function buildSqlModule(config) {
             config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND';; throw e; }());
         } else {
             if (!config || typeof config !== 'object') {
-                throw new TypeError('Invalid parameter \'config\' specified.');
+                throw new TypeError("Invalid parameter 'config' specified.");
             }
         }
     }
 
     if (!$npm.utils.isText(config.dir)) {
-        throw new Error('Property \'dir\' must be a non-empty string.');
+        throw new Error("Property 'dir' must be a non-empty string.");
     }
 
     var total = 0;
 
-    var tree = enumSql(config.dir, {recursive: config.recursive, ignoreErrors: config.ignoreErrors}, () => {
+    var tree = enumSql(config.dir, {recursive: config.recursive, ignoreErrors: config.ignoreErrors}, function () {
         total++;
     });
 
@@ -15431,28 +15511,28 @@ function buildSqlModule(config) {
     var d = new Date();
 
     var header =
-        '/////////////////////////////////////////////////////////////////////////' + EOL +
-        '// This file was automatically generated by pg-promise v.' + $npm.package.version + EOL +
-        '//' + EOL +
-        '// Generated on: ' + d.toLocaleDateString() + ', at ' + d.toLocaleTimeString() + EOL +
-        '// Total files: ' + total + EOL +
-        '//' + EOL +
-        '// API: http://vitaly-t.github.io/pg-promise/utils.html#.buildSqlModule' + EOL +
-        '/////////////////////////////////////////////////////////////////////////' + EOL + EOL +
-        '\'use strict\';' + EOL + EOL +
-        'var ' + moduleName + ' = require(\'' + modulePath + '\');' + EOL + EOL +
-        'module.exports = ';
+        "/////////////////////////////////////////////////////////////////////////" + EOL +
+        "// This file was automatically generated by pg-promise v." + $npm.package.version + EOL +
+        "//" + EOL +
+        "// Generated on: " + d.toLocaleDateString() + ', at ' + d.toLocaleTimeString() + EOL +
+        "// Total files: " + total + EOL +
+        "//" + EOL +
+        "// API: http://vitaly-t.github.io/pg-promise/utils.html#.buildSqlModule" + EOL +
+        "/////////////////////////////////////////////////////////////////////////" + EOL + EOL +
+        "'use strict';" + EOL + EOL +
+        "var " + moduleName + " = require('" + modulePath + "');" + EOL + EOL +
+        "module.exports = ";
 
-    var code = header + objectToCode(tree, value => {
+    var code = header + objectToCode(tree, function (value) {
             return moduleName + '(' + JSON.stringify(value) + ')';
         }) + ';';
 
     if ($npm.utils.isText(config.output)) {
-        var p = config.output;
-        if (!$npm.utils.isPathAbsolute(p)) {
-            p = $npm.path.join($npm.utils.startDir, p);
+        var path = config.output;
+        if (!$npm.utils.isPathAbsolute(path)) {
+            path = $npm.path.join($npm.utils.startDir, path);
         }
-        $npm.fs.writeFileSync(p, code);
+        $npm.fs.writeFileSync(path, code);
     }
 
     return code;
