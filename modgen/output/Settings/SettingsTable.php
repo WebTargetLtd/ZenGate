@@ -1,6 +1,6 @@
 <?php
 
-namespace Auth\Model;
+namespace Sys\Model;
 
 /*
  * This model definition file has been automagically 
@@ -8,11 +8,11 @@ namespace Auth\Model;
  * http://www.github.com/WebTarget/ZF2modelGen
  *
  * @author Neil.Smith@WebTarget.co.uk
- * Created: 2/28/2017, 2:57:39 PM
+ * Created: 2/28/2017, 4:03:18 PM
  *
  */
  
-use Auth\Model\Definitions\defSettings as defs;
+use Sys\Model\Definitions\defSettings as defs;
 
 class SettingsTable extends \Database\Abstracts\WTDBAbstract {
 

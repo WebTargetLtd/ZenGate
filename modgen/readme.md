@@ -7,7 +7,7 @@ And to see the results:
 cd dist
 
  node bundle.js
-
+node bundle.js -n Sys  -c steeldb -t ap_settings -a Settings
 
 pg-native error? From https://www.npmjs.com/package/pg-native
 

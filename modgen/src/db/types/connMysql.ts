@@ -7,21 +7,33 @@ import { configService } from '../../configService';
 
 export class connMysql implements Idb {
     private _pConn: dbConn;
-    private _mysql = require('mysql');
+    private _mysql = require('promise-mysql');
     private _db: Object;
+    private _columns: string[] = [];
 
     constructor(private _cs: configService) {
         try {
-            console.log("WOOHOO");
-            this._pConn = this._cs.getDBParams();
-            this._db = this._mysql.createConnection(this.getConnectString());
+            this.configure();
         }
         catch (error) {
             console.log(`Error in constructor :: ${error}`);
         }
     }
+    private configure() {
+        this._pConn = this._cs.getDBParams();
+    }
     public getColumns(): string[] {
-        return this._db.query(this.getQuery());
+        let _query: string = this.getQuery();
+        return this._mysql.createConnection(this.getConnectString())
+            .then((conn: Object) => {
+                this._db = conn;
+                // return this._db.query(_query);
+                let _res = this._db.query(_query);
+                return _res;
+            }).then((rows: any) => {
+                this._columns = rows;
+                return rows;
+            });
     }
     public testConnection(): boolean {
         return true;
@@ -41,6 +53,7 @@ export class connMysql implements Idb {
      * _____________________________________________________________________________
      */
     public parseResults(_results: string[]): string[] {
+        // console.log("Columns " + JSON.stringify(_results));
         let _columns: string[] = [];
         try {
             for (var column of _results) {
@@ -48,10 +61,9 @@ export class connMysql implements Idb {
             }
         } catch (error) {
             console.log(`Error in parseResults :: ${error}`);
-        }
-        console.log("Have returned these columns::" + JSON.stringify(_columns));
+        }        
+        // console.log("Columns " + _columns);
         return _columns;
-
     }
 
     /**

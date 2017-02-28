@@ -76,6 +76,7 @@ export class Cycle {
         let g = new Promise((resolve, reject) => {
             resolve(this._db.getColumns());
         }).then((res: string[]) => {
+            console.log(res);
             this.process(res);
         });
 

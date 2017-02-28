@@ -1,4 +1,4 @@
-    'Auth\Model\SettingsTable' => function($sm) {
+    'Sys\Model\SettingsTable' => function($sm) {
     $tableGateway = $sm->get('SettingsTableGateway');
     $table = new Model\SettingsTable($tableGateway);
     return $table;

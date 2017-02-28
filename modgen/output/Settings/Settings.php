@@ -1,6 +1,6 @@
 <?php
 
-namespace Auth\Model;
+namespace Sys\Model;
 
 /*
  * This model definition file has been automagically 
@@ -8,19 +8,97 @@ namespace Auth\Model;
  * http://www.github.com/WebTarget/ZF2modelGen
  *
  * @author Neil.Smith@WebTarget.co.uk
- * Created: 2/28/2017, 2:56:58 PM
+ * Created: 2/28/2017, 4:03:18 PM
  *
  */
 
-use Auth\Model\Definitions\defSettings as defs;
+use Sys\Model\Definitions\defSettings as defs;
 use Database\Abstracts;
 
 class Settings extends Abstracts\WTDBDefsAbstract {
 
- 
+ 	public $id;
+	public $smtp_enable;
+	public $smtp_host;
+	public $smtp_port;
+	public $smtp_auth;
+	public $smtp_username;
+	public $smtp_password;
+	public $smtp_secure;
+	public $upload_dir;
+	public $data_dir;
+	public $default_from_name;
+	public $default_from_email;
+	public $default_form_theme_id;
+	public $base_url;
+	public $form_manager_max_rows;
+	public $admin_image_url;
+	public $disable_machform_link;
+	public $customer_id;
+	public $customer_name;
+	public $license_key;
+	public $machform_version;
+	public $admin_theme;
+	public $enforce_tsv;
+	public $enable_ip_restriction;
+	public $ip_whitelist;
+	public $enable_account_locking;
+	public $account_lock_period;
+	public $account_lock_max_attempts;
+	public $recaptcha_site_key;
+	public $recaptcha_secret_key;
+	public $ldap_enable;
+	public $ldap_type;
+	public $ldap_host;
+	public $ldap_port;
+	public $ldap_encryption;
+	public $ldap_basedn;
+	public $ldap_account_suffix;
+	public $ldap_required_group;
+	public $ldap_exclusive;
+
 
     public function exchangeArray(array $data) {
 
+		 $this->id = $data[defs::ID]; 
+		 $this->smtp_enable = $data[defs::SMTP_ENABLE]; 
+		 $this->smtp_host = $data[defs::SMTP_HOST]; 
+		 $this->smtp_port = $data[defs::SMTP_PORT]; 
+		 $this->smtp_auth = $data[defs::SMTP_AUTH]; 
+		 $this->smtp_username = $data[defs::SMTP_USERNAME]; 
+		 $this->smtp_password = $data[defs::SMTP_PASSWORD]; 
+		 $this->smtp_secure = $data[defs::SMTP_SECURE]; 
+		 $this->upload_dir = $data[defs::UPLOAD_DIR]; 
+		 $this->data_dir = $data[defs::DATA_DIR]; 
+		 $this->default_from_name = $data[defs::DEFAULT_FROM_NAME]; 
+		 $this->default_from_email = $data[defs::DEFAULT_FROM_EMAIL]; 
+		 $this->default_form_theme_id = $data[defs::DEFAULT_FORM_THEME_ID]; 
+		 $this->base_url = $data[defs::BASE_URL]; 
+		 $this->form_manager_max_rows = $data[defs::FORM_MANAGER_MAX_ROWS]; 
+		 $this->admin_image_url = $data[defs::ADMIN_IMAGE_URL]; 
+		 $this->disable_machform_link = $data[defs::DISABLE_MACHFORM_LINK]; 
+		 $this->customer_id = $data[defs::CUSTOMER_ID]; 
+		 $this->customer_name = $data[defs::CUSTOMER_NAME]; 
+		 $this->license_key = $data[defs::LICENSE_KEY]; 
+		 $this->machform_version = $data[defs::MACHFORM_VERSION]; 
+		 $this->admin_theme = $data[defs::ADMIN_THEME]; 
+		 $this->enforce_tsv = $data[defs::ENFORCE_TSV]; 
+		 $this->enable_ip_restriction = $data[defs::ENABLE_IP_RESTRICTION]; 
+		 $this->ip_whitelist = $data[defs::IP_WHITELIST]; 
+		 $this->enable_account_locking = $data[defs::ENABLE_ACCOUNT_LOCKING]; 
+		 $this->account_lock_period = $data[defs::ACCOUNT_LOCK_PERIOD]; 
+		 $this->account_lock_max_attempts = $data[defs::ACCOUNT_LOCK_MAX_ATTEMPTS]; 
+		 $this->recaptcha_site_key = $data[defs::RECAPTCHA_SITE_KEY]; 
+		 $this->recaptcha_secret_key = $data[defs::RECAPTCHA_SECRET_KEY]; 
+		 $this->ldap_enable = $data[defs::LDAP_ENABLE]; 
+		 $this->ldap_type = $data[defs::LDAP_TYPE]; 
+		 $this->ldap_host = $data[defs::LDAP_HOST]; 
+		 $this->ldap_port = $data[defs::LDAP_PORT]; 
+		 $this->ldap_encryption = $data[defs::LDAP_ENCRYPTION]; 
+		 $this->ldap_basedn = $data[defs::LDAP_BASEDN]; 
+		 $this->ldap_account_suffix = $data[defs::LDAP_ACCOUNT_SUFFIX]; 
+		 $this->ldap_required_group = $data[defs::LDAP_REQUIRED_GROUP]; 
+		 $this->ldap_exclusive = $data[defs::LDAP_EXCLUSIVE]; 
 
         parent::exchangeArray($data);
     }

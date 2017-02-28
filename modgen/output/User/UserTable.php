@@ -8,7 +8,7 @@ namespace Auth\Model;
  * http://www.github.com/WebTarget/ZF2modelGen
  *
  * @author Neil.Smith@WebTarget.co.uk
- * Created: 2/28/2017, 2:57:58 PM
+ * Created: 2/28/2017, 3:21:57 PM
  *
  */
  

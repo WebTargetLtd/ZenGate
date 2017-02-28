@@ -42,8 +42,7 @@ export class db {
         return new Promise((resolve, reject) => {
             resolve(this._dbInstance.getColumns());
         }).then((res) => {
-            console.log(res);
-            return this._dbInstance.parseResults(res);        
+            return this._dbInstance.parseResults(res);
         }).catch((error) => {
             console.log(`Error in db::getColumns :: ${error}`);
         });                
