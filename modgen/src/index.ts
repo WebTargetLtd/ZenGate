@@ -1,4 +1,3 @@
-import { Setup } from './setup';
 import { configService } from './configService';
 import { Cycle } from './cycle';
 
@@ -13,6 +12,4 @@ program
 
 program.datecreated = new Date().toLocaleString();
 
-// console.log("TableName :: " + _tablename);
-let cs = new configService(program);
-let c = new Cycle(cs);
+let c = new Cycle(new configService(program));

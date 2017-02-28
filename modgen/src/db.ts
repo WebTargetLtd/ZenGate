@@ -2,8 +2,6 @@
  * -----------------------------------------------------------------------------
  * Class        : db.ts
  * Description  :
- * Parameters   :
- * Usage        :
  * Notes        :
  * Created      : @author Neil Smith <Neil.SMith@Computors.com>
  * Created Date : 17 Feb 2017
@@ -12,12 +10,9 @@
  * _____________________________________________________________________________
  */
 
-import { cla } from './consts/cla';
-import { connPostgres } from './db/connPostgres';
-import { connPgSQL } from './db/connPgSQL';
-
+import { connPgSQL } from './db/types/connPgSQL';
+import { connMysql } from './db/types/connMysql';
 import { configService } from './configService';
-
 
 export class db {
 
@@ -26,30 +21,31 @@ export class db {
     private _thingy: string;
     private _rows:string[];
 
-    constructor(private _configService: configService) {
-        // this._configService = new configService();
+    constructor(private _configService: configService) {        
         try {
+            console.log("TYPE" + this._configService.getDBParams()["type"]);
             switch (this._configService.getDBParams()["type"]) {
                 case 'pg':
-                    this._dbInstance = new connPgSQL(_configService); // require('connPostgres');
+                    this._dbInstance = new connPgSQL(_configService);
                     break;
                 case 'mysql':
-                    this._dbInstance = require('./db/connMysql');
+                    this._dbInstance = new connMysql(_configService);
                     break;
                 default:
             }
         } catch (error) {
-            console.log("Error in db.ts constructor :: " + error);
+            console.log(`Error in db::constructor :: ${error}`);
         }
         return;
     }
-    getRows():Promise<string[]> {
+    getColumns():Promise<string[]> {
         return new Promise((resolve, reject) => {
-            resolve(this._dbInstance.getRows());
+            resolve(this._dbInstance.getColumns());
         }).then((res) => {
+            console.log(res);
             return this._dbInstance.parseResults(res);        
-        }).catch((err) => {
-            console.log("Catch Error on db::getRows : " + err);  
+        }).catch((error) => {
+            console.log(`Error in db::getColumns :: ${error}`);
         });                
     }
     

@@ -8,15 +8,15 @@
         "dbname": "RiMaConDB"
     },
     "steeldb": {
-        "type": "pg",
-        "server": "steel.webtarget.co.uk",
-        "port": "5778",
-        "username": "postgres",
-        "password": "cleverpassword",
-        "dbname": "MildenSteels"
+        "type": "mysql",
+        "server": "192.168.84.2",
+        "port": "3306",
+        "username": "root",
+        "password": "p33l",
+        "dbname": "machforms"
     },
     "default": "rimacondb",
     "author": "Neil.Smith@WebTarget.co.uk",
-    "fileroot" : "/home/neil/DevGit/zf2dbmodelgen/modgen/templates/src/",
-    "outputfolder" : "/home/neil/DevGit/zf2dbmodelgen/modgen/output/"
+    "fileroot" : "../templates/src/",
+    "outputfolder" : "../output/"
 }

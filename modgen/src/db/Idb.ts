@@ -1,7 +1,7 @@
 /**
  * -----------------------------------------------------------------------------
- * Class        : Idb.ts
- * Description  : Interface that each db type should implement.
+ * Class        : @class Idb.ts
+ * Description  : @description Interface that each db type should implement.
  * Parameters   :
  * Usage        :
  * Notes        :
@@ -13,9 +13,7 @@
  */
 import { configService } from '../configService';
 export interface Idb {
-  getConnectString():string;
-  getQuery(_tableName:string):string;
-  getRows(_callback:any, _message:string):string[];
-  configure(_cs:configService):void;
-  testConnection():boolean;
+  getColumns(): string[];
+  testConnection(): boolean;
+  parseResults(_results: string[]): string[];
 }

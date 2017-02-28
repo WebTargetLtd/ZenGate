@@ -1,9 +1,7 @@
 /**
  * -----------------------------------------------------------------------------
- * Class        : dbConn.ts
+ * Class        : @class dbConn
  * Description  : Replicates the connection parameters that livein dbconfig.json
- * Parameters   :
- * Usage        :
  * Notes        :
  * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
  * Created Date : 19 Feb 2017
