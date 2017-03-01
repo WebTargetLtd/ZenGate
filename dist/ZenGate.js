@@ -12885,7 +12885,7 @@ exports.curryRight = function curryRight (fn) {
  * Class        : db.ts
  * Description  :
  * Notes        :
- * Created      : @author Neil Smith <Neil.SMith@Computors.com>
+ * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
  * Created Date : 17 Feb 2017
  * -----------------------------------------------------------------------------
  * Date?        Whom?       Notes
