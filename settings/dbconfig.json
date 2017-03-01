@@ -1,0 +1,22 @@
+{
+    "rimacondb": {
+        "type": "pg",
+        "server": "192.168.77.2",
+        "port": "5432",
+        "username": "postgres",
+        "password": "postgres",
+        "dbname": "RiMaConDB"
+    },
+    "steeldb": {
+        "type": "mysql",
+        "server": "192.168.84.2",
+        "port": "3306",
+        "username": "root",
+        "password": "p33l",
+        "dbname": "machforms"
+    },
+    "default": "rimacondb",
+    "author": "Neil.Smith@WebTarget.co.uk",
+    "fileroot" : "../settings/PHPTemplates/",
+    "outputfolder" : "../output/"
+}

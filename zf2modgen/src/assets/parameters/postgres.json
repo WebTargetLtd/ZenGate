@@ -1,8 +1,0 @@
-{
-  "server": "192.168.77.2",
-  "port": 5432,
-  "username": "postgres",
-  "password": "postgres",
-  "database": "mydb"
-  
-}
