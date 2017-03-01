@@ -44,7 +44,7 @@ Here's an example:
         "dbname": "SteelStock"
     },
     "default": "riskmanagement",
-    "author": "Neil.Smith@WebTarget.co.uk",
+    "author": "NeilDOTSmith@WebTargetDOTcoANDANOTHERDOTuk",
     "fileroot" : "../settings/PHPTemplates/",
     "outputfolder" : "../output/"
 }
