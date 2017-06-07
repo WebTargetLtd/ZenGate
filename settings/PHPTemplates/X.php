@@ -24,7 +24,21 @@ class ${table}  {
 
  ${publics}
 
+    /**
+     * -----------------------------------------------------------------------------
+     * Method       : @method exchangeArray
+     * Description  : @description Swaps an array into an object
+     * Notes        : You may wish to change the not set "null" default to your 
+     *                  chosen value.
+     * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
+     * Created Date : 19 Dec 2015
+     * -----------------------------------------------------------------------------
+     * Date?        Whom?           Notes
+     * 07 Jun 2017  NRSmith         Changed to PHP7 ?? syntax
+     * _____________________________________________________________________________
+     */
     public function exchangeArray(array $data) {
+
 
 ${exchangearray}
        

@@ -1,22 +1,22 @@
 {
-    "rimacondb": {
+    "riskmanagement": {
         "type": "pg",
         "server": "192.168.77.2",
         "port": "5432",
-        "username": "postgres",
-        "password": "postgres",
-        "dbname": "RiMaConDB"
+        "username": "rmuser",
+        "password": "verycomplexpassword",
+        "dbname": "RMManage"
     },
     "steeldb": {
         "type": "mysql",
-        "server": "192.168.84.2",
+        "server": "192.168.77.3",
         "port": "3306",
         "username": "root",
-        "password": "p33l",
-        "dbname": "machforms"
+        "password": "anotherjollycomplexpassword",
+        "dbname": "SteelStock"
     },
-    "default": "rimacondb",
-    "author": "Neil.Smith@WebTarget.co.uk",
-    "fileroot" : "../settings/PHPTemplates/",
-    "outputfolder" : "../output/"
+    "default": "riskmanagement",
+    "author": "NeilDOTSmith@WebTargetDOTcoANDANOTHERDOTuk",
+    "fileroot": "../settings/PHPTemplates/",
+    "outputfolder": "../output/"
 }

@@ -113,12 +113,13 @@ export class configService {
       * Created Date : 28 Feb 2017
       * -----------------------------------------------------------------------------
       * Date?        Whom?           Notes
+      * 07 Jun 2017  NRSmith         Added default to null (PHP7, not isset)
       * _____________________________________________________________________________
       */
     public createExchangeArray(_fields: string[]): string {
         let _varList: string = "";
-        for (var field of _fields) {
-            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}]; \n`;
+        for (var field of _fields) {            
+            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
         }
         return _varList;
     }
@@ -132,10 +133,11 @@ export class configService {
      * Created Date : 28 Feb 2017
      * -----------------------------------------------------------------------------
      * Date?        Whom?           Notes
+     * 07 Jun 2017  NRSmith         Fixed semi-colon issue with table name
      * _____________________________________________________________________________
      */
     public createConsts(_fields: string[]) {
-        let _varList: string = `\n\t const TABLENAME = '${this.getTable()}'\n`;
+        let _varList: string = `\n\t const TABLENAME = '${this.getTable()}';\n`;
         for (var field of _fields) {
             _varList += `\t const ${field.toUpperCase()} = '${field}'; \n`;
         }

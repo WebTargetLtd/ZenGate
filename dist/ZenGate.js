@@ -6,9 +6,9 @@
 /******/ 	function __webpack_require__(moduleId) {
 /******/
 /******/ 		// Check if module is in cache
-/******/ 		if(installedModules[moduleId])
+/******/ 		if(installedModules[moduleId]) {
 /******/ 			return installedModules[moduleId].exports;
-/******/
+/******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = installedModules[moduleId] = {
 /******/ 			i: moduleId,
@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 276);
+/******/ 	return __webpack_require__(__webpack_require__.s = 91);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -78,7 +78,7 @@ module.exports = require("util");
 
 "use strict";
 
-var es5 = __webpack_require__(13);
+var es5 = __webpack_require__(12);
 var canEvaluate = typeof navigator == "undefined";
 
 var errorObj = {e: {}};
@@ -609,19 +609,19 @@ function InternalError(error) {
 }
 
 var exp = {
-    InternalError: InternalError,
-    getLocalStack: getLocalStack,
-    isPathAbsolute: isPathAbsolute,
-    lock: lock,
-    isText: isText,
-    isNull: isNull,
-    isDev: isDev,
-    isObject: isObject,
-    addReadProp: addReadProp,
-    addReadProperties: addReadProperties,
-    getSafeConnection: getSafeConnection,
-    messageGap: messageGap,
-    inherits: inherits
+    InternalError,
+    getLocalStack,
+    isPathAbsolute,
+    lock,
+    isText,
+    isNull,
+    isDev,
+    isObject,
+    addReadProp,
+    addReadProperties,
+    getSafeConnection,
+    messageGap,
+    inherits
 };
 
 var mainFile = process.argv[1];
@@ -653,22 +653,23 @@ module.exports = require("os");
 "use strict";
 
 
-var $pgUtils = __webpack_require__(41);
-var $arr = __webpack_require__(11);
+var $pgUtils = __webpack_require__(39);
 
 // Format Modification Flags;
 var fmFlags = {
     raw: 1, // Raw-Text variable
-    name: 2, // SQL Name/Identifier
-    json: 4, // JSON modifier
-    csv: 8, // CSV modifier
-    value: 16 // escaped, but without ''
+    alias: 2, // SQL Alias
+    name: 4, // SQL Name/Identifier
+    json: 8, // JSON modifier
+    csv: 16, // CSV modifier
+    value: 32 // escaped, but without ''
 };
 
 // Format Modification Map;
 var fmMap = {
     '^': fmFlags.raw,
     ':raw': fmFlags.raw,
+    ':alias': fmFlags.alias,
     '~': fmFlags.name,
     ':name': fmFlags.name,
     ':json': fmFlags.json,
@@ -679,17 +680,17 @@ var fmMap = {
 
 ////////////////////////////////////////////////////
 // Converts a single value into its Postgres format.
-function formatValue(value, fm, obj) {
+function formatValue(value, fm, cc) {
 
     if (typeof value === 'function') {
-        return formatValue(resolveFunc(value, obj), fm, obj);
+        return formatValue(resolveFunc(value, cc), fm, cc);
     }
 
     if (value && typeof value === 'object') {
         var ctf = value['formatDBType']; // custom type formatting;
         if (typeof ctf === 'function') {
             fm |= value._rawDBType ? fmFlags.raw : 0;
-            return formatValue(resolveFunc(ctf, value), fm, obj);
+            return formatValue(resolveFunc(ctf, value), fm, cc);
         }
     }
 
@@ -697,6 +698,8 @@ function formatValue(value, fm, obj) {
     fm &= ~fmFlags.raw;
 
     switch (fm) {
+        case fmFlags.alias:
+            return $as.alias(value);
         case fmFlags.name:
             return $as.name(value);
         case fmFlags.json:
@@ -740,7 +743,7 @@ function formatValue(value, fm, obj) {
 // as per PostgreSQL documentation: http://www.postgresql.org/docs/9.4/static/arrays.html
 // Arrays of any depth/dimension are supported.
 function formatArray(array) {
-    var loop = a => '[' + $arr.map(a, v => v instanceof Array ? loop(v) : formatValue(v)).join() + ']';
+    var loop = a => '[' + a.map(v => v instanceof Array ? loop(v) : formatValue(v)).join() + ']';
     return 'array' + loop(array);
 }
 
@@ -750,7 +753,7 @@ function formatArray(array) {
 // Both single value and array or values are supported.
 function formatCSV(values) {
     if (values instanceof Array) {
-        return $arr.map(values, v => formatValue(v)).join();
+        return values.map(v => formatValue(v)).join();
     }
     return values === undefined ? '' : formatValue(values);
 }
@@ -761,7 +764,7 @@ var formatAs = {
 
     object: (query, obj, raw, options) => {
         options = options && typeof options === 'object' ? options : {};
-        var pattern = /\$(?:({)|(\()|(<)|(\[)|(\/))\s*[a-zA-Z0-9\$_]+(\^|~|#|:raw|:name|:json|:csv|:value)?\s*(?:(?=\2)(?=\3)(?=\4)(?=\5)}|(?=\1)(?=\3)(?=\4)(?=\5)\)|(?=\1)(?=\2)(?=\4)(?=\5)>|(?=\1)(?=\2)(?=\3)(?=\5)]|(?=\1)(?=\2)(?=\3)(?=\4)\/)/g;
+        var pattern = /\$(?:({)|(\()|(<)|(\[)|(\/))\s*[a-zA-Z0-9\$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?\s*(?:(?=\2)(?=\3)(?=\4)(?=\5)}|(?=\1)(?=\3)(?=\4)(?=\5)\)|(?=\1)(?=\2)(?=\4)(?=\5)>|(?=\1)(?=\2)(?=\3)(?=\5)]|(?=\1)(?=\2)(?=\3)(?=\4)\/)/g;
         return query.replace(pattern, name => {
             var v = formatAs.stripName(name.replace(/^\$[{(<[/]|[\s})>\]/]/g, ''), raw);
             if (v.name in obj) {
@@ -784,7 +787,7 @@ var formatAs = {
 
     array: (query, array, raw, options) => {
         options = options && typeof options === 'object' ? options : {};
-        return query.replace(/\$([1-9][0-9]{0,3}(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?)/g, name => {
+        return query.replace(/\$([1-9][0-9]{0,3}(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?)/g, name => {
             var v = formatAs.stripName(name.substr(1), raw);
             var idx = v.name - 1;
             if (idx < array.length) {
@@ -802,25 +805,24 @@ var formatAs = {
     },
 
     value: (query, value, raw) => {
-        return query.replace(/\$1(?![0-9])(\^|~|#|:raw|:name|:json|:csv|:value)?/g, name => {
+        return query.replace(/\$1(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/g, name => {
             var v = formatAs.stripName(name, raw);
             return formatValue(value, v.fm);
         });
     },
 
     stripName: (name, raw) => {
-        var mod = name.match(/\^|~|#|:raw|:name|:json|:csv|:value/);
+        var mod = name.match(/\^|~|#|:raw|:alias|:name|:json|:csv|:value/);
         if (mod) {
             return {
                 name: name.substr(0, mod.index),
                 fm: fmMap[mod[0]] | (raw ? fmFlags.raw : 0)
             };
-        } else {
-            return {
-                name: name,
-                fm: raw ? fmFlags.raw : null
-            };
         }
+        return {
+            name: name,
+            fm: raw ? fmFlags.raw : null
+        };
     }
 };
 
@@ -832,7 +834,7 @@ function isNull(value) {
 
 /////////////////////////////////////////
 // Wraps a text string in single quotes;
-function TEXT(text) {
+function wrapText(text) {
     return '\'' + text + '\'';
 }
 
@@ -853,10 +855,10 @@ function throwIfRaw(raw) {
 
 ////////////////////////////////////////////
 // Recursively resolves parameter-function,
-// with the optional calling context.
-function resolveFunc(value, obj) {
+// with the optional Calling Context.
+function resolveFunc(value, cc) {
     while (typeof value === 'function') {
-        value = obj ? value.call(obj) : value();
+        value = value.call(cc, cc);
     }
     return value;
 }
@@ -907,13 +909,20 @@ function $formatFunction(funcName, values, capSQL) {
     return sql + funcName + '(' + formatCSV(values) + ')';
 }
 
+function $formatSqlName(name) {
+    return '"' + name.replace(/"/g, '""') + '"';
+}
+
 /**
  * @namespace formatting
  * @description
  * Namespace for all query-formatting functions, available from `pgp.as`, before and after initializing the library.
  *
+ * @property {function} alias
+ * {@link formatting.alias alias} - formats an SQL alias.
+ *
  * @property {function} name
- * {@link formatting.name name} - formats an SQL name.
+ * {@link formatting.name name} - formats an SQL Name/Identifier.
  *
  * @property {function} text
  * {@link formatting.text text} - formats a text string.
@@ -974,7 +983,7 @@ var $as = {
         if (typeof value !== 'string') {
             value = value.toString();
         }
-        return raw ? value : TEXT(safeText(value));
+        return raw ? value : wrapText(safeText(value));
     },
 
     /**
@@ -993,19 +1002,18 @@ var $as = {
      *
      * If the `name` contains only a single `*` (trailing spaces are ignored), then `name` is returned exactly as is (unescaped).
      *
-     * **Added in v.5.2.1:**
-     *
      * - If `name` is an Array, it is formatted as a comma-separated list of SQL names
      * - If `name` is a non-Array object, its keys are formatted as a comma-separated list of SQL names
      *
      * Passing in an empty array/object will throw {@link external:Error Error} = `Cannot retrieve sql names from an empty array/object.`
      *
      * @returns {string}
-     * The SQL Name/Identifier properly escaped for compliance with the PostgreSQL standard for SQL names and identifiers.
+     * The SQL Name/Identifier, properly escaped for compliance with the PostgreSQL standard for SQL names and identifiers.
+     *
+     * @see {@link formatting.alias alias}
      *
      * @example
      *
-     * // example of using v5.2.1 feature:
      * // automatically list object properties as sql names:
      * format('INSERT INTO table(${this~}) VALUES(${one}, ${two})', {
      *     one: 1,
@@ -1018,28 +1026,51 @@ var $as = {
         name = resolveFunc(name);
         if (name) {
             if (typeof name === 'string') {
-                return /^\s*\*(\s*)$/.test(name) ? name : formatName(name);
-            } else {
-                if (typeof name === 'object') {
-                    var keys = Array.isArray(name) ? name : Object.keys(name);
-                    if (!keys.length) {
-                        throw new Error('Cannot retrieve sql names from an empty array/object.');
-                    }
-                    return $arr.map(keys, value => {
-                        if (!value || typeof value !== 'string') {
-                            throw new Error('Invalid sql name: ' + JSON.stringify(value));
-                        }
-                        return formatName(value);
-                    }).join();
+                return /^\s*\*(\s*)$/.test(name) ? name : $formatSqlName(name);
+            }
+            if (typeof name === 'object') {
+                var keys = Array.isArray(name) ? name : Object.keys(name);
+                if (!keys.length) {
+                    throw new Error('Cannot retrieve sql names from an empty array/object.');
                 }
+                return keys.map(value => {
+                    if (!value || typeof value !== 'string') {
+                        throw new Error('Invalid sql name: ' + JSON.stringify(value));
+                    }
+                    return $formatSqlName(value);
+                }).join();
             }
         }
-
         throw new TypeError('Invalid sql name: ' + JSON.stringify(name));
+    },
 
-        function formatName(name) {
-            return '"' + name.replace(/"/g, '""') + '"';
+    /**
+     * @method formatting.alias
+     * @description
+     * ** Added in v5.9.0 **
+     *
+     * Simpler, non-verbose version of method {@link formatting.name name}, to handle only a simple string-identifier
+     * that's used as an SQL alias, i.e. it doesn't support `*` or an array/object of names, which in the context of
+     * an SQL alias would be incorrect.
+     *
+     * @param {string|function} name
+     * SQL alias name, or a function that returns it.
+     *
+     * The name must be at least 1 character long.
+     *
+     * If `name` doesn't resolve into a non-empty string, it throws {@link external:TypeError TypeError} = `Invalid sql alias: ...`
+     *
+     * @returns {string}
+     * The SQL alias, properly escaped for compliance with the PostgreSQL standard for SQL names and identifiers.
+     *
+     * @see {@link formatting.name name}
+     */
+    alias: name => {
+        name = resolveFunc(name);
+        if (name && typeof name === 'string') {
+            return $formatSqlName(name);
         }
+        throw new TypeError('Invalid sql alias: ' + JSON.stringify(name));
     },
 
     /**
@@ -1087,9 +1118,9 @@ var $as = {
         }
         if (obj instanceof Buffer) {
             var s = '\\x' + obj.toString('hex');
-            return raw ? s : TEXT(s);
+            return raw ? s : wrapText(s);
         }
-        throw new TypeError(TEXT(obj) + ' is not a Buffer object.');
+        throw new TypeError(wrapText(obj) + ' is not a Buffer object.');
     },
 
     /**
@@ -1116,7 +1147,7 @@ var $as = {
      * Converts a `Date`-type value into PostgreSQL date/time presentation,
      * wrapped in quotes (unless flag `raw` is set).
      *
-     * @param {date|function} d
+     * @param {Date|function} d
      * Date object to be converted, or a function that returns one.
      *
      * @param {boolean} [raw=false]
@@ -1132,9 +1163,9 @@ var $as = {
         }
         if (d instanceof Date) {
             var s = $pgUtils.prepareValue(d);
-            return raw ? s : TEXT(s);
+            return raw ? s : wrapText(s);
         }
-        throw new TypeError(TEXT(d) + ' is not a Date object.');
+        throw new TypeError(wrapText(d) + ' is not a Date object.');
     },
 
     /**
@@ -1154,7 +1185,7 @@ var $as = {
             return 'null';
         }
         if (typeof num !== 'number') {
-            throw new TypeError(TEXT(num) + ' is not a number.');
+            throw new TypeError(wrapText(num) + ' is not a number.');
         }
         if (isFinite(num)) {
             return num.toString();
@@ -1164,12 +1195,12 @@ var $as = {
         //
         // NOTE: strings for 'NaN'/'+Infinity'/'-Infinity' are not case-sensitive.
         if (num === Number.POSITIVE_INFINITY) {
-            return TEXT('+Infinity');
+            return wrapText('+Infinity');
         }
         if (num === Number.NEGATIVE_INFINITY) {
-            return TEXT('-Infinity');
+            return wrapText('-Infinity');
         }
-        return TEXT('NaN');
+        return wrapText('NaN');
     },
 
     /**
@@ -1178,7 +1209,7 @@ var $as = {
      * Converts an array of values into its PostgreSQL presentation as an Array-Type
      * constructor string: `array[]`.
      *
-     * @param {array|function} arr
+     * @param {Array|function} arr
      * Array to be converted, or a function that returns one.
      *
      * @returns {string}
@@ -1191,7 +1222,7 @@ var $as = {
         if (arr instanceof Array) {
             return formatArray(arr);
         }
-        throw new TypeError(TEXT(arr) + ' is not an Array object.');
+        throw new TypeError(wrapText(arr) + ' is not an Array object.');
     },
 
     /**
@@ -1200,7 +1231,7 @@ var $as = {
      * Converts a single value or an array of values into a CSV string, with all values formatted
      * according to their type.
      *
-     * @param {array|value|function} values
+     * @param {Array|value|function} values
      * Value(s) to be converted, or a function that returns it.
      *
      * @returns {string}
@@ -1213,22 +1244,22 @@ var $as = {
      * Converts any value into JSON (using `JSON.stringify`), and returns it as
      * a valid string, with single-quote symbols fixed, unless flag `raw` is set.
      *
-     * @param {object|function} obj
-     * Object/Value to be converted, or a function that returns it.
+     * @param {} data
+     * Object/value to be converted, or a function that returns it.
      *
      * @param {boolean} [raw=false]
      * Indicates when not to escape the result.
      *
      * @returns {string}
      */
-    json: (obj, raw) => {
-        obj = resolveFunc(obj);
-        if (isNull(obj)) {
+    json: (data, raw) => {
+        data = resolveFunc(data);
+        if (isNull(data)) {
             throwIfRaw(raw);
             return 'null';
         }
-        var s = JSON.stringify(obj);
-        return raw ? s : TEXT(safeText(s));
+        var s = JSON.stringify(data);
+        return raw ? s : wrapText(safeText(s));
     },
 
     /**
@@ -1243,27 +1274,21 @@ var $as = {
      * @param {boolean} [raw=false]
      * Indicates when not to escape the result.
      *
-     * @param {object} [obj]
-     * `this` context to be passed into the function on all nested levels.
+     * @param {} [cc]
+     * Calling Context: `this` + the only value to be passed into the function on all nested levels.
      *
      * @returns {string}
      */
-    func: (func, raw, obj) => {
+    func: (func, raw, cc) => {
         if (isNull(func)) {
             throwIfRaw(raw);
             return 'null';
         }
         if (typeof func !== 'function') {
-            throw new TypeError(TEXT(func) + ' is not a function.');
+            throw new TypeError(wrapText(func) + ' is not a function.');
         }
         var fm = raw ? fmFlags.raw : null;
-        if (isNull(obj)) {
-            return formatValue(resolveFunc(func), fm);
-        }
-        if (typeof obj === 'object') {
-            return formatValue(resolveFunc(func, obj), fm, obj);
-        }
-        throw new TypeError(TEXT(obj) + ' is not an object.');
+        return formatValue(resolveFunc(func, cc), fm, cc);
     },
 
     /**
@@ -1294,11 +1319,10 @@ var $as = {
      *   - `$1~`, `$2~`,..., and `$*propName~*` (see `*` above)
      * - JSON override ends with `:json` to format the value of any type as a JSON string
      * - CSV override ends with `:csv` to format an array as a properly escaped comma-separated list of values.
+     * - Version 5.9.0 added support for `:alias` - non-verbose SQL Name escaping.
      *
-     * @param {string|value|Object} query
-     * A query string or a value/object that implements $[Custom Type Formatting], to be formatted according to `values`.
-     *
-     * **NOTE:** Support for $[Custom Type Formatting] was added in v5.2.7.
+     * @param {string|QueryFile|object} query
+     * A query string, a {@link QueryFile} or any object that implements $[Custom Type Formatting], to be formatted according to `values`.
      *
      * @param {array|object|value} [values]
      * Formatting parameter(s) / variable value(s).
@@ -1313,8 +1337,6 @@ var $as = {
      * This option has no meaning when option `default` is present.
      *
      * @param {} [options.default]
-     * **Added in v.5.0.5**
-     *
      * Sets a default value for every variable that's missing, consequently preventing errors when encountering a variable
      * or property name that's missing within the formatting parameters.
      *
@@ -1336,7 +1358,7 @@ var $as = {
      */
     format: (query, values, options) => {
         if (query && typeof query.formatDBType === 'function') {
-            query = query.formatDBType();
+            query = query.formatDBType.call(query, query);
         }
         return $formatQuery(query, values, false, options);
     }
@@ -1391,7 +1413,7 @@ module.exports = require("stream");
 
 "use strict";
 
-var es5 = __webpack_require__(13);
+var es5 = __webpack_require__(12);
 var Objectfreeze = es5.freeze;
 var util = __webpack_require__(1);
 var inherits = util.inherits;
@@ -1512,137 +1534,36 @@ module.exports = {
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports.ClientAuthenticationPacket = __webpack_require__(181);
-exports.ComChangeUserPacket = __webpack_require__(182);
-exports.ComPingPacket = __webpack_require__(183);
-exports.ComQueryPacket = __webpack_require__(184);
-exports.ComQuitPacket = __webpack_require__(185);
-exports.ComStatisticsPacket = __webpack_require__(186);
-exports.EmptyPacket = __webpack_require__(187);
-exports.EofPacket = __webpack_require__(188);
-exports.ErrorPacket = __webpack_require__(189);
-exports.Field = __webpack_require__(59);
-exports.FieldPacket = __webpack_require__(190);
-exports.HandshakeInitializationPacket = __webpack_require__(191);
-exports.LocalDataFilePacket = __webpack_require__(192);
-exports.OkPacket = __webpack_require__(193);
-exports.OldPasswordPacket = __webpack_require__(194);
-exports.ResultSetHeaderPacket = __webpack_require__(195);
-exports.RowDataPacket = __webpack_require__(196);
-exports.SSLRequestPacket = __webpack_require__(197);
-exports.StatisticsPacket = __webpack_require__(198);
-exports.UseOldPasswordPacket = __webpack_require__(199);
+exports.ClientAuthenticationPacket = __webpack_require__(178);
+exports.ComChangeUserPacket = __webpack_require__(179);
+exports.ComPingPacket = __webpack_require__(180);
+exports.ComQueryPacket = __webpack_require__(181);
+exports.ComQuitPacket = __webpack_require__(182);
+exports.ComStatisticsPacket = __webpack_require__(183);
+exports.EmptyPacket = __webpack_require__(184);
+exports.EofPacket = __webpack_require__(185);
+exports.ErrorPacket = __webpack_require__(186);
+exports.Field = __webpack_require__(57);
+exports.FieldPacket = __webpack_require__(187);
+exports.HandshakeInitializationPacket = __webpack_require__(188);
+exports.LocalDataFilePacket = __webpack_require__(189);
+exports.OkPacket = __webpack_require__(190);
+exports.OldPasswordPacket = __webpack_require__(191);
+exports.ResultSetHeaderPacket = __webpack_require__(192);
+exports.RowDataPacket = __webpack_require__(193);
+exports.SSLRequestPacket = __webpack_require__(194);
+exports.StatisticsPacket = __webpack_require__(195);
+exports.UseOldPasswordPacket = __webpack_require__(196);
 
 
 /***/ }),
 /* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
-"use strict";
-
-
-// Number of times it is faster than the standard 'map', by Node.js versions:
-// 0.10.44: ~2.8
-// 0.11.16: ~3.8
-// 0.12.13: ~3.8
-// 4.4.4: ~1.38
-// 5.11.0: ~1.44
-// 6.1.0: ~8.25
-function map(arr, cb, obj) {
-    var res = new Array(arr.length);
-    if (obj) {
-        for (var i = 0; i < arr.length; i++) {
-            res[i] = cb.call(obj, arr[i], i, arr);
-        }
-    } else {
-        for (var k = 0; k < arr.length; k++) {
-            res[k] = cb(arr[k], k, arr);
-        }
-    }
-    return res;
-}
-
-// Number of times it is faster than the standard 'filter', by Node.js versions:
-// 0.10.44: ~2.42
-// 0.11.16: ~2.83
-// 0.12.13: ~2.78
-// 4.4.4: ~1.12
-// 5.11.0: ~1.14
-// 6.1.0: ~7.54
-function filter(arr, cb, obj) {
-    var res = [];
-    if (obj) {
-        for (var i = 0; i < arr.length; i++) {
-            if (cb.call(obj, arr[i], i, arr)) {
-                res.push(arr[i]);
-            }
-        }
-    } else {
-        for (var k = 0; k < arr.length; k++) {
-            if (cb(arr[k], k, arr)) {
-                res.push(arr[k]);
-            }
-        }
-    }
-    return res;
-}
-
-// Number of times it is faster than the standard 'forEach', by Node.js versions:
-// 0.10.44: ~3.11
-// 0.11.16: ~4.6
-// 0.12.13: ~4.4
-// 4.4.4: ~1.55
-// 5.11.0: ~1.54
-// 6.1.0: ~1.21
-function forEach(arr, cb, obj) {
-    if (obj) {
-        for (var i = 0; i < arr.length; i++) {
-            cb.call(obj, arr[i], i, arr);
-        }
-    } else {
-        for (var k = 0; k < arr.length; k++) {
-            cb(arr[k], k, arr);
-        }
-    }
-}
-
-//////////////////////////
-// Custom Methods
-//////////////////////////
-
-// Counts elements based on a condition;
-function countIf(arr, cb, obj) {
-    var count = 0;
-    if (obj) {
-        for (var i = 0; i < arr.length; i++) {
-            count += cb.call(obj, arr[i], i, arr) ? 1 : 0;
-        }
-    } else {
-        for (var k = 0; k < arr.length; k++) {
-            count += cb(arr[k], k, arr) ? 1 : 0;
-        }
-    }
-    return count;
-}
-
-module.exports = {
-    map: map,
-    filter: filter,
-    forEach: forEach,
-    countIf: countIf
-};
-
-Object.freeze(module.exports);
-
-
-/***/ }),
-/* 12 */
-/***/ (function(module, exports, __webpack_require__) {
-
 var Util           = __webpack_require__(0);
 var EventEmitter   = __webpack_require__(3).EventEmitter;
 var Packets        = __webpack_require__(10);
-var ErrorConstants = __webpack_require__(178);
+var ErrorConstants = __webpack_require__(175);
 
 // istanbul ignore next: Node.js < 0.10 not covered
 var listenerCount = EventEmitter.listenerCount
@@ -1770,7 +1691,7 @@ Sequence.prototype._onTimeout = function _onTimeout() {
 
 
 /***/ }),
-/* 13 */
+/* 12 */
 /***/ (function(module, exports) {
 
 var isES5 = (function(){
@@ -1856,7 +1777,7 @@ if (isES5) {
 
 
 /***/ }),
-/* 14 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -1897,12 +1818,12 @@ var objectKeys = Object.keys || function (obj) {
 
 
 /*<replacement>*/
-var util = __webpack_require__(15);
-util.inherits = __webpack_require__(16);
+var util = __webpack_require__(14);
+util.inherits = __webpack_require__(15);
 /*</replacement>*/
 
-var Readable = __webpack_require__(61);
-var Writable = __webpack_require__(63);
+var Readable = __webpack_require__(59);
+var Writable = __webpack_require__(61);
 
 util.inherits(Duplex, Readable);
 
@@ -1951,7 +1872,7 @@ function forEach (xs, f) {
 
 
 /***/ }),
-/* 15 */
+/* 14 */
 /***/ (function(module, exports) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -2064,7 +1985,7 @@ function objectToString(o) {
 
 
 /***/ }),
-/* 16 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 try {
@@ -2072,8 +1993,58 @@ try {
   if (typeof util.inherits !== 'function') throw '';
   module.exports = util.inherits;
 } catch (e) {
-  module.exports = __webpack_require__(165);
+  module.exports = __webpack_require__(161);
 }
+
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var Writer = __webpack_require__(164);
+
+function getLocal() {
+    return new Writer();
+}
+
+var glb = new Writer();
+
+function getGlobal() {
+    console.log = function () {
+        glb.log.apply(glb, arguments);
+    };
+    console.error = function () {
+        glb.error.apply(glb, arguments);
+    };
+    console.warn = function () {
+        glb.warn.apply(glb, arguments);
+    };
+    console.info = function () {
+        glb.info.apply(glb, arguments);
+    };
+    console.success = function () {
+        glb.success.apply(glb, arguments);
+    };
+
+    return glb;
+}
+
+var exp = module.exports = new Writer(true);
+
+Object.defineProperty(exp, 'local', {
+    get: getLocal,
+    enumerable: true
+});
+
+Object.defineProperty(exp, 'global', {
+    get: getGlobal,
+    enumerable: true
+});
+
+Object.freeze(exp);
 
 
 /***/ }),
@@ -2084,8 +2055,8 @@ try {
 
 
 var $npm = {
-    con: __webpack_require__(23).local,
-    main: __webpack_require__(68),
+    con: __webpack_require__(16).local,
+    main: __webpack_require__(65),
     utils: __webpack_require__(2)
 };
 
@@ -2201,7 +2172,7 @@ var $events = {
      * This is a shared-type object that's passed in with the following events: {@link event:query query},
      * {@link event:receive receive}, {@link event:error error}, {@link event:task task} and {@link event:transact transact}.
      *
-     * @param {String|Object} e.cn
+     * @param {string|object} e.cn
      *
      * Set only for event {@link event:error error}, and only when the error is connection-related.
      *
@@ -2213,7 +2184,7 @@ var $events = {
      * @param {} e.dc
      * Database Context that was used when creating the database object (see {@link Database}). It is set for all events.
      *
-     * @param {String|Object} e.query
+     * @param {string|object} e.query
      *
      * Query string/object that was passed into the query method. This property is only set during events {@link event:query query}
      * and {@link event:receive receive}.
@@ -2559,7 +2530,7 @@ var $events = {
     /**
      * @event unexpected
      * @param {string} event - unhandled event name.
-     * @param {String|Error} e - unhandled error.
+     * @param {string|Error} e - unhandled error.
      * @private
      */
     unexpected: (event, e) => {
@@ -2592,10 +2563,8 @@ var $npm = {
     utils: __webpack_require__(2),
     formatting: __webpack_require__(5),
     TableName: __webpack_require__(29),
-    Column: __webpack_require__(67)
+    Column: __webpack_require__(64)
 };
-
-var $arr = __webpack_require__(11);
 
 /**
  * @class helpers.ColumnSet
@@ -2643,6 +2612,7 @@ var $arr = __webpack_require__(11);
  * {@link helpers.ColumnSet#names names},
  * {@link helpers.ColumnSet#table table},
  * {@link helpers.ColumnSet#variables variables} |
+ * {@link helpers.ColumnSet.assign assign},
  * {@link helpers.ColumnSet.extend extend},
  * {@link helpers.ColumnSet.merge merge},
  * {@link helpers.ColumnSet.prepare prepare}
@@ -2693,7 +2663,7 @@ var $arr = __webpack_require__(11);
  *         prop: 'total',
  *         skip: col => {
  *             // skip from updates, if 'amount' is 0:
- *             return this.amount === 0; // = col.source.amount
+ *             return col.source.amount === 0;
  *         }
  *     }
  * ], {table: {table: 'purchases', schema: 'fiscal'}});
@@ -2787,7 +2757,7 @@ function ColumnSet(columns, options) {
      */
     if (Array.isArray(columns)) {
         var colNames = {};
-        this.columns = $arr.map(columns, c => {
+        this.columns = columns.map(c => {
             var col = (c instanceof $npm.Column) ? c : new $npm.Column(c);
             if (col.name in colNames) {
                 throw new Error('Duplicate column name "' + col.name + '".');
@@ -2801,7 +2771,7 @@ function ColumnSet(columns, options) {
         } else {
             this.columns = [];
             for (var name in columns) {
-                if (inherit || columns.hasOwnProperty(name)) {
+                if (inherit || Object.prototype.hasOwnProperty.call(columns, name)) {
                     this.columns.push(new $npm.Column(name));
                 }
             }
@@ -2822,14 +2792,12 @@ function ColumnSet(columns, options) {
 
     /**
      * @name helpers.ColumnSet#names
-     * @type String
+     * @type string
      * @readonly
      * @description
      * **Added in v5.5.5**
      *
      * Returns a string - comma-separated list of all column names, properly escaped.
-     *
-     * This method is primarily for internal use.
      *
      * @example
      * var cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
@@ -2839,7 +2807,7 @@ function ColumnSet(columns, options) {
     Object.defineProperty(this, 'names', {
         get: () => {
             if (!names) {
-                names = $arr.map(this.columns, c => c.escapedName).join();
+                names = this.columns.map(c => c.escapedName).join();
             }
             return names;
         }
@@ -2847,14 +2815,12 @@ function ColumnSet(columns, options) {
 
     /**
      * @name helpers.ColumnSet#variables
-     * @type String
+     * @type string
      * @readonly
      * @description
      * **Added in v5.5.5**
      *
      * Returns a string - formatting template for all column values.
-     *
-     * This method is primarily for internal use.
      *
      * @example
      * var cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
@@ -2864,7 +2830,7 @@ function ColumnSet(columns, options) {
     Object.defineProperty(this, 'variables', {
         get: () => {
             if (!variables) {
-                variables = $arr.map(this.columns, c => c.variable + c.castText).join();
+                variables = this.columns.map(c => c.variable + c.castText).join();
             }
             return variables;
         }
@@ -2872,38 +2838,71 @@ function ColumnSet(columns, options) {
 
     /**
      * @method helpers.ColumnSet.assign
-     * @private
      * @description
-     * Returns a formatting template of SET assignments for a single object.
+     * ** Added in v5.9.0 **
      *
-     * This method is for internal use only.
+     * Returns a formatting template of SET assignments, either generic or for a single object.
      *
-     * @param {object} source
-     * Source object that contains values for columns.
+     * The method is optimized to cache the output string when there are no columns that can be skipped dynamically.
+     *
+     * This method is primarily for internal use, that's why it does not validate the input.
+     *
+     * @param {object} [options]
+     * Assignment/formatting options.
+     *
+     * @param {object} [options.source]
+     * Source - a single object that contains values for columns.
+     *
+     * The object is only necessary to correctly apply the logic of skipping columns dynamically, based on the source data
+     * and the rules defined in the {@link helpers.ColumnSet ColumnSet}. If, however, you do not care about that, then you do not need to specify any object.
+     *
+     * Note that even if you do not specify the object, the columns marked as conditional (`cnd: true`) will always be skipped.
+     *
+     * @param {string} [options.prefix]
+     * Alias prefix to be added before each column.
      *
      * @returns {string}
      * Comma-separated list of variable-to-column assignments.
+     *
+     * @example
+     *
+     * var cs = new pgp.helpers.ColumnSet([
+     *     '?first', // = {name: 'first', cnd: true}
+     *     'second:json',
+     *     {name: 'third', mod: ':raw', cast: 'text'}
+     * ]);
+     *
+     * cs.assign();
+     * //=> "second"=${second:json},"third"=${third:raw}::text
+     *
+     * cs.assign({prefix: 'a b c'});
+     * //=> "a b c"."second"=${second:json},"a b c"."third"=${third:raw}::text
      */
-    this.assign = function (source) {
-        if (updates) {
+    this.assign = options => {
+        var hasPrefix = options && options.prefix && typeof options.prefix === 'string';
+        if (updates && !hasPrefix) {
             return updates;
         }
-        var dynamic;
-        var list = $arr.filter(this.columns, c => {
+        var dynamic = hasPrefix,
+            hasSource = options && options.source && typeof options.source === 'object';
+        var list = this.columns.filter(c => {
             if (c.cnd) {
                 return false;
             }
             if (c.skip) {
                 dynamic = true;
-                var a = colDesc(c, source);
-                if (c.skip.call(source, a)) {
-                    return false;
+                if (hasSource) {
+                    var a = colDesc(c, options.source);
+                    if (c.skip.call(options.source, a)) {
+                        return false;
+                    }
                 }
             }
             return true;
         });
 
-        list = $arr.map(list, c => c.escapedName + '=' + c.variable + c.castText).join();
+        var prefix = hasPrefix ? $npm.formatting.as.alias(options.prefix) + '.' : '';
+        list = list.map(c => prefix + c.escapedName + '=' + c.variable + c.castText).join();
 
         if (!dynamic) {
             updates = list;
@@ -2966,7 +2965,7 @@ function ColumnSet(columns, options) {
      * //    ]
      * // }
      */
-    this.extend = function (columns) {
+    this.extend = columns => {
         var cs = columns;
         if (!(cs instanceof ColumnSet)) {
             cs = new ColumnSet(columns);
@@ -3035,17 +3034,17 @@ function ColumnSet(columns, options) {
      * // }
      *
      */
-    this.merge = function (columns) {
+    this.merge = columns => {
         var cs = columns;
         if (!(cs instanceof ColumnSet)) {
             cs = new ColumnSet(columns);
         }
         var colNames = {}, cols = [];
-        $arr.forEach(this.columns, (c, idx) => {
+        this.columns.forEach((c, idx) => {
             cols.push(c);
             colNames[c.name] = idx;
         });
-        $arr.forEach(cs.columns, c => {
+        cs.columns.forEach(c => {
             if (c.name in colNames) {
                 cols[colNames[c.name]] = c;
             } else {
@@ -3060,11 +3059,10 @@ function ColumnSet(columns, options) {
      * @description
      * **Added in v5.5.6**
      *
-     * Prepares a source object to be formatted, by cloning it and applying the rules
-     * as set by the columns configuration.
+     * Prepares a source object to be formatted, by cloning it and applying the rules as set by the
+     * columns configuration.
      *
-     * This method is primarily for internal use, and as such it does not validate
-     * its input parameters.
+     * This method is primarily for internal use, that's why it does not validate the input parameters.
      *
      * @param {object} source
      * The source object to be prepared, if required.
@@ -3078,12 +3076,12 @@ function ColumnSet(columns, options) {
      *
      * When the object does not need to be prepared, the original object is returned.
      */
-    this.prepare = function (source) {
+    this.prepare = source => {
         if (isSimple) {
             return source; // a simple ColumnSet requires no object preparation;
         }
         var target = {};
-        $arr.forEach(this.columns, c => {
+        this.columns.forEach(c => {
             var a = colDesc(c, source);
             if (c.init) {
                 target[a.name] = c.init.call(source, a);
@@ -3137,7 +3135,7 @@ ColumnSet.prototype.toString = function (level) {
     }
     if (this.columns.length) {
         lines.push(gap1 + 'columns: [');
-        $arr.forEach(this.columns, c => {
+        this.columns.forEach(c => {
             lines.push(c.toString(2));
         });
         lines.push(gap1 + ']');
@@ -3166,7 +3164,8 @@ var $npm = {
     fs: __webpack_require__(6),
     os: __webpack_require__(4),
     path: __webpack_require__(7),
-    minify: __webpack_require__(39),
+    con: __webpack_require__(16).local,
+    minify: __webpack_require__(37),
     utils: __webpack_require__(2),
     format: __webpack_require__(5).as.format,
     QueryFileError: __webpack_require__(28)
@@ -3186,7 +3185,9 @@ var $npm = {
  *
  * It never throws any error, leaving it for query methods to reject with {@link errors.QueryFileError QueryFileError}.
  *
- * For any given SQL file you should only create a single instance of this class throughout the application.
+ * **IMPORTANT:** You should only create a single reusable object per file, in order to avoid repeated file reads,
+ * as the IO is a very expensive resource. Starting from version 5.8.0, if you do not follow it, you will be seeing the following
+ * warning: `Creating a duplicate QueryFile object for the same file`, which signals a bad-use pattern.
  *
  * @param {string} file
  * Path to the SQL file with the query, either absolute or relative to the application's entry point file.
@@ -3256,7 +3257,8 @@ function QueryFile(file, options) {
     var sql, error, ready, modTime, after, filePath = file, opt = {
         debug: $npm.utils.isDev(),
         minify: false,
-        compress: false
+        compress: false,
+        noWarnings: false
     };
 
     if (options && typeof options === 'object') {
@@ -3276,12 +3278,25 @@ function QueryFile(file, options) {
         if (options.params !== undefined) {
             opt.params = options.params;
         }
+        if (options.noWarnings !== undefined) {
+            opt.noWarnings = !!options.noWarnings;
+        }
     }
 
     Object.freeze(opt);
 
     if ($npm.utils.isText(filePath) && !$npm.utils.isPathAbsolute(filePath)) {
         filePath = $npm.path.join($npm.utils.startDir, filePath);
+    }
+
+    // istanbul ignore next:
+    if (!opt.noWarnings) {
+        if (filePath in usedPath) {
+            usedPath[filePath]++;
+            $npm.con.warn('WARNING: Creating a duplicate QueryFile object for the same file - \n    %s\n%s\n', filePath, $npm.utils.getLocalStack(3));
+        } else {
+            usedPath[filePath] = 0;
+        }
     }
 
     // Custom Type Formatting support:
@@ -3355,11 +3370,13 @@ function QueryFile(file, options) {
      * @type {string}
      * @default undefined
      * @readonly
+     * @private
      * @summary Prepared query string.
      * @description
      * When property {@link QueryFile#error error} is set, the query is `undefined`.
      *
-     * This property is primarily for internal use by the library.
+     * **IMPORTANT:** This property is for internal use by the library only, never use this
+     * property directly from your code.
      */
     Object.defineProperty(this, 'query', {
         get: () => sql
@@ -3372,8 +3389,6 @@ function QueryFile(file, options) {
      * @readonly
      * @description
      * When in an error state, it is set to a {@link errors.QueryFileError QueryFileError} object. Otherwise, it is `undefined`.
-     *
-     * This property is primarily for internal use by the library.
      */
     Object.defineProperty(this, 'error', {
         get: () => error
@@ -3407,6 +3422,8 @@ function QueryFile(file, options) {
 
     this.prepare();
 }
+
+var usedPath = {};
 
 /**
  * @method QueryFile.toString
@@ -3486,11 +3503,71 @@ module.exports = QueryFile;
  *
  * This option makes two-step SQL formatting easy: you can pre-format the SQL initially, and then
  * apply the second-step dynamic formatting when executing the query.
+ *
+ * @property {boolean} noWarnings=false
+ * ** Added in v5.8.0 **
+ *
+ * Suppresses all warnings produced by the class. It is not recommended for general use, only in specific tests
+ * that may require it.
+ *
  */
 
 
 /***/ }),
 /* 20 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var textParsers = __webpack_require__(232);
+var binaryParsers = __webpack_require__(231);
+var arrayParser = __webpack_require__(72);
+
+var typeParsers = {
+  text: {},
+  binary: {}
+};
+
+//the empty parse function
+var noParse = function(val) {
+  return String(val);
+};
+
+//returns a function used to convert a specific type (specified by
+//oid) into a result javascript type
+//note: the oid can be obtained via the following sql query:
+//SELECT oid FROM pg_type WHERE typname = 'TYPE_NAME_HERE';
+var getTypeParser = function(oid, format) {
+  format = format || 'text';
+  if (!typeParsers[format]) {
+    return noParse;
+  }
+  return typeParsers[format][oid] || noParse;
+};
+
+var setTypeParser = function(oid, format, parseFn) {
+  if(typeof format == 'function') {
+    parseFn = format;
+    format = 'text';
+  }
+  typeParsers[format][oid] = parseFn;
+};
+
+textParsers.init(function(oid, converter) {
+  typeParsers.text[oid] = converter;
+});
+
+binaryParsers.init(function(oid, converter) {
+  typeParsers.binary[oid] = converter;
+});
+
+module.exports = {
+  getTypeParser: getTypeParser,
+  setTypeParser: setTypeParser,
+  arrayParser: arrayParser
+};
+
+
+/***/ }),
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var defaults = module.exports = {
@@ -3551,12 +3628,12 @@ var defaults = module.exports = {
 
 //parse int8 so you can get your count values as actual numbers
 module.exports.__defineSetter__("parseInt8", function(val) {
-  __webpack_require__(30).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
+  __webpack_require__(20).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
 });
 
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3572,7 +3649,7 @@ module.exports = function (arg/*, …args*/) {
 
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3582,56 +3659,6 @@ module.exports = function (value) {
 	if (value == null) throw new TypeError("Cannot use null or undefined");
 	return value;
 };
-
-
-/***/ }),
-/* 23 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var Writer = __webpack_require__(167);
-
-function getLocal() {
-    return new Writer();
-}
-
-var glb = new Writer();
-
-function getGlobal() {
-    console.log = function () {
-        glb.log.apply(glb, arguments);
-    };
-    console.error = function () {
-        glb.error.apply(glb, arguments);
-    };
-    console.warn = function () {
-        glb.warn.apply(glb, arguments);
-    };
-    console.info = function () {
-        glb.info.apply(glb, arguments);
-    };
-    console.success = function () {
-        glb.success.apply(glb, arguments);
-    };
-
-    return glb;
-}
-
-var exp = module.exports = new Writer(true);
-
-Object.defineProperty(exp, 'local', {
-    get: getLocal,
-    enumerable: true
-});
-
-Object.defineProperty(exp, 'global', {
-    get: getGlobal,
-    enumerable: true
-});
-
-Object.freeze(exp);
 
 
 /***/ }),
@@ -3761,22 +3788,22 @@ function loadClass(className) {
       Class = __webpack_require__(25);
       break;
     case 'ConnectionConfig':
-      Class = __webpack_require__(37);
+      Class = __webpack_require__(35);
       break;
     case 'Pool':
-      Class = __webpack_require__(53);
+      Class = __webpack_require__(51);
       break;
     case 'PoolCluster':
-      Class = __webpack_require__(169);
+      Class = __webpack_require__(166);
       break;
     case 'PoolConfig':
-      Class = __webpack_require__(54);
+      Class = __webpack_require__(52);
       break;
     case 'SqlString':
-      Class = __webpack_require__(57);
+      Class = __webpack_require__(55);
       break;
     case 'Types':
-      Class = __webpack_require__(38);
+      Class = __webpack_require__(36);
       break;
     default:
       throw new Error('Cannot find class \'' + className + '\'');
@@ -3793,14 +3820,14 @@ function loadClass(className) {
 /* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Crypto           = __webpack_require__(42);
+var Crypto           = __webpack_require__(40);
 var Events           = __webpack_require__(3);
-var Net              = __webpack_require__(87);
-var tls              = __webpack_require__(88);
-var ConnectionConfig = __webpack_require__(37);
-var Protocol         = __webpack_require__(176);
-var SqlString        = __webpack_require__(57);
-var Query            = __webpack_require__(60);
+var Net              = __webpack_require__(83);
+var tls              = __webpack_require__(84);
+var ConnectionConfig = __webpack_require__(35);
+var Protocol         = __webpack_require__(173);
+var SqlString        = __webpack_require__(55);
+var Query            = __webpack_require__(58);
 var Util             = __webpack_require__(0);
 
 module.exports = Connection;
@@ -4298,10 +4325,10 @@ exports.CLIENT_REMEMBER_OPTIONS       = 2147483648;
 
 
 var $npm = {
-    qResult: __webpack_require__(224),
+    qResult: __webpack_require__(217),
     qFile: __webpack_require__(28),
-    prepared: __webpack_require__(223),
-    paramQuery: __webpack_require__(222)
+    prepared: __webpack_require__(216),
+    paramQuery: __webpack_require__(215)
 };
 
 /**
@@ -4355,7 +4382,7 @@ Object.freeze(module.exports);
 var $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    minify: __webpack_require__(39)
+    minify: __webpack_require__(37)
 };
 
 /**
@@ -4473,7 +4500,7 @@ var $npm = {
  * It supports $[Custom Type Formatting], which means you can use the type directly as a formatting
  * parameter, without specifying any escaping.
  *
- * @param {String|Object} table
+ * @param {string|object} table
  * Table name details, depending on the type:
  *
  * - table name, if `table` is a string
@@ -4533,10 +4560,10 @@ function TableName(table, schema) {
     }
 
     this.table = table;
-    this.name = $npm.formatting.as.name(table);
+    this.name = $npm.formatting.as.alias(table);
 
     if (this.schema) {
-        this.name = $npm.formatting.as.name(schema) + '.' + this.name;
+        this.name = $npm.formatting.as.alias(schema) + '.' + this.name;
     }
 
     this._rawDBType = true;
@@ -4570,57 +4597,6 @@ module.exports = TableName;
 
 /***/ }),
 /* 30 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var textParsers = __webpack_require__(250);
-var binaryParsers = __webpack_require__(249);
-var arrayParser = __webpack_require__(79);
-
-exports.getTypeParser = getTypeParser;
-exports.setTypeParser = setTypeParser;
-exports.arrayParser = arrayParser;
-
-var typeParsers = {
-  text: {},
-  binary: {}
-};
-
-//the empty parse function
-function noParse (val) {
-  return String(val);
-};
-
-//returns a function used to convert a specific type (specified by
-//oid) into a result javascript type
-//note: the oid can be obtained via the following sql query:
-//SELECT oid FROM pg_type WHERE typname = 'TYPE_NAME_HERE';
-function getTypeParser (oid, format) {
-  format = format || 'text';
-  if (!typeParsers[format]) {
-    return noParse;
-  }
-  return typeParsers[format][oid] || noParse;
-};
-
-function setTypeParser (oid, format, parseFn) {
-  if(typeof format == 'function') {
-    parseFn = format;
-    format = 'text';
-  }
-  typeParsers[format][oid] = parseFn;
-};
-
-textParsers.init(function(oid, converter) {
-  typeParsers.text[oid] = converter;
-});
-
-binaryParsers.init(function(oid, converter) {
-  typeParsers.binary[oid] = converter;
-});
-
-
-/***/ }),
-/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4687,19 +4663,19 @@ module.exports = {
 
 
 /***/ }),
-/* 32 */
+/* 31 */
 /***/ (function(module, exports) {
 
 module.exports = require("assert");
 
 /***/ }),
-/* 33 */
+/* 32 */
 /***/ (function(module, exports) {
 
 module.exports = require("buffer");
 
 /***/ }),
-/* 34 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4711,54 +4687,30 @@ function noConflict() {
     catch (e) {}
     return bluebird;
 }
-var bluebird = __webpack_require__(116)();
+var bluebird = __webpack_require__(111)();
 bluebird.noConflict = noConflict;
 module.exports = bluebird;
+
+
+/***/ }),
+/* 34 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = __webpack_require__(126)()
+	? Array.from
+	: __webpack_require__(127);
 
 
 /***/ }),
 /* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-"use strict";
-
-
-module.exports = __webpack_require__(132)()
-	? Array.from
-	: __webpack_require__(133);
-
-
-/***/ }),
-/* 36 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var forEach = Array.prototype.forEach, create = Object.create;
-
-var process = function (src, obj) {
-	var key;
-	for (key in src) obj[key] = src[key];
-};
-
-module.exports = function (options/*, …options*/) {
-	var result = create(null);
-	forEach.call(arguments, function (options) {
-		if (options == null) return;
-		process(Object(options), result);
-	});
-	return result;
-};
-
-
-/***/ }),
-/* 37 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var urlParse        = __webpack_require__(43).parse;
+var urlParse        = __webpack_require__(41).parse;
 var ClientConstants = __webpack_require__(26);
-var Charsets        = __webpack_require__(58);
+var Charsets        = __webpack_require__(56);
 var SSLProfiles     = null;
 
 module.exports = ConnectionConfig;
@@ -4882,7 +4834,7 @@ ConnectionConfig.getDefaultFlags = function getDefaultFlags(options) {
 
 ConnectionConfig.getSSLProfile = function getSSLProfile(name) {
   if (!SSLProfiles) {
-    SSLProfiles = __webpack_require__(180);
+    SSLProfiles = __webpack_require__(177);
   }
 
   var ssl = SSLProfiles[name];
@@ -4960,7 +4912,7 @@ ConnectionConfig.parseUrl = function(url) {
 
 
 /***/ }),
-/* 38 */
+/* 36 */
 /***/ (function(module, exports) {
 
 // Manually extracted from mysql-5.7.9/include/mysql.h.pp
@@ -4999,14 +4951,14 @@ exports.GEOMETRY    = 0xff; // aka GEOMETRY
 
 
 /***/ }),
-/* 39 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var parser = __webpack_require__(211);
-var error = __webpack_require__(64);
+var parser = __webpack_require__(207);
+var error = __webpack_require__(62);
 
 parser.minify.SQLParsingError = error.SQLParsingError;
 parser.minify.parsingErrorCode = error.parsingErrorCode;
@@ -5015,7 +4967,7 @@ module.exports = parser.minify;
 
 
 /***/ }),
-/* 40 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5057,10 +5009,10 @@ module.exports = queryResult;
 
 
 /***/ }),
-/* 41 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var defaults = __webpack_require__(20);
+var defaults = __webpack_require__(21);
 
 // convert a JS array to a postgres array literal
 // uses comma separator so won't work for types like box that use
@@ -5197,19 +5149,19 @@ module.exports = {
 
 
 /***/ }),
-/* 42 */
+/* 40 */
 /***/ (function(module, exports) {
 
 module.exports = require("crypto");
 
 /***/ }),
-/* 43 */
+/* 41 */
 /***/ (function(module, exports) {
 
 module.exports = require("url");
 
 /***/ }),
-/* 44 */
+/* 42 */
 /***/ (function(module, exports) {
 
 function webpackEmptyContext(req) {
@@ -5218,11 +5170,59 @@ function webpackEmptyContext(req) {
 webpackEmptyContext.keys = function() { return []; };
 webpackEmptyContext.resolve = webpackEmptyContext;
 module.exports = webpackEmptyContext;
-webpackEmptyContext.id = 44;
+webpackEmptyContext.id = 42;
+
+/***/ }),
+/* 43 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+module.exports = function(NEXT_FILTER) {
+var util = __webpack_require__(1);
+var getKeys = __webpack_require__(12).keys;
+var tryCatch = util.tryCatch;
+var errorObj = util.errorObj;
+
+function catchFilter(instances, cb, promise) {
+    return function(e) {
+        var boundTo = promise._boundValue();
+        predicateLoop: for (var i = 0; i < instances.length; ++i) {
+            var item = instances[i];
+
+            if (item === Error ||
+                (item != null && item.prototype instanceof Error)) {
+                if (e instanceof item) {
+                    return tryCatch(cb).call(boundTo, e);
+                }
+            } else if (typeof item === "function") {
+                var matchesPredicate = tryCatch(item).call(boundTo, e);
+                if (matchesPredicate === errorObj) {
+                    return matchesPredicate;
+                } else if (matchesPredicate) {
+                    return tryCatch(cb).call(boundTo, e);
+                }
+            } else if (util.isObject(e)) {
+                var keys = getKeys(item);
+                for (var j = 0; j < keys.length; ++j) {
+                    var key = keys[j];
+                    if (item[key] != e[key]) {
+                        continue predicateLoop;
+                    }
+                }
+                return tryCatch(cb).call(boundTo, e);
+            }
+        }
+        return NEXT_FILTER;
+    };
+}
+
+return catchFilter;
+};
 
 
 /***/ }),
-/* 45 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5231,7 +5231,7 @@ var util = __webpack_require__(1);
 var maybeWrapAsError = util.maybeWrapAsError;
 var errors = __webpack_require__(9);
 var OperationalError = errors.OperationalError;
-var es5 = __webpack_require__(13);
+var es5 = __webpack_require__(12);
 
 function isUntypedError(obj) {
     return obj instanceof Error &&
@@ -5280,31 +5280,101 @@ module.exports = nodebackForPromise;
 
 
 /***/ }),
+/* 45 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var assign        = __webpack_require__(136)
+  , normalizeOpts = __webpack_require__(46)
+  , isCallable    = __webpack_require__(139)
+  , contains      = __webpack_require__(143)
+
+  , d;
+
+d = module.exports = function (dscr, value/*, options*/) {
+	var c, e, w, options, desc;
+	if ((arguments.length < 2) || (typeof dscr !== 'string')) {
+		options = value;
+		value = dscr;
+		dscr = null;
+	} else {
+		options = arguments[2];
+	}
+	if (dscr == null) {
+		c = w = true;
+		e = false;
+	} else {
+		c = contains.call(dscr, 'c');
+		e = contains.call(dscr, 'e');
+		w = contains.call(dscr, 'w');
+	}
+
+	desc = { value: value, configurable: c, enumerable: e, writable: w };
+	return !options ? desc : assign(normalizeOpts(options), desc);
+};
+
+d.gs = function (dscr, get, set/*, options*/) {
+	var c, e, options, desc;
+	if (typeof dscr !== 'string') {
+		options = set;
+		set = get;
+		get = dscr;
+		dscr = null;
+	} else {
+		options = arguments[3];
+	}
+	if (get == null) {
+		get = undefined;
+	} else if (!isCallable(get)) {
+		options = get;
+		get = set = undefined;
+	} else if (set == null) {
+		set = undefined;
+	} else if (!isCallable(set)) {
+		options = set;
+		set = undefined;
+	}
+	if (dscr == null) {
+		c = true;
+		e = false;
+	} else {
+		c = contains.call(dscr, 'c');
+		e = contains.call(dscr, 'e');
+	}
+
+	desc = { get: get, set: set, configurable: c, enumerable: e };
+	return !options ? desc : assign(normalizeOpts(options), desc);
+};
+
+
+/***/ }),
 /* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(142)()
-	? Object.assign
-	: __webpack_require__(143);
+var forEach = Array.prototype.forEach, create = Object.create;
+
+var process = function (src, obj) {
+	var key;
+	for (key in src) obj[key] = src[key];
+};
+
+module.exports = function (options/*, …options*/) {
+	var result = create(null);
+	forEach.call(arguments, function (options) {
+		if (options == null) return;
+		process(Object(options), result);
+	});
+	return result;
+};
 
 
 /***/ }),
 /* 47 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-// Deprecated
-
-
-
-module.exports = function (obj) { return typeof obj === 'function'; };
-
-
-/***/ }),
-/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5317,25 +5387,13 @@ module.exports = function (fn) {
 
 
 /***/ }),
-/* 49 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(147)()
-	? String.prototype.contains
-	: __webpack_require__(148);
-
-
-/***/ }),
-/* 50 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var esniff = __webpack_require__(158)
+var esniff = __webpack_require__(155)
 
   , i, current, literals, substitutions, sOut, sEscape, sAhead, sIn, sInEscape, template;
 
@@ -5415,14 +5473,14 @@ module.exports = function (str) {
 
 
 /***/ }),
-/* 51 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var resolve  = __webpack_require__(157)
-  , passthru = __webpack_require__(156);
+var resolve  = __webpack_require__(154)
+  , passthru = __webpack_require__(153);
 
 module.exports = function (data, context/*, options*/) {
 	return passthru.apply(null, resolve(data, context, arguments[2]));
@@ -5430,27 +5488,27 @@ module.exports = function (data, context/*, options*/) {
 
 
 /***/ }),
-/* 52 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(35)
-  , primitiveSet = __webpack_require__(21);
+var from         = __webpack_require__(34)
+  , primitiveSet = __webpack_require__(22);
 
 module.exports = primitiveSet.apply(null, from('\n\r\u2028\u2029'));
 
 
 /***/ }),
-/* 53 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var mysql          = __webpack_require__(24);
 var Connection     = __webpack_require__(25);
 var EventEmitter   = __webpack_require__(3).EventEmitter;
 var Util           = __webpack_require__(0);
-var PoolConnection = __webpack_require__(170);
+var PoolConnection = __webpack_require__(167);
 
 module.exports = Pool;
 
@@ -5743,11 +5801,11 @@ function spliceConnection(array, connection) {
 
 
 /***/ }),
-/* 54 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var ConnectionConfig = __webpack_require__(37);
+var ConnectionConfig = __webpack_require__(35);
 
 module.exports = PoolConfig;
 function PoolConfig(options) {
@@ -5781,7 +5839,7 @@ PoolConfig.prototype.newConnectionConfig = function newConnectionConfig() {
 
 
 /***/ }),
-/* 55 */
+/* 53 */
 /***/ (function(module, exports) {
 
 
@@ -5818,11 +5876,11 @@ PoolSelector.ORDER = function PoolSelectorOrder() {
 
 
 /***/ }),
-/* 56 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Buffer = __webpack_require__(33).Buffer;
-var Crypto = __webpack_require__(42);
+var Buffer = __webpack_require__(32).Buffer;
+var Crypto = __webpack_require__(40);
 var Auth   = exports;
 
 function sha1(msg) {
@@ -5976,14 +6034,14 @@ Auth.int32Read = function(buffer, offset){
 
 
 /***/ }),
-/* 57 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(266);
+module.exports = __webpack_require__(256);
 
 
 /***/ }),
-/* 58 */
+/* 56 */
 /***/ (function(module, exports) {
 
 exports.BIG5_CHINESE_CI              = 1;
@@ -6251,10 +6309,10 @@ exports.UTF32    = exports.UTF32_GENERAL_CI;
 
 
 /***/ }),
-/* 59 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Types = __webpack_require__(38);
+var Types = __webpack_require__(36);
 
 module.exports = Field;
 function Field(options) {
@@ -6291,16 +6349,16 @@ function typeToString(t) {
 
 
 /***/ }),
-/* 60 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence     = __webpack_require__(12);
+var Sequence     = __webpack_require__(11);
 var Util         = __webpack_require__(0);
 var Packets      = __webpack_require__(10);
-var ResultSet    = __webpack_require__(177);
-var ServerStatus = __webpack_require__(179);
+var ResultSet    = __webpack_require__(174);
+var ServerStatus = __webpack_require__(176);
 var fs           = __webpack_require__(6);
-var Readable     = __webpack_require__(208);
+var Readable     = __webpack_require__(204);
 
 module.exports = Query;
 Util.inherits(Query, Sequence);
@@ -6513,7 +6571,7 @@ Query.prototype.stream = function(options) {
 
 
 /***/ }),
-/* 61 */
+/* 59 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -6540,12 +6598,12 @@ Query.prototype.stream = function(options) {
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = __webpack_require__(206);
+var isArray = __webpack_require__(162);
 /*</replacement>*/
 
 
 /*<replacement>*/
-var Buffer = __webpack_require__(33).Buffer;
+var Buffer = __webpack_require__(32).Buffer;
 /*</replacement>*/
 
 Readable.ReadableState = ReadableState;
@@ -6561,8 +6619,8 @@ if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
 var Stream = __webpack_require__(8);
 
 /*<replacement>*/
-var util = __webpack_require__(15);
-util.inherits = __webpack_require__(16);
+var util = __webpack_require__(14);
+util.inherits = __webpack_require__(15);
 /*</replacement>*/
 
 var StringDecoder;
@@ -6581,7 +6639,7 @@ if (debug && debug.debuglog) {
 util.inherits(Readable, Stream);
 
 function ReadableState(options, stream) {
-  var Duplex = __webpack_require__(14);
+  var Duplex = __webpack_require__(13);
 
   options = options || {};
 
@@ -6642,14 +6700,14 @@ function ReadableState(options, stream) {
   this.encoding = null;
   if (options.encoding) {
     if (!StringDecoder)
-      StringDecoder = __webpack_require__(86).StringDecoder;
+      StringDecoder = __webpack_require__(82).StringDecoder;
     this.decoder = new StringDecoder(options.encoding);
     this.encoding = options.encoding;
   }
 }
 
 function Readable(options) {
-  var Duplex = __webpack_require__(14);
+  var Duplex = __webpack_require__(13);
 
   if (!(this instanceof Readable))
     return new Readable(options);
@@ -6752,7 +6810,7 @@ function needMoreData(state) {
 // backwards compatibility.
 Readable.prototype.setEncoding = function(enc) {
   if (!StringDecoder)
-    StringDecoder = __webpack_require__(86).StringDecoder;
+    StringDecoder = __webpack_require__(82).StringDecoder;
   this._readableState.decoder = new StringDecoder(enc);
   this._readableState.encoding = enc;
   return this;
@@ -7470,7 +7528,7 @@ function indexOf (xs, x) {
 
 
 /***/ }),
-/* 62 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -7539,11 +7597,11 @@ function indexOf (xs, x) {
 
 module.exports = Transform;
 
-var Duplex = __webpack_require__(14);
+var Duplex = __webpack_require__(13);
 
 /*<replacement>*/
-var util = __webpack_require__(15);
-util.inherits = __webpack_require__(16);
+var util = __webpack_require__(14);
+util.inherits = __webpack_require__(15);
 /*</replacement>*/
 
 util.inherits(Transform, Duplex);
@@ -7685,7 +7743,7 @@ function done(stream, er) {
 
 
 /***/ }),
-/* 63 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -7716,15 +7774,15 @@ function done(stream, er) {
 module.exports = Writable;
 
 /*<replacement>*/
-var Buffer = __webpack_require__(33).Buffer;
+var Buffer = __webpack_require__(32).Buffer;
 /*</replacement>*/
 
 Writable.WritableState = WritableState;
 
 
 /*<replacement>*/
-var util = __webpack_require__(15);
-util.inherits = __webpack_require__(16);
+var util = __webpack_require__(14);
+util.inherits = __webpack_require__(15);
 /*</replacement>*/
 
 var Stream = __webpack_require__(8);
@@ -7738,7 +7796,7 @@ function WriteReq(chunk, encoding, cb) {
 }
 
 function WritableState(options, stream) {
-  var Duplex = __webpack_require__(14);
+  var Duplex = __webpack_require__(13);
 
   options = options || {};
 
@@ -7826,7 +7884,7 @@ function WritableState(options, stream) {
 }
 
 function Writable(options) {
-  var Duplex = __webpack_require__(14);
+  var Duplex = __webpack_require__(13);
 
   // Writable ctor is applied to Duplexes, though they're not
   // instanceof Writable, they're instanceof Readable.
@@ -8168,7 +8226,7 @@ function endWritable(stream, state, cb) {
 
 
 /***/ }),
-/* 64 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8238,110 +8296,7 @@ module.exports = {
 
 
 /***/ }),
-/* 65 */
-/***/ (function(module, exports) {
-
-function ArrayParser(source, converter) {
-  this.source = source;
-  this.converter = converter;
-  this.pos = 0;
-  this.entries = [];
-  this.recorded = [];
-  this.dimension = 0;
-  if (!this.converter) {
-    this.converter = function(entry) {
-      return entry;
-    };
-  }
-}
-
-ArrayParser.prototype.eof = function() {
-  return this.pos >= this.source.length;
-};
-
-ArrayParser.prototype.nextChar = function() {
-  var c;
-  if ((c = this.source[this.pos++]) === "\\") {
-    return {
-      char: this.source[this.pos++],
-      escaped: true
-    };
-  } else {
-    return {
-      char: c,
-      escaped: false
-    };
-  }
-};
-
-ArrayParser.prototype.record = function(c) {
-  return this.recorded.push(c);
-};
-
-ArrayParser.prototype.newEntry = function(includeEmpty) {
-  var entry;
-  if (this.recorded.length > 0 || includeEmpty) {
-    entry = this.recorded.join("");
-    if (entry === "NULL" && !includeEmpty) {
-      entry = null;
-    }
-    if (entry !== null) {
-      entry = this.converter(entry);
-    }
-    this.entries.push(entry);
-    this.recorded = [];
-  }
-};
-
-ArrayParser.prototype.parse = function(nested) {
-  var c, p, quote;
-  if (nested === null) {
-    nested = false;
-  }
-  quote = false;
-  while (!this.eof()) {
-    c = this.nextChar();
-    if (c.char === "{" && !quote) {
-      this.dimension++;
-      if (this.dimension > 1) {
-        p = new ArrayParser(this.source.substr(this.pos - 1), this.converter);
-        this.entries.push(p.parse(true));
-        this.pos += p.pos - 2;
-      }
-    } else if (c.char === "}" && !quote) {
-      this.dimension--;
-      if (this.dimension === 0) {
-        this.newEntry();
-        if (nested) {
-          return this.entries;
-        }
-      }
-    } else if (c.char === '"' && !c.escaped) {
-      if (quote) {
-        this.newEntry(true);
-      }
-      quote = !quote;
-    } else if (c.char === ',' && !quote) {
-      this.newEntry();
-    } else {
-      this.record(c.char);
-    }
-  }
-  if (this.dimension !== 0) {
-    throw "array dimension not balanced";
-  }
-  return this.entries;
-};
-
-module.exports = {
-  create: function(source, converter){
-    return new ArrayParser(source, converter);
-  }
-};
-
-
-/***/ }),
-/* 66 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8405,7 +8360,7 @@ module.exports = PromiseAdapter;
 
 
 /***/ }),
-/* 67 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8426,12 +8381,12 @@ var $npm = {
  *
  * The class parses and validates all the details, and prepares them for high-performance query generation.
  *
- * @param {String|helpers.ColumnConfig} col
+ * @param {string|helpers.ColumnConfig} col
  * Column details, depending on the type.
  *
  * When it is a string, it is expected to contain a name for both the column and the source property, assuming that the two are the same.
  * The name must adhere to JavaScript syntax for variable names. The name can be appended with any format modifier as supported by
- * {@link formatting.format as.format} (`^`, `~`, `#`, `:csv`, `:json`, `:name`, `:raw`, `:value`), which is then removed from the name and put
+ * {@link formatting.format as.format} (`^`, `~`, `#`, `:csv`, `:json`, `:alias`, `:name`, `:raw`, `:value`), which is then removed from the name and put
  * into property `mod`. If the name starts with `?`, it is removed, while setting flag `cnd` = `true`.
  *
  * If the string doesn't adhere to the above requirements, the method will throw {@link external:TypeError TypeError} = `Invalid column syntax`.
@@ -8449,7 +8404,7 @@ var $npm = {
  * It is ignored when it is the same as `name`.
  *
  * @property {string} [mod]
- * Formatting modifier, as supported by method {@link formatting.format as.format}: `^`, `~`, `#`, `:csv`, `:json`, `:name`, `:raw`, `:value`.
+ * Formatting modifier, as supported by method {@link formatting.format as.format}: `^`, `~`, `#`, `:csv`, `:json`, `:alias`, `:name`, `:raw`, `:value`.
  *
  * @property {string} [cast]
  * Server-side type casting, without `::` in front.
@@ -8588,7 +8543,7 @@ function Column(col) {
 
     var variable = '${' + (this.prop || this.name) + (this.mod || '') + '}',
         castText = this.cast ? ('::' + this.cast) : '',
-        escapedName = $npm.formatting.as.name(this.name);
+        escapedName = $npm.formatting.as.alias(this.name);
 
     Object.defineProperty(this, 'variable', {
         enumerable: false,
@@ -8619,14 +8574,14 @@ function parseCast(name) {
 }
 
 function parseColumn(name) {
-    var m = name.match(/\??[a-zA-Z0-9\$_]+(\^|~|#|:raw|:name|:json|:csv|:value)?/);
+    var m = name.match(/\??[a-zA-Z0-9\$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/);
     if (m && m[0] === name) {
         var res = {};
         if (name[0] === '?') {
             res.cnd = true;
             name = name.substr(1);
         }
-        var mod = name.match(/\^|~|#|:raw|:name|:json|:csv|:value/);
+        var mod = name.match(/\^|~|#|:raw|:alias|:name|:json|:csv|:value/);
         if (mod) {
             res.name = name.substr(0, mod.index);
             res.mod = mod[0];
@@ -8639,7 +8594,7 @@ function parseColumn(name) {
 }
 
 function isValidMod(mod) {
-    var values = ['^', '~', '#', ':raw', ':name', ':json', ':csv', ':value'];
+    var values = ['^', '~', '#', ':raw', ':alias', ':name', ':json', ':csv', ':value'];
     return values.indexOf(mod) !== -1;
 }
 
@@ -8712,7 +8667,7 @@ Column.prototype.inspect = function () {
  * It is ignored when it is the same as `name`.
  *
  * @property {string} [mod]
- * Formatting modifier, as supported by method {@link formatting.format as.format}: `^`, `~`, `#`, `:csv`, `:json`, `:name`, `:raw`, `:value`.
+ * Formatting modifier, as supported by method {@link formatting.format as.format}: `^`, `~`, `#`, `:csv`, `:json`, `:alias`, `:name`, `:raw`, `:value`.
  *
  * @property {string} [cast]
  * Server-side type casting. Leading `::` is allowed, but not needed (automatically removed when specified).
@@ -8813,7 +8768,7 @@ module.exports = Column;
 
 
 /***/ }),
-/* 68 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8830,11 +8785,11 @@ if (nodeHighVer < 4) {
     throw new Error('Minimum Node.js version required by pg-promise is 4.x');
 }
 
-module.exports = __webpack_require__(231);
+module.exports = __webpack_require__(224);
 
 
 /***/ }),
-/* 69 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8842,14 +8797,14 @@ module.exports = __webpack_require__(231);
 
 var $npm = {
     utils: __webpack_require__(2),
-    special: __webpack_require__(70),
+    special: __webpack_require__(67),
     QueryFile: __webpack_require__(19),
     formatting: __webpack_require__(5),
-    result: __webpack_require__(40),
+    result: __webpack_require__(38),
     errors: __webpack_require__(27),
     events: __webpack_require__(17),
-    stream: __webpack_require__(233),
-    types: __webpack_require__(72)
+    stream: __webpack_require__(226),
+    types: __webpack_require__(69)
 };
 
 var QueryResultError = $npm.errors.QueryResultError,
@@ -9070,7 +9025,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 70 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9089,13 +9044,13 @@ var cache = {
 };
 
 module.exports = {
-    SpecialQuery: SpecialQuery,
-    cache: cache
+    SpecialQuery,
+    cache
 };
 
 
 /***/ }),
-/* 71 */
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9143,7 +9098,7 @@ Object.freeze(isolationLevel);
  *
  * The type is available from the {@link txMode} namespace.
  *
- * @param {isolationLevel|Object} [tiLevel]
+ * @param {txMode.isolationLevel|object} [tiLevel]
  * Transaction Isolation Level, or an object with parameters, if the alternative
  * syntax is used.
  *
@@ -9273,15 +9228,15 @@ function TransactionMode(tiLevel, readOnly, deferrable) {
  * @see $[BEGIN]
  */
 module.exports = {
-    isolationLevel: isolationLevel,
-    TransactionMode: TransactionMode
+    isolationLevel,
+    TransactionMode
 };
 
 Object.freeze(module.exports);
 
 
 /***/ }),
-/* 72 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9289,8 +9244,8 @@ Object.freeze(module.exports);
 
 var $npm = {
     utils: __webpack_require__(2),
-    PS: __webpack_require__(236),
-    PQ: __webpack_require__(235)
+    PS: __webpack_require__(229),
+    PQ: __webpack_require__(228)
 };
 
 // istanbul ignore next;
@@ -9305,14 +9260,14 @@ $npm.utils.inherits($npm.PS, ExternalQuery);
 $npm.utils.inherits($npm.PQ, ExternalQuery);
 
 module.exports = {
-    ExternalQuery: ExternalQuery,
+    ExternalQuery,
     PreparedStatement: $npm.PS,
     ParameterizedQuery: $npm.PQ
 };
 
 
 /***/ }),
-/* 73 */
+/* 70 */
 /***/ (function(module, exports) {
 
 function webpackEmptyContext(req) {
@@ -9321,17 +9276,245 @@ function webpackEmptyContext(req) {
 webpackEmptyContext.keys = function() { return []; };
 webpackEmptyContext.resolve = webpackEmptyContext;
 module.exports = webpackEmptyContext;
-webpackEmptyContext.id = 73;
+webpackEmptyContext.id = 70;
+
+/***/ }),
+/* 71 */
+/***/ (function(module, exports) {
+
+module.exports = {
+	"_args": [
+		[
+			{
+				"raw": "pg-promise@^5.6.0",
+				"scope": null,
+				"escapedName": "pg-promise",
+				"name": "pg-promise",
+				"rawSpec": "^5.6.0",
+				"spec": ">=5.6.0 <6.0.0",
+				"type": "range"
+			},
+			"/home/neil/DevGit/ZenGate"
+		]
+	],
+	"_from": "pg-promise@>=5.6.0 <6.0.0",
+	"_id": "pg-promise@5.9.0",
+	"_inCache": true,
+	"_location": "/pg-promise",
+	"_nodeVersion": "8.0.0",
+	"_npmOperationalInternal": {
+		"host": "s3://npm-registry-packages",
+		"tmp": "tmp/pg-promise-5.9.0.tgz_1496625457462_0.8413828643970191"
+	},
+	"_npmUser": {
+		"name": "vitaly.tomilov",
+		"email": "vitaly.tomilov@gmail.com"
+	},
+	"_npmVersion": "5.0.0",
+	"_phantomChildren": {},
+	"_requested": {
+		"raw": "pg-promise@^5.6.0",
+		"scope": null,
+		"escapedName": "pg-promise",
+		"name": "pg-promise",
+		"rawSpec": "^5.6.0",
+		"spec": ">=5.6.0 <6.0.0",
+		"type": "range"
+	},
+	"_requiredBy": [
+		"/"
+	],
+	"_resolved": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.0.tgz",
+	"_shasum": "bd635150fbad6e1fa55f96bc6321c79a29b20054",
+	"_shrinkwrap": null,
+	"_spec": "pg-promise@^5.6.0",
+	"_where": "/home/neil/DevGit/ZenGate",
+	"author": {
+		"name": "Vitaly Tomilov",
+		"email": "vitaly.tomilov@gmail.com"
+	},
+	"bugs": {
+		"url": "https://github.com/vitaly-t/pg-promise/issues",
+		"email": "vitaly.tomilov@gmail.com"
+	},
+	"dependencies": {
+		"manakin": "0.4",
+		"pg": "5.1",
+		"pg-minify": "0.4",
+		"spex": "1.2"
+	},
+	"description": "Promises interface for PostgreSQL",
+	"devDependencies": {
+		"@types/node": "7.0",
+		"JSONStream": "1.3",
+		"bluebird": "3.5",
+		"coveralls": "2.11",
+		"eslint": "3.19",
+		"istanbul": "0.4",
+		"jasmine-node": "1.14",
+		"jsdoc": "3.4",
+		"pg-query-stream": "1.x",
+		"typescript": "2.3"
+	},
+	"directories": {},
+	"dist": {
+		"integrity": "sha512-9H6XhXX+6M7bQHUiQLhhQaG642272KY6Pekoj0VkOifxSVfW+kidGBZAPGGg22anPZLAknyn65+WoIGzU/LKEQ==",
+		"shasum": "bd635150fbad6e1fa55f96bc6321c79a29b20054",
+		"tarball": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.0.tgz"
+	},
+	"engines": {
+		"node": ">=4.0",
+		"npm": ">=2.15"
+	},
+	"files": [
+		"lib",
+		"typescript"
+	],
+	"gitHead": "5dafe6eb34e0d0a6b9850e40e34676cb56657699",
+	"homepage": "https://github.com/vitaly-t/pg-promise",
+	"keywords": [
+		"pg",
+		"promise",
+		"postgres"
+	],
+	"license": "MIT",
+	"main": "lib/index.js",
+	"maintainers": [
+		{
+			"name": "vitaly.tomilov",
+			"email": "vitaly.tomilov@gmail.com"
+		}
+	],
+	"name": "pg-promise",
+	"optionalDependencies": {},
+	"readme": "ERROR: No README data found!",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/vitaly-t/pg-promise.git"
+	},
+	"scripts": {
+		"coverage": "istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test",
+		"doc": "jsdoc -c ./jsdoc/jsDoc.json ./jsdoc/README.md",
+		"lint": "eslint ./lib",
+		"test": "jasmine-node test",
+		"test-native": "jasmine-node test --config PG_NATIVE true",
+		"travis": "npm run lint && istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
+	},
+	"typings": "typescript/pg-promise.d.ts",
+	"version": "5.9.0"
+};
+
+/***/ }),
+/* 72 */
+/***/ (function(module, exports) {
+
+function ArrayParser(source, converter) {
+  this.source = source;
+  this.converter = converter;
+  this.pos = 0;
+  this.entries = [];
+  this.recorded = [];
+  this.dimension = 0;
+  if (!this.converter) {
+    this.converter = function(entry) {
+      return entry;
+    };
+  }
+}
+
+ArrayParser.prototype.eof = function() {
+  return this.pos >= this.source.length;
+};
+
+ArrayParser.prototype.nextChar = function() {
+  var c;
+  if ((c = this.source[this.pos++]) === "\\") {
+    return {
+      char: this.source[this.pos++],
+      escaped: true
+    };
+  } else {
+    return {
+      char: c,
+      escaped: false
+    };
+  }
+};
+
+ArrayParser.prototype.record = function(c) {
+  return this.recorded.push(c);
+};
+
+ArrayParser.prototype.newEntry = function(includeEmpty) {
+  var entry;
+  if (this.recorded.length > 0 || includeEmpty) {
+    entry = this.recorded.join("");
+    if (entry === "NULL" && !includeEmpty) {
+      entry = null;
+    }
+    if (entry !== null) {
+      entry = this.converter(entry);
+    }
+    this.entries.push(entry);
+    this.recorded = [];
+  }
+};
+
+ArrayParser.prototype.parse = function(nested) {
+  var c, p, quote;
+  if (nested === null) {
+    nested = false;
+  }
+  quote = false;
+  while (!this.eof()) {
+    c = this.nextChar();
+    if (c.char === "{" && !quote) {
+      this.dimension++;
+      if (this.dimension > 1) {
+        p = new ArrayParser(this.source.substr(this.pos - 1), this.converter);
+        this.entries.push(p.parse(true));
+        this.pos += p.pos - 2;
+      }
+    } else if (c.char === "}" && !quote) {
+      this.dimension--;
+      if (this.dimension === 0) {
+        this.newEntry();
+        if (nested) {
+          return this.entries;
+        }
+      }
+    } else if (c.char === '"' && !c.escaped) {
+      if (quote) {
+        this.newEntry(true);
+      }
+      quote = !quote;
+    } else if (c.char === ',' && !quote) {
+      this.newEntry();
+    } else {
+      this.record(c.char);
+    }
+  }
+  if (this.dimension !== 0) {
+    throw "array dimension not balanced";
+  }
+  return this.entries;
+};
+
+module.exports = {
+  create: function(source, converter){
+    return new ArrayParser(source, converter);
+  }
+};
 
 
 /***/ }),
-/* 74 */
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var url = __webpack_require__(43);
-var dns = __webpack_require__(273);
+var url = __webpack_require__(41);
+var dns = __webpack_require__(262);
 
-var defaults = __webpack_require__(20);
+var defaults = __webpack_require__(21);
 
 var val = function(key, config, envVar) {
   if (envVar === undefined) {
@@ -9348,7 +9531,7 @@ var val = function(key, config, envVar) {
 };
 
 //parses a connection string
-var parse = __webpack_require__(210).parse;
+var parse = __webpack_require__(206).parse;
 
 var useSsl = function() {
   switch(process.env.PGSSLMODE) {
@@ -9424,15 +9607,15 @@ module.exports = ConnectionParameters;
 
 
 /***/ }),
-/* 75 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var net = __webpack_require__(87);
+var net = __webpack_require__(83);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
 
-var Writer = __webpack_require__(130);
-var Reader = __webpack_require__(209);
+var Writer = __webpack_require__(125);
+var Reader = __webpack_require__(205);
 
 var TEXT_MODE = 0;
 var BINARY_MODE = 1;
@@ -9504,7 +9687,7 @@ Connection.prototype.connect = function(port, host) {
     if(responseCode != 'S') {
       return self.emit('error', new Error('The server does not support SSL connections'));
     }
-    var tls = __webpack_require__(88);
+    var tls = __webpack_require__(84);
     self.stream = tls.connect({
       socket: self.stream,
       servername: host,
@@ -10069,22 +10252,22 @@ module.exports = Connection;
 
 
 /***/ }),
-/* 76 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Native = __webpack_require__(212);
-var TypeOverrides = __webpack_require__(77);
-var semver = __webpack_require__(248);
-var pkg = __webpack_require__(245);
-var assert = __webpack_require__(32);
+var Native = __webpack_require__(208);
+var TypeOverrides = __webpack_require__(76);
+var semver = __webpack_require__(245);
+var pkg = __webpack_require__(240);
+var assert = __webpack_require__(31);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var ConnectionParameters = __webpack_require__(74);
+var ConnectionParameters = __webpack_require__(73);
 
 var msg = 'Version >= ' + pkg.minNativeVersion + ' of pg-native required.';
 assert(semver.gte(Native.version, pkg.minNativeVersion), msg);
 
-var NativeQuery = __webpack_require__(240);
+var NativeQuery = __webpack_require__(235);
 
 var Client = module.exports = function(config) {
   EventEmitter.call(this);
@@ -10268,10 +10451,10 @@ Client.prototype.getTypeParser = function(oid, format) {
 
 
 /***/ }),
-/* 77 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var types = __webpack_require__(30);
+var types = __webpack_require__(20);
 
 function TypeOverrides(userTypes) {
   this._types = userTypes || types;
@@ -10304,253 +10487,12 @@ module.exports = TypeOverrides;
 
 
 /***/ }),
-/* 78 */
-/***/ (function(module, exports) {
-
-module.exports = {
-	"_args": [
-		[
-			{
-				"raw": "pg-promise@^5.6.0",
-				"scope": null,
-				"escapedName": "pg-promise",
-				"name": "pg-promise",
-				"rawSpec": "^5.6.0",
-				"spec": ">=5.6.0 <6.0.0",
-				"type": "range"
-			},
-			"/home/neil/DevGit/zf2dbmodelgen/modgen"
-		]
-	],
-	"_from": "pg-promise@>=5.6.0 <6.0.0",
-	"_id": "pg-promise@5.6.2",
-	"_inCache": true,
-	"_location": "/pg-promise",
-	"_nodeVersion": "7.6.0",
-	"_npmOperationalInternal": {
-		"host": "packages-18-east.internal.npmjs.com",
-		"tmp": "tmp/pg-promise-5.6.2.tgz_1488139788158_0.16624677297659218"
-	},
-	"_npmUser": {
-		"name": "vitaly.tomilov",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"_npmVersion": "4.1.2",
-	"_phantomChildren": {
-		"buffer-writer": "1.0.1",
-		"generic-pool": "2.4.2",
-		"packet-reader": "0.2.0",
-		"pg-connection-string": "0.1.3",
-		"pg-types": "1.11.0",
-		"split": "1.0.0"
-	},
-	"_requested": {
-		"raw": "pg-promise@^5.6.0",
-		"scope": null,
-		"escapedName": "pg-promise",
-		"name": "pg-promise",
-		"rawSpec": "^5.6.0",
-		"spec": ">=5.6.0 <6.0.0",
-		"type": "range"
-	},
-	"_requiredBy": [
-		"/"
-	],
-	"_resolved": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.2.tgz",
-	"_shasum": "bdceb2936af10df5810600481e16955f12f32bb9",
-	"_shrinkwrap": null,
-	"_spec": "pg-promise@^5.6.0",
-	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen",
-	"author": {
-		"name": "Vitaly Tomilov",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"bugs": {
-		"url": "https://github.com/vitaly-t/pg-promise/issues",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"dependencies": {
-		"manakin": "0.4",
-		"pg": "5.1",
-		"pg-minify": "0.4",
-		"spex": "1.2"
-	},
-	"description": "Promises interface for PostgreSQL",
-	"devDependencies": {
-		"@types/node": "6.x",
-		"JSONStream": "1.x",
-		"bluebird": "3.x",
-		"coveralls": "2.x",
-		"eslint": "3.x",
-		"istanbul": "0.4",
-		"jasmine-node": "1.x",
-		"jsdoc": "3.x",
-		"pg-query-stream": "1.x",
-		"typescript": "2.x"
-	},
-	"directories": {},
-	"dist": {
-		"shasum": "bdceb2936af10df5810600481e16955f12f32bb9",
-		"tarball": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.6.2.tgz"
-	},
-	"engines": {
-		"node": ">=4.0",
-		"npm": ">=2.15"
-	},
-	"files": [
-		"lib",
-		"typescript"
-	],
-	"gitHead": "4798828dd674321e961e9aabb66964968663d3a1",
-	"homepage": "https://github.com/vitaly-t/pg-promise",
-	"keywords": [
-		"pg",
-		"promise",
-		"postgres"
-	],
-	"license": "MIT",
-	"main": "lib/index.js",
-	"maintainers": [
-		{
-			"name": "vitaly.tomilov",
-			"email": "vitaly.tomilov@gmail.com"
-		}
-	],
-	"name": "pg-promise",
-	"optionalDependencies": {},
-	"readme": "ERROR: No README data found!",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/vitaly-t/pg-promise.git"
-	},
-	"scripts": {
-		"coverage": "istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test",
-		"doc": "jsdoc -c ./jsdoc/jsDoc.json ./jsdoc/README.md",
-		"lint": "eslint ./lib",
-		"test": "jasmine-node test",
-		"test-native": "jasmine-node test --config PG_NATIVE true",
-		"travis": "npm run lint && istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
-	},
-	"typings": "typescript/pg-promise.d.ts",
-	"version": "5.6.2"
-};
-
-/***/ }),
-/* 79 */
+/* 77 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var array = __webpack_require__(80);
-
-module.exports = {
-  create: function (source, transform) {
-    return {
-      parse: function() {
-        return array.parse(source, transform);
-      }
-    };
-  }
-};
-
-
-/***/ }),
-/* 80 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-exports.parse = function (source, transform) {
-  return new ArrayParser(source, transform).parse()
-}
-
-function ArrayParser (source, transform) {
-  this.source = source
-  this.transform = transform || identity
-  this.position = 0
-  this.entries = []
-  this.recorded = []
-  this.dimension = 0
-}
-
-ArrayParser.prototype.isEof = function () {
-  return this.position >= this.source.length
-}
-
-ArrayParser.prototype.nextCharacter = function () {
-  var character = this.source[this.position++]
-  if (character === '\\') {
-    return {
-      value: this.source[this.position++],
-      escaped: true
-    }
-  }
-  return {
-    value: character,
-    escaped: false
-  }
-}
-
-ArrayParser.prototype.record = function (character) {
-  this.recorded.push(character)
-}
-
-ArrayParser.prototype.newEntry = function (includeEmpty) {
-  var entry
-  if (this.recorded.length > 0 || includeEmpty) {
-    entry = this.recorded.join('')
-    if (entry === 'NULL' && !includeEmpty) {
-      entry = null
-    }
-    if (entry !== null) entry = this.transform(entry)
-    this.entries.push(entry)
-    this.recorded = []
-  }
-}
-
-ArrayParser.prototype.parse = function (nested) {
-  var character, parser, quote
-  while (!this.isEof()) {
-    character = this.nextCharacter()
-    if (character.value === '{' && !quote) {
-      this.dimension++
-      if (this.dimension > 1) {
-        parser = new ArrayParser(this.source.substr(this.position - 1), this.transform)
-        this.entries.push(parser.parse(true))
-        this.position += parser.position - 2
-      }
-    } else if (character.value === '}' && !quote) {
-      this.dimension--
-      if (!this.dimension) {
-        this.newEntry()
-        if (nested) return this.entries
-      }
-    } else if (character.value === '"' && !character.escaped) {
-      if (quote) this.newEntry(true)
-      quote = !quote
-    } else if (character.value === ',' && !quote) {
-      this.newEntry()
-    } else {
-      this.record(character.value)
-    }
-  }
-  if (this.dimension !== 0) {
-    throw new Error('array dimension not balanced')
-  }
-  return this.entries
-}
-
-function identity (value) {
-  return value
-}
-
-
-/***/ }),
-/* 81 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Promise = __webpack_require__(34),
+var Promise = __webpack_require__(33),
     mysql = __webpack_require__(24),
-    promiseCallback = __webpack_require__(82).promiseCallback;
+    promiseCallback = __webpack_require__(78).promiseCallback;
 
 /**
 * Constructor
@@ -10589,7 +10531,7 @@ var connection = function(config, _connection){
                 self.connection.on('error', function(err) {
                     console.log('db error', err);
                     self.connection.err = err;
-                    if(err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+                    if(err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR') {
                         connect();
                     }
                 });
@@ -10670,10 +10612,10 @@ module.exports = connection;
 
 
 /***/ }),
-/* 82 */
+/* 78 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Promise = __webpack_require__(34);
+var Promise = __webpack_require__(33);
 
 var promiseCallback = function(functionName, params) {
   var self = this;
@@ -10698,7 +10640,7 @@ module.exports = {
 
 
 /***/ }),
-/* 83 */
+/* 79 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10707,7 +10649,7 @@ module.exports = {
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(31)
+    utils: __webpack_require__(30)
 };
 
 /**
@@ -10870,7 +10812,7 @@ module.exports = BatchError;
 
 
 /***/ }),
-/* 84 */
+/* 80 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10879,7 +10821,7 @@ module.exports = BatchError;
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(31)
+    utils: __webpack_require__(30)
 };
 
 var errorReasons = {
@@ -11010,7 +10952,7 @@ module.exports = PageError;
 
 
 /***/ }),
-/* 85 */
+/* 81 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -11019,7 +10961,7 @@ module.exports = PageError;
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(31)
+    utils: __webpack_require__(30)
 };
 
 var errorReasons = {
@@ -11139,7 +11081,7 @@ module.exports = SequenceError;
 
 
 /***/ }),
-/* 86 */
+/* 82 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -11163,7 +11105,7 @@ module.exports = SequenceError;
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-var Buffer = __webpack_require__(33).Buffer;
+var Buffer = __webpack_require__(32).Buffer;
 
 var isBufferEncoding = Buffer.isEncoding
   || function(encoding) {
@@ -11366,22 +11308,23 @@ function base64DetectIncompleteChar(buffer) {
 
 
 /***/ }),
-/* 87 */
+/* 83 */
 /***/ (function(module, exports) {
 
 module.exports = require("net");
 
 /***/ }),
-/* 88 */
+/* 84 */
 /***/ (function(module, exports) {
 
 module.exports = require("tls");
 
 /***/ }),
-/* 89 */
+/* 85 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+
 /**
  * -----------------------------------------------------------------------------
  * Class        : configService.ts
@@ -11396,11 +11339,10 @@ module.exports = require("tls");
  * 01 Mar 2017  NRSmith     Added WebTarget comment; removed from hardcoded PHP
  * _____________________________________________________________________________
  */
-
 Object.defineProperty(exports, "__esModule", { value: true });
 class configService {
     constructor(_clArgs) {
-        this.cf = __webpack_require__(271);
+        this.cf = __webpack_require__(260);
         this._fs = __webpack_require__(6);
         try {
             this._webtargetcomment = this._fs.readFileSync('../settings/Comments/WebTarget.js', 'utf8');
@@ -11481,12 +11423,13 @@ class configService {
       * Created Date : 28 Feb 2017
       * -----------------------------------------------------------------------------
       * Date?        Whom?           Notes
+      * 07 Jun 2017  NRSmith         Added default to null (PHP7, not isset)
       * _____________________________________________________________________________
       */
     createExchangeArray(_fields) {
         let _varList = "";
         for (var field of _fields) {
-            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}]; \n`;
+            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
         }
         return _varList;
     }
@@ -11499,10 +11442,11 @@ class configService {
      * Created Date : 28 Feb 2017
      * -----------------------------------------------------------------------------
      * Date?        Whom?           Notes
+     * 07 Jun 2017  NRSmith         Fixed semi-colon issue with table name
      * _____________________________________________________________________________
      */
     createConsts(_fields) {
-        let _varList = `\n\t const TABLENAME = '${this.getTable()}'\n`;
+        let _varList = `\n\t const TABLENAME = '${this.getTable()}';\n`;
         for (var field of _fields) {
             _varList += `\t const ${field.toUpperCase()} = '${field}'; \n`;
         }
@@ -11513,14 +11457,14 @@ exports.configService = configService;
 
 
 /***/ }),
-/* 90 */
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const db_1 = __webpack_require__(93);
-const replace_1 = __webpack_require__(96);
+const db_1 = __webpack_require__(88);
+const replace_1 = __webpack_require__(92);
 /**
  * -----------------------------------------------------------------------------
  * Name         : Cycle
@@ -11608,7 +11552,7 @@ class Cycle {
      */
     setupOutput() {
         try {
-            let _mkdirp = __webpack_require__(168);
+            let _mkdirp = __webpack_require__(165);
             let _folder = `${this._confService.getOutputfolder()}${this._confService.getAlias()}/Definitions`;
             _mkdirp.sync(_folder);
         }
@@ -11706,7 +11650,7 @@ exports.Cycle = Cycle;
 
 
 /***/ }),
-/* 91 */
+/* 87 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -11714,8 +11658,8 @@ exports.Cycle = Cycle;
  */
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
-var spawn = __webpack_require__(272).spawn;
-var readlink = __webpack_require__(164).readlinkSync;
+var spawn = __webpack_require__(261).spawn;
+var readlink = __webpack_require__(160).readlinkSync;
 var path = __webpack_require__(7);
 var dirname = path.dirname;
 var basename = path.basename;
@@ -12822,64 +12766,11 @@ function exists(file) {
 
 
 /***/ }),
-/* 92 */
-/***/ (function(module, exports) {
-
-exports = module.exports = ap;
-function ap (args, fn) {
-    return function () {
-        var rest = [].slice.call(arguments)
-            , first = args.slice()
-        first.push.apply(first, rest)
-        return fn.apply(this, first);
-    };
-}
-
-exports.pa = pa;
-function pa (args, fn) {
-    return function () {
-        var rest = [].slice.call(arguments)
-        rest.push.apply(rest, args)
-        return fn.apply(this, rest);
-    };
-}
-
-exports.apa = apa;
-function apa (left, right, fn) {
-    return function () {
-        return fn.apply(this,
-            left.concat.apply(left, arguments).concat(right)
-        );
-    };
-}
-
-exports.partial = partial;
-function partial (fn) {
-    var args = [].slice.call(arguments, 1);
-    return ap(args, fn);
-}
-
-exports.partialRight = partialRight;
-function partialRight (fn) {
-    var args = [].slice.call(arguments, 1);
-    return pa(args, fn);
-}
-
-exports.curry = curry;
-function curry (fn) {
-    return partial(partial, fn);
-}
-
-exports.curryRight = function curryRight (fn) {
-    return partial(partialRight, fn);
-}
-
-
-/***/ }),
-/* 93 */
+/* 88 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+
 /**
  * -----------------------------------------------------------------------------
  * Class        : db.ts
@@ -12891,10 +12782,9 @@ exports.curryRight = function curryRight (fn) {
  * Date?        Whom?       Notes
  * _____________________________________________________________________________
  */
-
 Object.defineProperty(exports, "__esModule", { value: true });
-const connPgSQL_1 = __webpack_require__(95);
-const connMysql_1 = __webpack_require__(94);
+const connPgSQL_1 = __webpack_require__(90);
+const connMysql_1 = __webpack_require__(89);
 class db {
     constructor(_configService) {
         this._configService = _configService;
@@ -12932,18 +12822,18 @@ exports.db = db;
 
 
 /***/ }),
-/* 94 */
+/* 89 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+
 // https://github.com/mysqljs/mysql
 // https://www.npmjs.com/package/promise-mysql
-
 Object.defineProperty(exports, "__esModule", { value: true });
 class connMysql {
     constructor(_cs) {
         this._cs = _cs;
-        this._mysql = __webpack_require__(254);
+        this._mysql = __webpack_require__(243);
         this._columns = [];
         try {
             this.configure();
@@ -13035,7 +12925,7 @@ exports.connMysql = connMysql;
 
 
 /***/ }),
-/* 95 */
+/* 90 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13044,7 +12934,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 class connPgSQL {
     constructor(_cs) {
         this._cs = _cs;
-        this._pgp = __webpack_require__(68)({});
+        this._pgp = __webpack_require__(65)({});
         try {
             this.configure();
         }
@@ -13141,7 +13031,28 @@ exports.connPgSQL = connPgSQL;
 
 
 /***/ }),
-/* 96 */
+/* 91 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const configService_1 = __webpack_require__(85);
+const cycle_1 = __webpack_require__(86);
+var program = __webpack_require__(87);
+program
+    .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
+    .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
+    .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
+    .option('-a, --tablealias <Alias>', 'Alias a table; i.e. User instead of t_user')
+    .option('-u, --author <Author>', 'Software author. Can be defaulted in dbconfig.json')
+    .parse(process.argv);
+program.datecreated = new Date().toLocaleString();
+let c = new cycle_1.Cycle(new configService_1.configService(program));
+
+
+/***/ }),
+/* 92 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13175,7 +13086,7 @@ class Replace {
         this._outputfilename = _outputfilename;
         this._data = _data;
         this._fs = __webpack_require__(6);
-        this._template = __webpack_require__(155);
+        this._template = __webpack_require__(152);
         try {
         }
         catch (err) {
@@ -13195,7 +13106,7 @@ class Replace {
      */
     createFile() {
         try {
-            let compile = __webpack_require__(50), resolveToString = __webpack_require__(51);
+            let compile = __webpack_require__(48), resolveToString = __webpack_require__(49);
             this._file = this._fs.readFileSync(this._filename, 'utf8');
             let _compiled = compile(this._file);
             let _contents = (resolveToString(_compiled, this._data));
@@ -13228,7 +13139,7 @@ exports.Replace = Replace;
 
 
 /***/ }),
-/* 97 */
+/* 93 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/MikeMcl/bignumber.js/LICENCE */
@@ -15980,7 +15891,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
 
 
 /***/ }),
-/* 98 */
+/* 94 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(__filename) {
@@ -16058,7 +15969,7 @@ function bindings (opts) {
     }))
     tries.push(n)
     try {
-      b = opts.path ? /*require.resolve*/(!(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND';; throw e; }())) : !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND';; throw e; }())
+      b = opts.path ? /*require.resolve*/(!(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND'; throw e; }())) : !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND'; throw e; }())
       if (!opts.path) {
         b.path = n
       }
@@ -16153,7 +16064,7 @@ exports.getRoot = function getRoot (file) {
 /* WEBPACK VAR INJECTION */}.call(exports, "/index.js"))
 
 /***/ }),
-/* 99 */
+/* 95 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16181,15 +16092,15 @@ Promise.prototype.any = function () {
 
 
 /***/ }),
-/* 100 */
+/* 96 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 var firstLineError;
 try {throw new Error(); } catch (e) {firstLineError = e;}
-var schedule = __webpack_require__(123);
-var Queue = __webpack_require__(120);
+var schedule = __webpack_require__(118);
+var Queue = __webpack_require__(115);
 var util = __webpack_require__(1);
 
 function Async() {
@@ -16349,7 +16260,7 @@ module.exports.firstLineError = firstLineError;
 
 
 /***/ }),
-/* 101 */
+/* 97 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16423,7 +16334,7 @@ Promise.bind = function (thisArg, value) {
 
 
 /***/ }),
-/* 102 */
+/* 98 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16553,7 +16464,7 @@ Promise.prototype.get = function (propertyName) {
 
 
 /***/ }),
-/* 103 */
+/* 99 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16689,56 +16600,7 @@ Promise.prototype._resultCancelled = function() {
 
 
 /***/ }),
-/* 104 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-module.exports = function(NEXT_FILTER) {
-var util = __webpack_require__(1);
-var getKeys = __webpack_require__(13).keys;
-var tryCatch = util.tryCatch;
-var errorObj = util.errorObj;
-
-function catchFilter(instances, cb, promise) {
-    return function(e) {
-        var boundTo = promise._boundValue();
-        predicateLoop: for (var i = 0; i < instances.length; ++i) {
-            var item = instances[i];
-
-            if (item === Error ||
-                (item != null && item.prototype instanceof Error)) {
-                if (e instanceof item) {
-                    return tryCatch(cb).call(boundTo, e);
-                }
-            } else if (typeof item === "function") {
-                var matchesPredicate = tryCatch(item).call(boundTo, e);
-                if (matchesPredicate === errorObj) {
-                    return matchesPredicate;
-                } else if (matchesPredicate) {
-                    return tryCatch(cb).call(boundTo, e);
-                }
-            } else if (util.isObject(e)) {
-                var keys = getKeys(item);
-                for (var j = 0; j < keys.length; ++j) {
-                    var key = keys[j];
-                    if (item[key] != e[key]) {
-                        continue predicateLoop;
-                    }
-                }
-                return tryCatch(cb).call(boundTo, e);
-            }
-        }
-        return NEXT_FILTER;
-    };
-}
-
-return catchFilter;
-};
-
-
-/***/ }),
-/* 105 */
+/* 100 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16814,7 +16676,7 @@ return Context;
 
 
 /***/ }),
-/* 106 */
+/* 101 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17737,7 +17599,7 @@ return {
 
 
 /***/ }),
-/* 107 */
+/* 102 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17790,7 +17652,7 @@ Promise.prototype.catchReturn = function (value) {
 
 
 /***/ }),
-/* 108 */
+/* 103 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17827,7 +17689,7 @@ Promise.mapSeries = PromiseMapSeries;
 
 
 /***/ }),
-/* 109 */
+/* 104 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17846,15 +17708,16 @@ Promise.filter = function (promises, fn, options) {
 
 
 /***/ }),
-/* 110 */
+/* 105 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
-module.exports = function(Promise, tryConvertToPromise) {
+module.exports = function(Promise, tryConvertToPromise, NEXT_FILTER) {
 var util = __webpack_require__(1);
 var CancellationError = Promise.CancellationError;
 var errorObj = util.errorObj;
+var catchFilter = __webpack_require__(43)(NEXT_FILTER);
 
 function PassThroughHandlerContext(promise, type, handler) {
     this.promise = promise;
@@ -17906,7 +17769,9 @@ function finallyHandler(reasonOrValue) {
         var ret = this.isFinallyHandler()
             ? handler.call(promise._boundValue())
             : handler.call(promise._boundValue(), reasonOrValue);
-        if (ret !== undefined) {
+        if (ret === NEXT_FILTER) {
+            return ret;
+        } else if (ret !== undefined) {
             promise._setReturnedNonUndefined();
             var maybePromise = tryConvertToPromise(ret, promise);
             if (maybePromise instanceof Promise) {
@@ -17955,8 +17820,40 @@ Promise.prototype["finally"] = function (handler) {
                              finallyHandler);
 };
 
+
 Promise.prototype.tap = function (handler) {
     return this._passThrough(handler, 1, finallyHandler);
+};
+
+Promise.prototype.tapCatch = function (handlerOrPredicate) {
+    var len = arguments.length;
+    if(len === 1) {
+        return this._passThrough(handlerOrPredicate,
+                                 1,
+                                 undefined,
+                                 finallyHandler);
+    } else {
+         var catchInstances = new Array(len - 1),
+            j = 0, i;
+        for (i = 0; i < len - 1; ++i) {
+            var item = arguments[i];
+            if (util.isObject(item)) {
+                catchInstances[j++] = item;
+            } else {
+                return Promise.reject(new TypeError(
+                    "tapCatch statement predicate: "
+                    + "expecting an object but got " + util.classString(item)
+                ));
+            }
+        }
+        catchInstances.length = j;
+        var handler = arguments[i];
+        return this._passThrough(catchFilter(catchInstances, handler, this),
+                                 1,
+                                 undefined,
+                                 finallyHandler);
+    }
+
 };
 
 return PassThroughHandlerContext;
@@ -17964,7 +17861,7 @@ return PassThroughHandlerContext;
 
 
 /***/ }),
-/* 111 */
+/* 106 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18127,7 +18024,7 @@ PromiseSpawn.prototype._continue = function (result) {
             if (maybePromise === null) {
                 this._promiseRejected(
                     new TypeError(
-                        "A value %s was yielded that could not be treated as a promise\u000a\u000a    See http://goo.gl/MqrFmX\u000a\u000a".replace("%s", value) +
+                        "A value %s was yielded that could not be treated as a promise\u000a\u000a    See http://goo.gl/MqrFmX\u000a\u000a".replace("%s", String(value)) +
                         "From coroutine:\u000a" +
                         this._stack.split("\n").slice(1, -7).join("\n")
                     )
@@ -18194,7 +18091,7 @@ Promise.spawn = function (generatorFunction) {
 
 
 /***/ }),
-/* 112 */
+/* 107 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18369,7 +18266,7 @@ Promise.join = function () {
 
 
 /***/ }),
-/* 113 */
+/* 108 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18544,7 +18441,7 @@ Promise.map = function (promises, fn, options, _filter) {
 
 
 /***/ }),
-/* 114 */
+/* 109 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18606,7 +18503,7 @@ Promise.prototype._resolveFromSyncValue = function (value) {
 
 
 /***/ }),
-/* 115 */
+/* 110 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18671,7 +18568,7 @@ Promise.prototype.asCallback = Promise.prototype.nodeify = function (nodeback,
 
 
 /***/ }),
-/* 116 */
+/* 111 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18704,8 +18601,8 @@ if (util.isNode) {
 }
 util.notEnumerableProp(Promise, "_getDomain", getDomain);
 
-var es5 = __webpack_require__(13);
-var Async = __webpack_require__(100);
+var es5 = __webpack_require__(12);
+var Async = __webpack_require__(96);
 var async = new Async();
 es5.defineProperty(Promise, "_async", {value: async});
 var errors = __webpack_require__(9);
@@ -18719,40 +18616,41 @@ Promise.AggregateError = errors.AggregateError;
 var INTERNAL = function(){};
 var APPLY = {};
 var NEXT_FILTER = {};
-var tryConvertToPromise = __webpack_require__(127)(Promise, INTERNAL);
+var tryConvertToPromise = __webpack_require__(122)(Promise, INTERNAL);
 var PromiseArray =
-    __webpack_require__(117)(Promise, INTERNAL,
+    __webpack_require__(112)(Promise, INTERNAL,
                                tryConvertToPromise, apiRejection, Proxyable);
-var Context = __webpack_require__(105)(Promise);
+var Context = __webpack_require__(100)(Promise);
  /*jshint unused:false*/
 var createContext = Context.create;
-var debug = __webpack_require__(106)(Promise, Context);
+var debug = __webpack_require__(101)(Promise, Context);
 var CapturedTrace = debug.CapturedTrace;
 var PassThroughHandlerContext =
-    __webpack_require__(110)(Promise, tryConvertToPromise);
-var catchFilter = __webpack_require__(104)(NEXT_FILTER);
-var nodebackForPromise = __webpack_require__(45);
+    __webpack_require__(105)(Promise, tryConvertToPromise, NEXT_FILTER);
+var catchFilter = __webpack_require__(43)(NEXT_FILTER);
+var nodebackForPromise = __webpack_require__(44);
 var errorObj = util.errorObj;
 var tryCatch = util.tryCatch;
 function check(self, executor) {
+    if (self == null || self.constructor !== Promise) {
+        throw new TypeError("the promise constructor cannot be invoked directly\u000a\u000a    See http://goo.gl/MqrFmX\u000a");
+    }
     if (typeof executor !== "function") {
         throw new TypeError("expecting a function but got " + util.classString(executor));
     }
-    if (self.constructor !== Promise) {
-        throw new TypeError("the promise constructor cannot be invoked directly\u000a\u000a    See http://goo.gl/MqrFmX\u000a");
-    }
+
 }
 
 function Promise(executor) {
+    if (executor !== INTERNAL) {
+        check(this, executor);
+    }
     this._bitField = 0;
     this._fulfillmentHandler0 = undefined;
     this._rejectionHandler0 = undefined;
     this._promise0 = undefined;
     this._receiver0 = undefined;
-    if (executor !== INTERNAL) {
-        check(this, executor);
-        this._resolveFromExecutor(executor);
-    }
+    this._resolveFromExecutor(executor);
     this._promiseCreated();
     this._fireEvent("promiseCreated", this);
 }
@@ -18771,8 +18669,8 @@ Promise.prototype.caught = Promise.prototype["catch"] = function (fn) {
             if (util.isObject(item)) {
                 catchInstances[j++] = item;
             } else {
-                return apiRejection("expecting an object but got " +
-                    "A catch statement predicate " + util.classString(item));
+                return apiRejection("Catch statement predicate: " +
+                    "expecting an object but got " + util.classString(item));
             }
         }
         catchInstances.length = j;
@@ -19151,6 +19049,7 @@ function(reason, synchronous, ignoreNonErrorWarnings) {
 };
 
 Promise.prototype._resolveFromExecutor = function (executor) {
+    if (executor === INTERNAL) return;
     var promise = this;
     this._captureStackTrace();
     this._pushContext();
@@ -19399,31 +19298,31 @@ util.notEnumerableProp(Promise,
                        "_makeSelfResolutionError",
                        makeSelfResolutionError);
 
-__webpack_require__(114)(Promise, INTERNAL, tryConvertToPromise, apiRejection,
+__webpack_require__(109)(Promise, INTERNAL, tryConvertToPromise, apiRejection,
     debug);
-__webpack_require__(101)(Promise, INTERNAL, tryConvertToPromise, debug);
-__webpack_require__(103)(Promise, PromiseArray, apiRejection, debug);
-__webpack_require__(107)(Promise);
-__webpack_require__(126)(Promise);
-__webpack_require__(112)(
+__webpack_require__(97)(Promise, INTERNAL, tryConvertToPromise, debug);
+__webpack_require__(99)(Promise, PromiseArray, apiRejection, debug);
+__webpack_require__(102)(Promise);
+__webpack_require__(121)(Promise);
+__webpack_require__(107)(
     Promise, PromiseArray, tryConvertToPromise, INTERNAL, async, getDomain);
 Promise.Promise = Promise;
-Promise.version = "3.4.7";
-__webpack_require__(113)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
-__webpack_require__(102)(Promise);
-__webpack_require__(129)(Promise, apiRejection, tryConvertToPromise, createContext, INTERNAL, debug);
-__webpack_require__(128)(Promise, INTERNAL, debug);
-__webpack_require__(111)(Promise, apiRejection, INTERNAL, tryConvertToPromise, Proxyable, debug);
-__webpack_require__(115)(Promise);
-__webpack_require__(118)(Promise, INTERNAL);
-__webpack_require__(119)(Promise, PromiseArray, tryConvertToPromise, apiRejection);
-__webpack_require__(121)(Promise, INTERNAL, tryConvertToPromise, apiRejection);
-__webpack_require__(122)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
-__webpack_require__(124)(Promise, PromiseArray, debug);
-__webpack_require__(125)(Promise, PromiseArray, apiRejection);
-__webpack_require__(109)(Promise, INTERNAL);
-__webpack_require__(108)(Promise, INTERNAL);
-__webpack_require__(99)(Promise);
+Promise.version = "3.5.0";
+__webpack_require__(108)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
+__webpack_require__(98)(Promise);
+__webpack_require__(124)(Promise, apiRejection, tryConvertToPromise, createContext, INTERNAL, debug);
+__webpack_require__(123)(Promise, INTERNAL, debug);
+__webpack_require__(106)(Promise, apiRejection, INTERNAL, tryConvertToPromise, Proxyable, debug);
+__webpack_require__(110)(Promise);
+__webpack_require__(113)(Promise, INTERNAL);
+__webpack_require__(114)(Promise, PromiseArray, tryConvertToPromise, apiRejection);
+__webpack_require__(116)(Promise, INTERNAL, tryConvertToPromise, apiRejection);
+__webpack_require__(117)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
+__webpack_require__(119)(Promise, PromiseArray, debug);
+__webpack_require__(120)(Promise, PromiseArray, apiRejection);
+__webpack_require__(104)(Promise, INTERNAL);
+__webpack_require__(103)(Promise, INTERNAL);
+__webpack_require__(95)(Promise);
                                                          
     util.toFastProperties(Promise);                                          
     util.toFastProperties(Promise.prototype);                                
@@ -19451,7 +19350,7 @@ __webpack_require__(99)(Promise);
 
 
 /***/ }),
-/* 117 */
+/* 112 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19465,6 +19364,7 @@ function toResolutionValue(val) {
     switch(val) {
     case -2: return [];
     case -3: return {};
+    case -6: return new Map();
     }
 }
 
@@ -19642,7 +19542,7 @@ return PromiseArray;
 
 
 /***/ }),
-/* 118 */
+/* 113 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19650,7 +19550,7 @@ return PromiseArray;
 module.exports = function(Promise, INTERNAL) {
 var THIS = {};
 var util = __webpack_require__(1);
-var nodebackForPromise = __webpack_require__(45);
+var nodebackForPromise = __webpack_require__(44);
 var withAppended = util.withAppended;
 var maybeWrapAsError = util.maybeWrapAsError;
 var canEvaluate = util.canEvaluate;
@@ -19963,7 +19863,7 @@ Promise.promisifyAll = function (target, options) {
 
 
 /***/ }),
-/* 119 */
+/* 114 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19972,7 +19872,7 @@ module.exports = function(
     Promise, PromiseArray, tryConvertToPromise, apiRejection) {
 var util = __webpack_require__(1);
 var isObject = util.isObject;
-var es5 = __webpack_require__(13);
+var es5 = __webpack_require__(12);
 var Es6Map;
 if (typeof Map === "function") Es6Map = Map;
 
@@ -20024,7 +19924,7 @@ function PropertiesPromiseArray(obj) {
     }
     this.constructor$(entries);
     this._isMap = isMap;
-    this._init$(undefined, -3);
+    this._init$(undefined, isMap ? -6 : -3);
 }
 util.inherits(PropertiesPromiseArray, PromiseArray);
 
@@ -20088,7 +19988,7 @@ Promise.props = function (promises) {
 
 
 /***/ }),
-/* 120 */
+/* 115 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20168,7 +20068,7 @@ module.exports = Queue;
 
 
 /***/ }),
-/* 121 */
+/* 116 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20224,7 +20124,7 @@ Promise.prototype.race = function () {
 
 
 /***/ }),
-/* 122 */
+/* 117 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20403,7 +20303,7 @@ function gotValue(value) {
 
 
 /***/ }),
-/* 123 */
+/* 118 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20443,11 +20343,11 @@ if (util.isNode && typeof MutationObserver === "undefined") {
 
         var scheduleToggle = function() {
             if (toggleScheduled) return;
-                toggleScheduled = true;
-                div2.classList.toggle("foo");
-            };
+            toggleScheduled = true;
+            div2.classList.toggle("foo");
+        };
 
-            return function schedule(fn) {
+        return function schedule(fn) {
             var o = new MutationObserver(function() {
                 o.disconnect();
                 fn();
@@ -20471,7 +20371,7 @@ module.exports = schedule;
 
 
 /***/ }),
-/* 124 */
+/* 119 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20521,7 +20421,7 @@ Promise.prototype.settle = function () {
 
 
 /***/ }),
-/* 125 */
+/* 120 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20676,7 +20576,7 @@ Promise._SomePromiseArray = SomePromiseArray;
 
 
 /***/ }),
-/* 126 */
+/* 121 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20786,7 +20686,7 @@ Promise.PromiseInspection = PromiseInspection;
 
 
 /***/ }),
-/* 127 */
+/* 122 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20879,7 +20779,7 @@ return tryConvertToPromise;
 
 
 /***/ }),
-/* 128 */
+/* 123 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20979,7 +20879,7 @@ Promise.prototype.timeout = function (ms, message) {
 
 
 /***/ }),
-/* 129 */
+/* 124 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21212,7 +21112,7 @@ module.exports = function (Promise, apiRejection, tryConvertToPromise,
 
 
 /***/ }),
-/* 130 */
+/* 125 */
 /***/ (function(module, exports) {
 
 //binary data writer tuned for creating
@@ -21347,77 +21247,7 @@ Writer.prototype.flush = function(code) {
 
 
 /***/ }),
-/* 131 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var assign        = __webpack_require__(46)
-  , normalizeOpts = __webpack_require__(36)
-  , isCallable    = __webpack_require__(47)
-  , contains      = __webpack_require__(49)
-
-  , d;
-
-d = module.exports = function (dscr, value/*, options*/) {
-	var c, e, w, options, desc;
-	if ((arguments.length < 2) || (typeof dscr !== 'string')) {
-		options = value;
-		value = dscr;
-		dscr = null;
-	} else {
-		options = arguments[2];
-	}
-	if (dscr == null) {
-		c = w = true;
-		e = false;
-	} else {
-		c = contains.call(dscr, 'c');
-		e = contains.call(dscr, 'e');
-		w = contains.call(dscr, 'w');
-	}
-
-	desc = { value: value, configurable: c, enumerable: e, writable: w };
-	return !options ? desc : assign(normalizeOpts(options), desc);
-};
-
-d.gs = function (dscr, get, set/*, options*/) {
-	var c, e, options, desc;
-	if (typeof dscr !== 'string') {
-		options = set;
-		set = get;
-		get = dscr;
-		dscr = null;
-	} else {
-		options = arguments[3];
-	}
-	if (get == null) {
-		get = undefined;
-	} else if (!isCallable(get)) {
-		options = get;
-		get = set = undefined;
-	} else if (set == null) {
-		set = undefined;
-	} else if (!isCallable(set)) {
-		options = set;
-		set = undefined;
-	}
-	if (dscr == null) {
-		c = true;
-		e = false;
-	} else {
-		c = contains.call(dscr, 'c');
-		e = contains.call(dscr, 'e');
-	}
-
-	desc = { get: get, set: set, configurable: c, enumerable: e };
-	return !options ? desc : assign(normalizeOpts(options), desc);
-};
-
-
-/***/ }),
-/* 132 */
+/* 126 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21433,19 +21263,19 @@ module.exports = function () {
 
 
 /***/ }),
-/* 133 */
+/* 127 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var iteratorSymbol = __webpack_require__(150).iterator
-  , isArguments    = __webpack_require__(134)
-  , isFunction     = __webpack_require__(135)
-  , toPosInt       = __webpack_require__(141)
-  , callable       = __webpack_require__(48)
-  , validValue     = __webpack_require__(22)
-  , isString       = __webpack_require__(149)
+var iteratorSymbol = __webpack_require__(147).iterator
+  , isArguments    = __webpack_require__(128)
+  , isFunction     = __webpack_require__(129)
+  , toPosInt       = __webpack_require__(135)
+  , callable       = __webpack_require__(47)
+  , validValue     = __webpack_require__(23)
+  , isString       = __webpack_require__(146)
 
   , isArray = Array.isArray, call = Function.prototype.call
   , desc = { configurable: true, enumerable: true, writable: true, value: null }
@@ -21546,7 +21376,7 @@ module.exports = function (arrayLike/*, mapFn, thisArg*/) {
 
 
 /***/ }),
-/* 134 */
+/* 128 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21560,7 +21390,7 @@ module.exports = function (x) { return (toString.call(x) === id); };
 
 
 /***/ }),
-/* 135 */
+/* 129 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21568,7 +21398,7 @@ module.exports = function (x) { return (toString.call(x) === id); };
 
 var toString = Object.prototype.toString
 
-  , id = toString.call(__webpack_require__(136));
+  , id = toString.call(__webpack_require__(130));
 
 module.exports = function (f) {
 	return (typeof f === "function") && (toString.call(f) === id);
@@ -21576,7 +21406,7 @@ module.exports = function (f) {
 
 
 /***/ }),
-/* 136 */
+/* 130 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21586,19 +21416,19 @@ module.exports = function () {};
 
 
 /***/ }),
-/* 137 */
+/* 131 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(138)()
+module.exports = __webpack_require__(132)()
 	? Math.sign
-	: __webpack_require__(139);
+	: __webpack_require__(133);
 
 
 /***/ }),
-/* 138 */
+/* 132 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21612,7 +21442,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 139 */
+/* 133 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21626,13 +21456,13 @@ module.exports = function (value) {
 
 
 /***/ }),
-/* 140 */
+/* 134 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var sign = __webpack_require__(137)
+var sign = __webpack_require__(131)
 
   , abs = Math.abs, floor = Math.floor;
 
@@ -21645,13 +21475,13 @@ module.exports = function (value) {
 
 
 /***/ }),
-/* 141 */
+/* 135 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var toInteger = __webpack_require__(140)
+var toInteger = __webpack_require__(134)
 
   , max = Math.max;
 
@@ -21659,7 +21489,19 @@ module.exports = function (value) { return max(0, toInteger(value)); };
 
 
 /***/ }),
-/* 142 */
+/* 136 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = __webpack_require__(137)()
+	? Object.assign
+	: __webpack_require__(138);
+
+
+/***/ }),
+/* 137 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21675,14 +21517,14 @@ module.exports = function () {
 
 
 /***/ }),
-/* 143 */
+/* 138 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var keys  = __webpack_require__(144)
-  , value = __webpack_require__(22)
+var keys  = __webpack_require__(140)
+  , value = __webpack_require__(23)
 
   , max = Math.max;
 
@@ -21704,19 +21546,31 @@ module.exports = function (dest, src/*, …srcn*/) {
 
 
 /***/ }),
-/* 144 */
+/* 139 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+// Deprecated
+
+
+
+module.exports = function (obj) { return typeof obj === 'function'; };
+
+
+/***/ }),
+/* 140 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(145)()
+module.exports = __webpack_require__(141)()
 	? Object.keys
-	: __webpack_require__(146);
+	: __webpack_require__(142);
 
 
 /***/ }),
-/* 145 */
+/* 141 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21731,7 +21585,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 146 */
+/* 142 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21745,7 +21599,19 @@ module.exports = function (object) {
 
 
 /***/ }),
-/* 147 */
+/* 143 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = __webpack_require__(144)()
+	? String.prototype.contains
+	: __webpack_require__(145);
+
+
+/***/ }),
+/* 144 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21760,7 +21626,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 148 */
+/* 145 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21774,7 +21640,7 @@ module.exports = function (searchString/*, position*/) {
 
 
 /***/ }),
-/* 149 */
+/* 146 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21791,17 +21657,17 @@ module.exports = function (x) {
 
 
 /***/ }),
-/* 150 */
+/* 147 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(151)() ? Symbol : __webpack_require__(153);
+module.exports = __webpack_require__(148)() ? Symbol : __webpack_require__(150);
 
 
 /***/ }),
-/* 151 */
+/* 148 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21825,7 +21691,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 152 */
+/* 149 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21841,16 +21707,16 @@ module.exports = function (x) {
 
 
 /***/ }),
-/* 153 */
+/* 150 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-// ES2015 Symbol polyfill for environments that do not support it (or partially support it)
+// ES2015 Symbol polyfill for environments that do not (or partially) support it
 
 
 
-var d              = __webpack_require__(131)
-  , validateSymbol = __webpack_require__(154)
+var d              = __webpack_require__(45)
+  , validateSymbol = __webpack_require__(151)
 
   , create = Object.create, defineProperties = Object.defineProperties
   , defineProperty = Object.defineProperty, objPrototype = Object.prototype
@@ -21890,7 +21756,7 @@ var generateName = (function () {
 // Internal constructor (not one exposed) for creating Symbol instances.
 // This one is used to ensure that `someSymbol instanceof Symbol` always return false
 HiddenSymbol = function Symbol(description) {
-	if (this instanceof HiddenSymbol) throw new TypeError('TypeError: Symbol is not a constructor');
+	if (this instanceof HiddenSymbol) throw new TypeError('Symbol is not a constructor');
 	return SymbolPolyfill(description);
 };
 
@@ -21898,7 +21764,7 @@ HiddenSymbol = function Symbol(description) {
 // (returns instances of HiddenSymbol)
 module.exports = SymbolPolyfill = function Symbol(description) {
 	var symbol;
-	if (this instanceof Symbol) throw new TypeError('TypeError: Symbol is not a constructor');
+	if (this instanceof Symbol) throw new TypeError('Symbol is not a constructor');
 	if (isNativeSafe) return NativeSymbol(description);
 	symbol = create(HiddenSymbol.prototype);
 	description = (description === undefined ? '' : String(description));
@@ -21918,8 +21784,8 @@ defineProperties(SymbolPolyfill, {
 		for (key in globalSymbols) if (globalSymbols[key] === s) return key;
 	}),
 
-	// If there's native implementation of given symbol, let's fallback to it
-	// to ensure proper interoperability with other native functions e.g. Array.from
+	// To ensure proper interoperability with other native functions (e.g. Array.from)
+	// fallback to eventual native implementation of given symbol
 	hasInstance: d('', (NativeSymbol && NativeSymbol.hasInstance) || SymbolPolyfill('hasInstance')),
 	isConcatSpreadable: d('', (NativeSymbol && NativeSymbol.isConcatSpreadable) ||
 		SymbolPolyfill('isConcatSpreadable')),
@@ -21966,13 +21832,13 @@ defineProperty(HiddenSymbol.prototype, SymbolPolyfill.toPrimitive,
 
 
 /***/ }),
-/* 154 */
+/* 151 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var isSymbol = __webpack_require__(152);
+var isSymbol = __webpack_require__(149);
 
 module.exports = function (value) {
 	if (!isSymbol(value)) throw new TypeError(value + " is not a symbol");
@@ -21981,14 +21847,14 @@ module.exports = function (value) {
 
 
 /***/ }),
-/* 155 */
+/* 152 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var compile = __webpack_require__(50)
-  , resolve = __webpack_require__(51);
+var compile = __webpack_require__(48)
+  , resolve = __webpack_require__(49);
 
 module.exports = function (template, context/*, options*/) {
 	return resolve(compile(template), context, arguments[2]);
@@ -21996,7 +21862,7 @@ module.exports = function (template, context/*, options*/) {
 
 
 /***/ }),
-/* 156 */
+/* 153 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -22013,15 +21879,15 @@ module.exports = function (literals/*, …substitutions*/) {
 
 
 /***/ }),
-/* 157 */
+/* 154 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var value          = __webpack_require__(22)
-  , normalize      = __webpack_require__(36)
-  , isVarNameValid = __webpack_require__(159)
+var value          = __webpack_require__(23)
+  , normalize      = __webpack_require__(46)
+  , isVarNameValid = __webpack_require__(156)
 
   , map = Array.prototype.map, keys = Object.keys
   , stringify = JSON.stringify;
@@ -22055,19 +21921,19 @@ module.exports = function (data, context/*, options*/) {
 
 
 /***/ }),
-/* 158 */
+/* 155 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(35)
-  , primitiveSet = __webpack_require__(21)
-  , value        = __webpack_require__(22)
-  , callable     = __webpack_require__(48)
-  , d            = __webpack_require__(162)
-  , eolSet       = __webpack_require__(52)
-  , wsSet        = __webpack_require__(161)
+var from         = __webpack_require__(34)
+  , primitiveSet = __webpack_require__(22)
+  , value        = __webpack_require__(23)
+  , callable     = __webpack_require__(47)
+  , d            = __webpack_require__(45)
+  , eolSet       = __webpack_require__(50)
+  , wsSet        = __webpack_require__(158)
 
   , hasOwnProperty = Object.prototype.hasOwnProperty
   , preRegExpSet = primitiveSet.apply(null, from(';{=([,<>+-*/%&|^!~?:}'))
@@ -22292,7 +22158,7 @@ Object.defineProperties(exports, {
 
 
 /***/ }),
-/* 159 */
+/* 156 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -22304,14 +22170,14 @@ module.exports = RegExp.prototype.test.bind(/^(?!(?:do|if|in|for|let|new|try|var
 
 
 /***/ }),
-/* 160 */
+/* 157 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(35)
-  , primitiveSet = __webpack_require__(21);
+var from         = __webpack_require__(34)
+  , primitiveSet = __webpack_require__(22);
 
 module.exports = primitiveSet.apply(null, from(' \f\t\v​\u00a0\u1680​\u180e' +
 	'\u2000​\u2001\u2002​\u2003\u2004​\u2005\u2006​\u2007\u2008​\u2009\u200a' +
@@ -22319,92 +22185,22 @@ module.exports = primitiveSet.apply(null, from(' \f\t\v​\u00a0\u1680​\u180e'
 
 
 /***/ }),
-/* 161 */
+/* 158 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var primitiveSet = __webpack_require__(21)
-  , eol          = __webpack_require__(52)
-  , inline       = __webpack_require__(160);
+var primitiveSet = __webpack_require__(22)
+  , eol          = __webpack_require__(50)
+  , inline       = __webpack_require__(157);
 
 module.exports = primitiveSet.apply(null,
 	Object.keys(eol).concat(Object.keys(inline)));
 
 
 /***/ }),
-/* 162 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var assign        = __webpack_require__(46)
-  , normalizeOpts = __webpack_require__(36)
-  , isCallable    = __webpack_require__(47)
-  , contains      = __webpack_require__(49)
-
-  , d;
-
-d = module.exports = function (dscr, value/*, options*/) {
-	var c, e, w, options, desc;
-	if ((arguments.length < 2) || (typeof dscr !== 'string')) {
-		options = value;
-		value = dscr;
-		dscr = null;
-	} else {
-		options = arguments[2];
-	}
-	if (dscr == null) {
-		c = w = true;
-		e = false;
-	} else {
-		c = contains.call(dscr, 'c');
-		e = contains.call(dscr, 'e');
-		w = contains.call(dscr, 'w');
-	}
-
-	desc = { value: value, configurable: c, enumerable: e, writable: w };
-	return !options ? desc : assign(normalizeOpts(options), desc);
-};
-
-d.gs = function (dscr, get, set/*, options*/) {
-	var c, e, options, desc;
-	if (typeof dscr !== 'string') {
-		options = set;
-		set = get;
-		get = dscr;
-		dscr = null;
-	} else {
-		options = arguments[3];
-	}
-	if (get == null) {
-		get = undefined;
-	} else if (!isCallable(get)) {
-		options = get;
-		get = set = undefined;
-	} else if (set == null) {
-		set = undefined;
-	} else if (!isCallable(set)) {
-		options = set;
-		set = undefined;
-	}
-	if (dscr == null) {
-		c = true;
-		e = false;
-	} else {
-		c = contains.call(dscr, 'c');
-		e = contains.call(dscr, 'e');
-	}
-
-	desc = { get: get, set: set, configurable: c, enumerable: e };
-	return !options ? desc : assign(normalizeOpts(options), desc);
-};
-
-
-/***/ }),
-/* 163 */
+/* 159 */
 /***/ (function(module, exports) {
 
 /**
@@ -22975,7 +22771,7 @@ exports.Pool = Pool
 
 
 /***/ }),
-/* 164 */
+/* 160 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var fs = __webpack_require__(6)
@@ -22993,7 +22789,7 @@ exports.readlinkSync = function (p) {
 
 
 /***/ }),
-/* 165 */
+/* 161 */
 /***/ (function(module, exports) {
 
 if (typeof Object.create === 'function') {
@@ -23022,10 +22818,19 @@ if (typeof Object.create === 'function') {
 
 
 /***/ }),
-/* 166 */
+/* 162 */
+/***/ (function(module, exports) {
+
+module.exports = Array.isArray || function (arr) {
+  return Object.prototype.toString.call(arr) == '[object Array]';
+};
+
+
+/***/ }),
+/* 163 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(98)('addon.node').PQ;
+/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(94)('addon.node').PQ;
 
 //print out the include dir
 //if you want to include this in a binding.gyp file
@@ -23035,7 +22840,7 @@ if(!module.parent) {
 }
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
-var assert = __webpack_require__(32);
+var assert = __webpack_require__(31);
 
 for(var key in EventEmitter.prototype) {
   PQ.prototype[key] = EventEmitter.prototype[key];
@@ -23385,10 +23190,10 @@ PQ.prototype.cancel = function() {
   return this.$cancel();
 };
 
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(269)(module), "/"))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(259)(module), "/"))
 
 /***/ }),
-/* 167 */
+/* 164 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -23561,7 +23366,7 @@ module.exports = Writer;
 
 
 /***/ }),
-/* 168 */
+/* 165 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var path = __webpack_require__(7);
@@ -23665,13 +23470,13 @@ mkdirP.sync = function sync (p, opts, made) {
 
 
 /***/ }),
-/* 169 */
+/* 166 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Pool          = __webpack_require__(53);
-var PoolConfig    = __webpack_require__(54);
-var PoolNamespace = __webpack_require__(171);
-var PoolSelector  = __webpack_require__(55);
+var Pool          = __webpack_require__(51);
+var PoolConfig    = __webpack_require__(52);
+var PoolNamespace = __webpack_require__(168);
+var PoolSelector  = __webpack_require__(53);
 var Util          = __webpack_require__(0);
 var EventEmitter  = __webpack_require__(3).EventEmitter;
 
@@ -23959,7 +23764,7 @@ function _noop() {}
 
 
 /***/ }),
-/* 170 */
+/* 167 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits   = __webpack_require__(0).inherits;
@@ -24029,11 +23834,11 @@ PoolConnection.prototype._removeFromPool = function _removeFromPool() {
 
 
 /***/ }),
-/* 171 */
+/* 168 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Connection   = __webpack_require__(25);
-var PoolSelector = __webpack_require__(55);
+var PoolSelector = __webpack_require__(53);
 
 module.exports = PoolNamespace;
 
@@ -24171,7 +23976,7 @@ PoolNamespace.prototype._getClusterNode = function _getClusterNode() {
 
 
 /***/ }),
-/* 172 */
+/* 169 */
 /***/ (function(module, exports) {
 
 
@@ -24202,7 +24007,7 @@ BufferList.prototype.push = function push(buf) {
 
 
 /***/ }),
-/* 173 */
+/* 170 */
 /***/ (function(module, exports) {
 
 module.exports = PacketHeader;
@@ -24213,7 +24018,7 @@ function PacketHeader(length, number) {
 
 
 /***/ }),
-/* 174 */
+/* 171 */
 /***/ (function(module, exports) {
 
 var BIT_16            = Math.pow(2, 16);
@@ -24429,14 +24234,14 @@ PacketWriter.prototype._allocate = function _allocate(bytes) {
 
 
 /***/ }),
-/* 175 */
+/* 172 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var MAX_PACKET_LENGTH = Math.pow(2, 24) - 1;
 var MUL_32BIT         = Math.pow(2, 32);
-var PacketHeader      = __webpack_require__(173);
-var BigNumber         = __webpack_require__(97);
-var BufferList        = __webpack_require__(172);
+var PacketHeader      = __webpack_require__(170);
+var BigNumber         = __webpack_require__(93);
+var BufferList        = __webpack_require__(169);
 
 module.exports = Parser;
 function Parser(options) {
@@ -24905,16 +24710,16 @@ Parser.prototype._advanceToNextPacket = function() {
 
 
 /***/ }),
-/* 176 */
+/* 173 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Parser       = __webpack_require__(175);
-var Sequences    = __webpack_require__(205);
+var Parser       = __webpack_require__(172);
+var Sequences    = __webpack_require__(202);
 var Packets      = __webpack_require__(10);
-var Timers       = __webpack_require__(275);
+var Timers       = __webpack_require__(264);
 var Stream       = __webpack_require__(8).Stream;
 var Util         = __webpack_require__(0);
-var PacketWriter = __webpack_require__(174);
+var PacketWriter = __webpack_require__(171);
 
 module.exports = Protocol;
 Util.inherits(Protocol, Stream);
@@ -25366,7 +25171,7 @@ Protocol.prototype._debugPacket = function(incoming, packet) {
 
 
 /***/ }),
-/* 177 */
+/* 174 */
 /***/ (function(module, exports) {
 
 module.exports = ResultSet;
@@ -25379,7 +25184,7 @@ function ResultSet(resultSetHeaderPacket) {
 
 
 /***/ }),
-/* 178 */
+/* 175 */
 /***/ (function(module, exports) {
 
 /**
@@ -27783,7 +27588,7 @@ exports[2080] = 'ER_PARTITION_ENGINE_DEPRECATED_FOR_TABLE';
 
 
 /***/ }),
-/* 179 */
+/* 176 */
 /***/ (function(module, exports) {
 
 // Manually extracted from mysql-5.5.23/include/mysql_com.h
@@ -27828,7 +27633,7 @@ exports.SERVER_PS_OUT_PARAMS = 4096;
 
 
 /***/ }),
-/* 180 */
+/* 177 */
 /***/ (function(module, exports) {
 
 // Certificates for Amazon RDS
@@ -28278,7 +28083,7 @@ exports['Amazon RDS'] = {
 
 
 /***/ }),
-/* 181 */
+/* 178 */
 /***/ (function(module, exports) {
 
 module.exports = ClientAuthenticationPacket;
@@ -28336,7 +28141,7 @@ ClientAuthenticationPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 182 */
+/* 179 */
 /***/ (function(module, exports) {
 
 module.exports = ComChangeUserPacket;
@@ -28368,7 +28173,7 @@ ComChangeUserPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 183 */
+/* 180 */
 /***/ (function(module, exports) {
 
 module.exports = ComPingPacket;
@@ -28386,7 +28191,7 @@ ComPingPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 184 */
+/* 181 */
 /***/ (function(module, exports) {
 
 module.exports = ComQueryPacket;
@@ -28407,7 +28212,7 @@ ComQueryPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 185 */
+/* 182 */
 /***/ (function(module, exports) {
 
 module.exports = ComQuitPacket;
@@ -28425,7 +28230,7 @@ ComQuitPacket.prototype.write = function write(writer) {
 
 
 /***/ }),
-/* 186 */
+/* 183 */
 /***/ (function(module, exports) {
 
 module.exports = ComStatisticsPacket;
@@ -28443,7 +28248,7 @@ ComStatisticsPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 187 */
+/* 184 */
 /***/ (function(module, exports) {
 
 module.exports = EmptyPacket;
@@ -28455,7 +28260,7 @@ EmptyPacket.prototype.write = function write() {
 
 
 /***/ }),
-/* 188 */
+/* 185 */
 /***/ (function(module, exports) {
 
 module.exports = EofPacket;
@@ -28486,7 +28291,7 @@ EofPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 189 */
+/* 186 */
 /***/ (function(module, exports) {
 
 module.exports = ErrorPacket;
@@ -28527,7 +28332,7 @@ ErrorPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 190 */
+/* 187 */
 /***/ (function(module, exports) {
 
 module.exports = FieldPacket;
@@ -28626,7 +28431,7 @@ FieldPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 191 */
+/* 188 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Client = __webpack_require__(26);
@@ -28732,7 +28537,7 @@ HandshakeInitializationPacket.prototype.scrambleBuff = function() {
 
 
 /***/ }),
-/* 192 */
+/* 189 */
 /***/ (function(module, exports) {
 
 module.exports = LocalDataFilePacket;
@@ -28753,7 +28558,7 @@ LocalDataFilePacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 193 */
+/* 190 */
 /***/ (function(module, exports) {
 
 module.exports = OkPacket;
@@ -28800,7 +28605,7 @@ OkPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 194 */
+/* 191 */
 /***/ (function(module, exports) {
 
 module.exports = OldPasswordPacket;
@@ -28821,7 +28626,7 @@ OldPasswordPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 195 */
+/* 192 */
 /***/ (function(module, exports) {
 
 module.exports = ResultSetHeaderPacket;
@@ -28852,12 +28657,12 @@ ResultSetHeaderPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 196 */
+/* 193 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Types                        = __webpack_require__(38);
-var Charsets                     = __webpack_require__(58);
-var Field                        = __webpack_require__(59);
+var Types                        = __webpack_require__(36);
+var Charsets                     = __webpack_require__(56);
+var Field                        = __webpack_require__(57);
 var IEEE_754_BINARY_64_PRECISION = Math.pow(2, 53);
 
 module.exports = RowDataPacket;
@@ -28991,7 +28796,7 @@ function typeMatch(type, list) {
 
 
 /***/ }),
-/* 197 */
+/* 194 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // http://dev.mysql.com/doc/internals/en/ssl.html
@@ -29024,7 +28829,7 @@ SSLRequestPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 198 */
+/* 195 */
 /***/ (function(module, exports) {
 
 module.exports = StatisticsPacket;
@@ -29050,7 +28855,7 @@ StatisticsPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 199 */
+/* 196 */
 /***/ (function(module, exports) {
 
 module.exports = UseOldPasswordPacket;
@@ -29070,13 +28875,13 @@ UseOldPasswordPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 200 */
+/* 197 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(12);
+var Sequence = __webpack_require__(11);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
-var Auth     = __webpack_require__(56);
+var Auth     = __webpack_require__(54);
 
 module.exports = ChangeUser;
 Util.inherits(ChangeUser, Sequence);
@@ -29117,13 +28922,13 @@ ChangeUser.prototype['ErrorPacket'] = function(packet) {
 
 
 /***/ }),
-/* 201 */
+/* 198 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence        = __webpack_require__(12);
+var Sequence        = __webpack_require__(11);
 var Util            = __webpack_require__(0);
 var Packets         = __webpack_require__(10);
-var Auth            = __webpack_require__(56);
+var Auth            = __webpack_require__(54);
 var ClientConstants = __webpack_require__(26);
 
 module.exports = Handshake;
@@ -29229,10 +29034,10 @@ Handshake.prototype['ErrorPacket'] = function(packet) {
 
 
 /***/ }),
-/* 202 */
+/* 199 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(12);
+var Sequence = __webpack_require__(11);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29254,10 +29059,10 @@ Ping.prototype.start = function() {
 
 
 /***/ }),
-/* 203 */
+/* 200 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(12);
+var Sequence = __webpack_require__(11);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29278,10 +29083,10 @@ Quit.prototype.start = function() {
 
 
 /***/ }),
-/* 204 */
+/* 201 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(12);
+var Sequence = __webpack_require__(11);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29314,29 +29119,20 @@ Statistics.prototype.determinePacket = function determinePacket(firstByte) {
 
 
 /***/ }),
-/* 205 */
+/* 202 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports.ChangeUser = __webpack_require__(200);
-exports.Handshake = __webpack_require__(201);
-exports.Ping = __webpack_require__(202);
-exports.Query = __webpack_require__(60);
-exports.Quit = __webpack_require__(203);
-exports.Sequence = __webpack_require__(12);
-exports.Statistics = __webpack_require__(204);
+exports.ChangeUser = __webpack_require__(197);
+exports.Handshake = __webpack_require__(198);
+exports.Ping = __webpack_require__(199);
+exports.Query = __webpack_require__(58);
+exports.Quit = __webpack_require__(200);
+exports.Sequence = __webpack_require__(11);
+exports.Statistics = __webpack_require__(201);
 
 
 /***/ }),
-/* 206 */
-/***/ (function(module, exports) {
-
-module.exports = Array.isArray || function (arr) {
-  return Object.prototype.toString.call(arr) == '[object Array]';
-};
-
-
-/***/ }),
-/* 207 */
+/* 203 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -29366,11 +29162,11 @@ module.exports = Array.isArray || function (arr) {
 
 module.exports = PassThrough;
 
-var Transform = __webpack_require__(62);
+var Transform = __webpack_require__(60);
 
 /*<replacement>*/
-var util = __webpack_require__(15);
-util.inherits = __webpack_require__(16);
+var util = __webpack_require__(14);
+util.inherits = __webpack_require__(15);
 /*</replacement>*/
 
 util.inherits(PassThrough, Transform);
@@ -29388,26 +29184,26 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
 
 
 /***/ }),
-/* 208 */
+/* 204 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(61);
+exports = module.exports = __webpack_require__(59);
 exports.Stream = __webpack_require__(8);
 exports.Readable = exports;
-exports.Writable = __webpack_require__(63);
-exports.Duplex = __webpack_require__(14);
-exports.Transform = __webpack_require__(62);
-exports.PassThrough = __webpack_require__(207);
+exports.Writable = __webpack_require__(61);
+exports.Duplex = __webpack_require__(13);
+exports.Transform = __webpack_require__(60);
+exports.PassThrough = __webpack_require__(203);
 if (!process.browser && process.env.READABLE_STREAM === 'disable') {
   module.exports = __webpack_require__(8);
 }
 
 
 /***/ }),
-/* 209 */
+/* 205 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var assert = __webpack_require__(32)
+var assert = __webpack_require__(31)
 
 var Reader = module.exports = function(options) {
   //TODO - remove for version 1.0
@@ -29467,13 +29263,13 @@ Reader.prototype.read = function() {
 
 
 /***/ }),
-/* 210 */
+/* 206 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var url = __webpack_require__(43);
+var url = __webpack_require__(41);
 
 //Parse method copied from https://github.com/brianc/node-postgres
 //Copyright (c) 2010-2014 Brian Carlson (brian.m.carlson@gmail.com)
@@ -29536,14 +29332,14 @@ module.exports = {
 
 
 /***/ }),
-/* 211 */
+/* 207 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var os = __webpack_require__(4);
-var errorLib = __webpack_require__(64);
+var errorLib = __webpack_require__(62);
 
 var PEC = errorLib.parsingErrorCode;
 
@@ -29765,14 +29561,14 @@ module.exports = {
 
 
 /***/ }),
-/* 212 */
+/* 208 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Libpq = __webpack_require__(166);
+var Libpq = __webpack_require__(163);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var assert = __webpack_require__(32);
-var types = __webpack_require__(214);
+var assert = __webpack_require__(31);
+var types = __webpack_require__(20);
 
 var Client = module.exports = function(config) {
   if(!(this instanceof Client)) {
@@ -29881,7 +29677,7 @@ Client.prototype._read = function() {
     if(pq.resultStatus() == 'PGRES_TUPLES_OK') {
       this._parseResults(this.pq, rows);
     }
-    if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
+    if(pq.resultStatus() == 'PGRES_COPY_OUT' || pq.resultStatus() == 'PGRES_COPY_BOTH') break;
   }
 
 
@@ -29892,6 +29688,7 @@ Client.prototype._read = function() {
     case 'PGRES_COMMAND_OK':
     case 'PGRES_TUPLES_OK':
     case 'PGRES_COPY_OUT':
+    case 'PGRES_COPY_BOTH':
     case 'PGRES_EMPTY_QUERY': {
       this.emit('result', rows);
       break;
@@ -30013,7 +29810,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
   });
 };
 
-var CopyStream = __webpack_require__(213);
+var CopyStream = __webpack_require__(209);
 Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
   this._stopReading();
@@ -30058,11 +29855,11 @@ Client.prototype.escapeIdentifier = function(value) {
 };
 
 //export the version number so we can check it in node-postgres
-module.exports.version = __webpack_require__(217).version
+module.exports.version = __webpack_require__(210).version
 
 
 /***/ }),
-/* 213 */
+/* 209 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Duplex = __webpack_require__(8).Duplex;
@@ -30226,598 +30023,7 @@ var consumeResults = function(pq, cb) {
 
 
 /***/ }),
-/* 214 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var textParsers = __webpack_require__(216);
-var binaryParsers = __webpack_require__(215);
-var arrayParser = __webpack_require__(65);
-
-var typeParsers = {
-  text: {},
-  binary: {}
-};
-
-//the empty parse function
-var noParse = function(val) {
-  return String(val);
-};
-
-//returns a function used to convert a specific type (specified by
-//oid) into a result javascript type
-//note: the oid can be obtained via the following sql query:
-//SELECT oid FROM pg_type WHERE typname = 'TYPE_NAME_HERE';
-var getTypeParser = function(oid, format) {
-  format = format || 'text';
-  if (!typeParsers[format]) {
-    return noParse;
-  }
-  return typeParsers[format][oid] || noParse;
-};
-
-var setTypeParser = function(oid, format, parseFn) {
-  if(typeof format == 'function') {
-    parseFn = format;
-    format = 'text';
-  }
-  typeParsers[format][oid] = parseFn;
-};
-
-textParsers.init(function(oid, converter) {
-  typeParsers.text[oid] = converter;
-});
-
-binaryParsers.init(function(oid, converter) {
-  typeParsers.binary[oid] = converter;
-});
-
-module.exports = {
-  getTypeParser: getTypeParser,
-  setTypeParser: setTypeParser,
-  arrayParser: arrayParser
-};
-
-
-/***/ }),
-/* 215 */
-/***/ (function(module, exports) {
-
-var parseBits = function(data, bits, offset, invert, callback) {
-  offset = offset || 0;
-  invert = invert || false;
-  callback = callback || function(lastValue, newValue, bits) { return (lastValue * Math.pow(2, bits)) + newValue; };
-  var offsetBytes = offset >> 3;
-
-  var inv = function(value) {
-    if (invert) {
-      return ~value & 0xff;
-    }
-
-    return value;
-  };
-
-  // read first (maybe partial) byte
-  var mask = 0xff;
-  var firstBits = 8 - (offset % 8);
-  if (bits < firstBits) {
-    mask = (0xff << (8 - bits)) & 0xff;
-    firstBits = bits;
-  }
-
-  if (offset) {
-    mask = mask >> (offset % 8);
-  }
-
-  var result = 0;
-  if ((offset % 8) + bits >= 8) {
-    result = callback(0, inv(data[offsetBytes]) & mask, firstBits);
-  }
-
-  // read bytes
-  var bytes = (bits + offset) >> 3;
-  for (var i = offsetBytes + 1; i < bytes; i++) {
-    result = callback(result, inv(data[i]), 8);
-  }
-
-  // bits to read, that are not a complete byte
-  var lastBits = (bits + offset) % 8;
-  if (lastBits > 0) {
-    result = callback(result, inv(data[bytes]) >> (8 - lastBits), lastBits);
-  }
-
-  return result;
-};
-
-var parseFloatFromBits = function(data, precisionBits, exponentBits) {
-  var bias = Math.pow(2, exponentBits - 1) - 1;
-  var sign = parseBits(data, 1);
-  var exponent = parseBits(data, exponentBits, 1);
-
-  if (exponent === 0) {
-    return 0;
-  }
-
-  // parse mantissa
-  var precisionBitsCounter = 1;
-  var parsePrecisionBits = function(lastValue, newValue, bits) {
-    if (lastValue === 0) {
-      lastValue = 1;
-    }
-
-    for (var i = 1; i <= bits; i++) {
-      precisionBitsCounter /= 2;
-      if ((newValue & (0x1 << (bits - i))) > 0) {
-        lastValue += precisionBitsCounter;
-      }
-    }
-
-    return lastValue;
-  };
-
-  var mantissa = parseBits(data, precisionBits, exponentBits + 1, false, parsePrecisionBits);
-
-  // special cases
-  if (exponent == (Math.pow(2, exponentBits + 1) - 1)) {
-    if (mantissa === 0) {
-      return (sign === 0) ? Infinity : -Infinity;
-    }
-
-    return NaN;
-  }
-
-  // normale number
-  return ((sign === 0) ? 1 : -1) * Math.pow(2, exponent - bias) * mantissa;
-};
-
-var parseInt16 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 15, 1, true) + 1);
-  }
-
-  return parseBits(value, 15, 1);
-};
-
-var parseInt32 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 31, 1, true) + 1);
-  }
-
-  return parseBits(value, 31, 1);
-};
-
-var parseFloat32 = function(value) {
-  return parseFloatFromBits(value, 23, 8);
-};
-
-var parseFloat64 = function(value) {
-  return parseFloatFromBits(value, 52, 11);
-};
-
-var parseNumeric = function(value) {
-  var sign = parseBits(value, 16, 32);
-  if (sign == 0xc000) {
-    return NaN;
-  }
-
-  var weight = Math.pow(10000, parseBits(value, 16, 16));
-  var result = 0;
-
-  var digits = [];
-  var ndigits = parseBits(value, 16);
-  for (var i = 0; i < ndigits; i++) {
-    result += parseBits(value, 16, 64 + (16 * i)) * weight;
-    weight /= 10000;
-  }
-
-  var scale = Math.pow(10, parseBits(value, 16, 48));
-  return ((sign === 0) ? 1 : -1) * Math.round(result * scale) / scale;
-};
-
-var parseDate = function(isUTC, value) {
-  var sign = parseBits(value, 1);
-  var rawValue = parseBits(value, 63, 1);
-
-  // discard usecs and shift from 2000 to 1970
-  var result = new Date((((sign === 0) ? 1 : -1) * rawValue / 1000) + 946684800000);
-
-  if (!isUTC) {
-    result.setTime(result.getTime() + result.getTimezoneOffset() * 60000);
-  }
-
-  // add microseconds to the date
-  result.usec = rawValue % 1000;
-  result.getMicroSeconds = function() {
-    return this.usec;
-  };
-  result.setMicroSeconds = function(value) {
-    this.usec = value;
-  };
-  result.getUTCMicroSeconds = function() {
-    return this.usec;
-  };
-
-  return result;
-};
-
-var parseArray = function(value) {
-  var dim = parseBits(value, 32);
-
-  var flags = parseBits(value, 32, 32);
-  var elementType = parseBits(value, 32, 64);
-
-  var offset = 96;
-  var dims = [];
-  for (var i = 0; i < dim; i++) {
-    // parse dimension
-    dims[i] = parseBits(value, 32, offset);
-    offset += 32;
-
-    // ignore lower bounds
-    offset += 32;
-  }
-
-  var parseElement = function(elementType) {
-    // parse content length
-    var length = parseBits(value, 32, offset);
-    offset += 32;
-
-    // parse null values
-    if (length == 0xffffffff) {
-      return null;
-    }
-
-    var result;
-    if ((elementType == 0x17) || (elementType == 0x14)) {
-      // int/bigint
-      result = parseBits(value, length * 8, offset);
-      offset += length * 8;
-      return result;
-    }
-    else if (elementType == 0x19) {
-      // string
-      result = value.toString(this.encoding, offset >> 3, (offset += (length << 3)) >> 3);
-      return result;
-    }
-    else {
-      console.log("ERROR: ElementType not implemented: " + elementType);
-    }
-  };
-
-  var parse = function(dimension, elementType) {
-    var array = [];
-    var i;
-
-    if (dimension.length > 1) {
-      var count = dimension.shift();
-      for (i = 0; i < count; i++) {
-        array[i] = parse(dimension, elementType);
-      }
-      dimension.unshift(count);
-    }
-    else {
-      for (i = 0; i < dimension[0]; i++) {
-        array[i] = parseElement(elementType);
-      }
-    }
-
-    return array;
-  };
-
-  return parse(dims, elementType);
-};
-
-var parseText = function(value) {
-  return value.toString('utf8');
-};
-
-var parseBool = function(value) {
-  if(value === null) return null;
-  return (parseBits(value, 8) > 0);
-};
-
-var init = function(register) {
-  register(21, parseInt16);
-  register(23, parseInt32);
-  register(26, parseInt32);
-  register(1700, parseNumeric);
-  register(700, parseFloat32);
-  register(701, parseFloat64);
-  register(16, parseBool);
-  register(1114, parseDate.bind(null, false));
-  register(1184, parseDate.bind(null, true));
-  register(1000, parseArray);
-  register(1007, parseArray);
-  register(1016, parseArray);
-  register(1008, parseArray);
-  register(1009, parseArray);
-  register(25, parseText);
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 216 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var arrayParser = __webpack_require__(65);
-
-//parses PostgreSQL server formatted date strings into javascript date objects
-var parseDate = function(isoDate) {
-  //TODO this could do w/ a refactor
-  var dateMatcher = /(\d{1,})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,})?/;
-
-  var match = dateMatcher.exec(isoDate);
-  //could not parse date
-  if(!match) {
-    dateMatcher = /^(\d{1,})-(\d{2})-(\d{2})$/;
-    match = dateMatcher.test(isoDate);
-    if(!match) {
-      return null;
-    } else {
-      //it is a date in YYYY-MM-DD format
-      //add time portion to force js to parse as local time
-      return new Date(isoDate + ' 00:00:00');
-    }
-  }
-  var isBC = /BC$/.test(isoDate);
-  var _year = parseInt(match[1], 10);
-  var isFirstCentury = (_year > 0) && (_year < 100);
-  var year = (isBC ? "-" : "") + match[1];
-
-  var month = parseInt(match[2],10)-1;
-  var day = match[3];
-  var hour = parseInt(match[4],10);
-  var min = parseInt(match[5],10);
-  var seconds = parseInt(match[6], 10);
-
-  var miliString = match[7];
-  var mili = 0;
-  if(miliString) {
-    mili = 1000 * parseFloat(miliString);
-  }
-
-  //match timezones like the following:
-  //Z (UTC)
-  //-05
-  //+06:30
-  var tZone = /([Z|+\-])(\d{2})?:?(\d{2})?:?(\d{2})?/.exec(isoDate.split(' ')[1]);
-  //minutes to adjust for timezone
-  var tzAdjust = 0;
-  var tzSign = 1;
-  var date;
-  if(tZone) {
-    var type = tZone[1];
-    switch(type) {
-    case 'Z':
-      break;
-    case '-':
-      tzSign = -1;
-    case '+':
-      tzAdjust = tzSign * (
-        (parseInt(tZone[2], 10) * 3600) +
-        (parseInt(tZone[3] || 0, 10) * 60) +
-        (parseInt(tZone[4] || 0, 10))
-      );
-      break;
-    default:
-      throw new Error("Unidentifed tZone part " + type);
-    }
-
-    var utcOffset = Date.UTC(year, month, day, hour, min, seconds, mili);
-
-    date = new Date(utcOffset - (tzAdjust * 1000));
-  }
-  //no timezone information
-  else {
-    date = new Date(year, month, day, hour, min, seconds, mili);
-  }
-
-  if (isFirstCentury) {
-    date.setUTCFullYear(year);
-  }
-
-  return date;
-};
-
-var parseBool = function(val) {
-  if(val === null) return val;
-  return val === 't';
-};
-
-var parseBoolArray = function(val) {
-  if(!val) { return null; }
-  var p = arrayParser.create(val, function(entry){
-    if(entry !== null) {
-      entry = parseBool(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseIntegerArray = function(val) {
-  if(!val) { return null; }
-  var p = arrayParser.create(val, function(entry){
-    if(entry !== null) {
-      entry = parseInt(entry, 10);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseBigIntegerArray = function(val) {
-  if(!val) { return null; }
-  var p = arrayParser.create(val, function(entry){
-    if(entry !== null) {
-      entry = parseBigInteger(entry).trim();
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseFloatArray = function(val) {
-  if(!val) { return null; }
-  var p = arrayParser.create(val, function(entry) {
-    if(entry !== null) {
-      entry = parseFloat(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseStringArray = function(val) {
-  if(!val) { return null; }
-
-  var p = arrayParser.create(val);
-  return p.parse();
-};
-
-var parseDateArray = function(val) {
-  if (!val) { return null; }
-
-  var p = arrayParser.create(val, function(entry) {
-    if (entry !== null) {
-      entry = parseDate(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var NUM = '([+-]?\\d+)';
-var YEAR = NUM + '\\s+years?';
-var MON = NUM + '\\s+mons?';
-var DAY = NUM + '\\s+days?';
-var TIME = '([+-])?(\\d\\d):(\\d\\d):(\\d\\d)';
-var INTERVAL = [YEAR,MON,DAY,TIME].map(function(p){
-  return "("+p+")?";
-}).join('\\s*');
-
-var parseInterval = function(val) {
-  if (!val) { return {}; }
-  var m = new RegExp(INTERVAL).exec(val);
-  var i = {};
-  if (m[2]) { i.years = parseInt(m[2], 10); }
-  if (m[4]) { i.months = parseInt(m[4], 10); }
-  if (m[6]) { i.days = parseInt(m[6], 10); }
-  if (m[9]) { i.hours = parseInt(m[9], 10); }
-  if (m[10]) { i.minutes = parseInt(m[10], 10); }
-  if (m[11]) { i.seconds = parseInt(m[11], 10); }
-  if (m[8] == '-'){
-    if (i.hours) { i.hours *= -1; }
-    if (i.minutes) { i.minutes *= -1; }
-    if (i.seconds) { i.seconds *= -1; }
-  }
-  for (var field in i){
-    if (i[field] === 0) {
-      delete i[field];
-    }
-  }
-  return i;
-};
-
-var parseByteA = function(val) {
-  if(/^\\x/.test(val)){
-    // new 'hex' style response (pg >9.0)
-    return new Buffer(val.substr(2), 'hex');
-  }else{
-    var out = "";
-    var i = 0;
-    while(i < val.length){
-      if(val[i] != "\\"){
-        out += val[i];
-        ++i;
-      }else{
-        if(val.substr(i+1,3).match(/[0-7]{3}/)){
-          out += String.fromCharCode(parseInt(val.substr(i+1,3),8));
-          i += 4;
-        }else{
-          backslashes = 1;
-          while(i+backslashes < val.length && val[i+backslashes] == "\\")
-            backslashes++;
-          for(k=0; k<Math.floor(backslashes/2); ++k)
-            out += "\\";
-          i += Math.floor(backslashes / 2) * 2;
-        }
-      }
-    }
-    return new Buffer(out,"binary");
-  }
-};
-
-var maxLen = Number.MAX_VALUE.toString().length;
-
-var parseInteger = function(val) {
-  return parseInt(val, 10);
-};
-
-var parseBigInteger = function(val) {
-  var valStr = String(val);
-  if (/^\d+$/.test(valStr)) { return valStr; }
-  return val;
-};
-
-var parseJsonArray = function(val) {
-  var arr = parseStringArray(val);
-
-  if (!arr) {
-    return arr;
-  }
-
-  return arr.map(function(el) { return JSON.parse(el); });
-};
-
-var init = function(register) {
-  register(20, parseBigInteger); // int8
-  register(21, parseInteger); // int2
-  register(23, parseInteger); // int4
-  register(26, parseInteger); // oid
-  register(700, parseFloat); // float4/real
-  register(701, parseFloat); // float8/double
-  register(16, parseBool);
-  register(1082, parseDate); // date
-  register(1114, parseDate); // timestamp without timezone
-  register(1184, parseDate); // timestamp
-  register(1000, parseBoolArray);
-  register(1005, parseIntegerArray); // _int2
-  register(1007, parseIntegerArray); // _int4
-  register(1016, parseBigIntegerArray); // _int8
-  register(1021, parseFloatArray); // _float4
-  register(1022, parseFloatArray); // _float8
-  register(1231, parseFloatArray); // _numeric
-  register(1014, parseStringArray); //char
-  register(1015, parseStringArray); //varchar
-  register(1008, parseStringArray);
-  register(1009, parseStringArray);
-  register(1115, parseDateArray); // timestamp without time zone[]
-  register(1182, parseDateArray); // _date
-  register(1185, parseDateArray); // timestamp with time zone[]
-  register(1186, parseInterval);
-  register(17, parseByteA);
-  register(114, JSON.parse.bind(JSON));
-  register(3802, JSON.parse.bind(JSON));
-  register(199, parseJsonArray); // json[]
-  register(2951, parseStringArray); // uuid[]
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 217 */
+/* 210 */
 /***/ (function(module, exports) {
 
 module.exports = {
@@ -30832,24 +30038,24 @@ module.exports = {
 				"spec": ">=1.10.0 <2.0.0",
 				"type": "range"
 			},
-			"/home/neil/DevGit/zf2dbmodelgen/modgen"
+			"/home/neil/DevGit/ZenGate"
 		]
 	],
 	"_from": "pg-native@>=1.10.0 <2.0.0",
-	"_id": "pg-native@1.10.0",
+	"_id": "pg-native@1.10.1",
 	"_inCache": true,
 	"_location": "/pg-native",
-	"_nodeVersion": "5.1.0",
+	"_nodeVersion": "6.10.1",
+	"_npmOperationalInternal": {
+		"host": "packages-18-east.internal.npmjs.com",
+		"tmp": "tmp/pg-native-1.10.1.tgz_1491404030746_0.959228094201535"
+	},
 	"_npmUser": {
 		"name": "brianc",
 		"email": "brian.m.carlson@gmail.com"
 	},
-	"_npmVersion": "3.3.12",
-	"_phantomChildren": {
-		"core-util-is": "1.0.2",
-		"inherits": "2.0.3",
-		"string_decoder": "0.10.31"
-	},
+	"_npmVersion": "3.10.10",
+	"_phantomChildren": {},
 	"_requested": {
 		"raw": "pg-native@^1.10.0",
 		"scope": null,
@@ -30860,14 +30066,13 @@ module.exports = {
 		"type": "range"
 	},
 	"_requiredBy": [
-		"#USER",
 		"/"
 	],
-	"_resolved": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.0.tgz",
-	"_shasum": "abe299214afa2be51db5f5104e14770c738230fd",
+	"_resolved": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz",
+	"_shasum": "94e61ccbb85a7f3436b2e526315c7581107fe40c",
 	"_shrinkwrap": null,
 	"_spec": "pg-native@^1.10.0",
-	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen",
+	"_where": "/home/neil/DevGit/ZenGate",
 	"author": {
 		"name": "Brian M. Carlson"
 	},
@@ -30892,10 +30097,10 @@ module.exports = {
 	},
 	"directories": {},
 	"dist": {
-		"shasum": "abe299214afa2be51db5f5104e14770c738230fd",
-		"tarball": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.0.tgz"
+		"shasum": "94e61ccbb85a7f3436b2e526315c7581107fe40c",
+		"tarball": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz"
 	},
-	"gitHead": "8c60a074739aa2ed26e6d83e8dbd965ba0f2c953",
+	"gitHead": "e45f2d18a64ac61d61166a21f1b3a81639e88d2c",
 	"homepage": "https://github.com/brianc/node-pg-native",
 	"keywords": [
 		"postgres",
@@ -30920,11 +30125,11 @@ module.exports = {
 	"scripts": {
 		"test": "mocha"
 	},
-	"version": "1.10.0"
+	"version": "1.10.1"
 };
 
 /***/ }),
-/* 218 */
+/* 211 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -30964,7 +30169,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 219 */
+/* 212 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -31014,14 +30219,14 @@ module.exports = ConnectionContext;
 
 
 /***/ }),
-/* 220 */
+/* 213 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    con: __webpack_require__(23).local,
+    con: __webpack_require__(16).local,
     utils: __webpack_require__(2),
     events: __webpack_require__(17)
 };
@@ -31087,14 +30292,16 @@ function directConnect(ctx, config) {
 
 function lockClientEnd(client) {
     var end = client.end;
-    client.end = () => {
+    client.end = doNotCall => {
         // This call can happen only in the following two cases:
         // 1. the client made the call directly, against the library's documentation (invalid code)
         // 2. connection with the server broke while under heavy communications, and the connection
         //    pool is trying to terminate all clients forcefully.
         $npm.con.error('Abnormal client.end() call, due to invalid code or failed server connection.\n%s\n',
             $npm.utils.getLocalStack(3));
-        end.call(client);
+        if (!doNotCall) {
+            end.call(client);
+        }
     };
     return end;
 }
@@ -31113,25 +30320,23 @@ module.exports = config => ({
 
 
 /***/ }),
-/* 221 */
+/* 214 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    con: __webpack_require__(23).local,
-    result: __webpack_require__(40),
-    special: __webpack_require__(70),
-    context: __webpack_require__(219),
+    con: __webpack_require__(16).local,
+    result: __webpack_require__(38),
+    special: __webpack_require__(67),
+    Context: __webpack_require__(212),
     events: __webpack_require__(17),
     utils: __webpack_require__(2),
-    connect: __webpack_require__(220),
-    query: __webpack_require__(69),
-    task: __webpack_require__(234)
+    connect: __webpack_require__(213),
+    query: __webpack_require__(66),
+    task: __webpack_require__(227)
 };
-
-var $arr = __webpack_require__(11);
 
 /**
  * @class Database
@@ -31154,7 +30359,7 @@ var $arr = __webpack_require__(11);
  *
  * See also: property `noWarnings` in {@link module:pg-promise Initialization Options}.
  *
- * @param {String|Object} cn
+ * @param {string|object} cn
  * Database connection details, which can be:
  *
  * - a configuration object
@@ -31162,15 +30367,19 @@ var $arr = __webpack_require__(11);
  *
  * For details see {@link https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax Connection Syntax}.
  *
+ * The value can be accessed from the database object via property {@link Database.$cn $cn}.
+ *
  * @param {} [dc]
  * Database Context.
  *
- * Any object or value to be propagated through the protocol, to allow implementations
- * and event handling that depend on the database context.
+ * Any object or value to be propagated through the protocol, to allow implementations and event handling
+ * that depend on the database context.
  *
  * This is mainly to facilitate the use of multiple databases which may need separate protocol
  * extensions, or different implementations within a single task / transaction callback,
  * depending on the database context.
+ *
+ * The value can be accessed from the database object via property {@link Database.$dc $dc}.
  *
  * @returns {Database}
  *
@@ -31193,6 +30402,8 @@ var $arr = __webpack_require__(11);
  * {@link Database.tx tx},
  * {@link Database.connect connect},
  * {@link Database.$config $config},
+ * {@link Database.$cn $cn},
+ * {@link Database.$dc $dc},
  * {@link event:extend extend}
  *
  * @example
@@ -31223,14 +30434,14 @@ function Database(cn, dc, config) {
      * @method Database.connect
      *
      * @description
-     * Acquires a new or existing connection, based on the current connection parameters.
+     * Acquires a new or existing connection, depending on the current state of the connection pool, and parameter `direct`.
      *
-     * This method creates a shared connection for executing a chain of queries against it.
-     * The connection must be released in the end of the chain by calling method `done()` on the connection object.
+     * This method creates a shared connection for executing a chain of queries against it. The connection must be released
+     * in the end of the chain by calling method `done()` on the connection object.
      *
-     * This is an older, low-level approach to chaining queries on the same connection.
-     * A newer and safer approach is via methods {@link Database.task task} and {@link Database.tx tx} (for transactions),
-     * which allocate and release the shared connection automatically.
+     * This is an obsolete, low-level approach to chaining queries on the same connection. A newer and safer approach is via
+     * methods {@link Database.task task} and {@link Database.tx tx} (for transactions), which allocate and release a shared
+     * connection automatically.
      *
      * **NOTE:** Even though this method exposes a {@link external:Client Client} object via property `client`,
      * you cannot call `client.end()` directly, or it will print an error into the console:
@@ -31239,15 +30450,15 @@ function Database(cn, dc, config) {
      *
      * @param {object} [options]
      * @param {boolean} [options.direct=false]
-     * Creates the connection directly, through the {@link external:Client Client}, bypassing the connection pool.
+     * Creates a new connection directly, through the {@link external:Client Client}, bypassing the connection pool.
      *
-     * By default, all connections are acquired from the connection pool. If you set this option, the library will instead
+     * By default, all connections are acquired from the connection pool. If you set this option however, the library will instead
      * create a new {@link external:Client Client} object directly (separately from the pool), and then call its `connect` method.
      *
      * **WARNING:**
      *
      * Do not use this option for regular query execution, because it exclusively occupies one physical connection,
-     * and therefore cannot scale. This option is only suitable for global connection usage, such as database event listeners.
+     * and therefore cannot scale. This option is only suitable for global connection usage, such as event listeners.
      *
      * @returns {external:Promise}
      * A promise object that represents the connection result:
@@ -31321,7 +30532,7 @@ function Database(cn, dc, config) {
      * @description
      * Executes a generic query request that expects the return data according to parameter `qrm`.
      *
-     * @param {String|Object} query
+     * @param {string|object} query
      * Query to be executed, which can any of the following types:
      * - A non-empty query string
      * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31398,10 +30609,38 @@ function Database(cn, dc, config) {
      */
     $npm.utils.addReadProp(this, '$config', config, true);
 
+    /**
+     * @member {string|object} Database.$cn
+     * @readonly
+     * @description
+     * **Added in v5.6.8**
+     *
+     * Database connection, as was passed in during the object's construction.
+     *
+     * This is a hidden property, to help integrating type {@link Database} directly with third-party libraries.
+     *
+     * @see Database
+     */
+    $npm.utils.addReadProp(this, '$cn', cn, true);
+
+    /**
+     * @member {} Database.$dc
+     * @readonly
+     * @description
+     * **Added in v5.6.8**
+     *
+     * Database Context, as was passed in during the object's construction.
+     *
+     * This is a hidden property, to help integrating type {@link Database} directly with third-party libraries.
+     *
+     * @see Database
+     */
+    $npm.utils.addReadProp(this, '$dc', dc, true);
+
     extend(createContext(), this); // extending root protocol;
 
     function createContext() {
-        return new $npm.context(cn, dc, config.options);
+        return new $npm.Context(cn, dc, config.options);
     }
 
     function transform(value, cb, thisArg) {
@@ -31424,7 +30663,7 @@ function Database(cn, dc, config) {
          * Executes a query that expects no data to be returned.
          * If the query returns any kind of data, the method rejects.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31443,7 +30682,7 @@ function Database(cn, dc, config) {
          * and `values` is not `null` or `undefined`, it is automatically set within such object,
          * as an override for its internal `values`.
          *
-         * @returns {external:Promise}
+         * @returns {external:Promise<null>}
          * A promise object that represents the query result:
          * - When no records are returned, it resolves with `null`.
          * - When any data is returned, it rejects with {@link errors.QueryResultError QueryResultError}:
@@ -31460,7 +30699,7 @@ function Database(cn, dc, config) {
          * Executes a query that expects exactly one row of data.
          * When 0 or more than 1 rows are returned, the method rejects.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31497,6 +30736,10 @@ function Database(cn, dc, config) {
          * - When multiple rows are returned, it rejects with {@link errors.QueryResultError QueryResultError}:
          *   - `.message` = `Multiple rows were not expected.`
          *   - `.code` = {@link errors.queryResultErrorCode.multiple queryResultErrorCode.multiple}
+         * - Resolves with the new value, if transformation callback `cb` was specified.
+         *
+         * @see
+         * {@link Database.oneOrNone oneOrNone}
          *
          * @example
          *
@@ -31509,7 +30752,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // a query with in-line value transformation + conversion:
-         * db.one('SELECT count(*) FROM Users', null, c => +c.count)
+         * db.one('SELECT count(*) FROM Users', [], c => +c.count)
          *     .then(count=> {
          *         // count = a proper integer value, rather than an object with a string
          *     });
@@ -31526,7 +30769,7 @@ function Database(cn, dc, config) {
          * Executes a query that expects one or more rows.
          * When the query returns no rows, the method rejects.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31563,7 +30806,7 @@ function Database(cn, dc, config) {
          * Executes a query that expects 0 or 1 rows.
          * When the query returns more than 1 row, the method rejects.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31598,10 +30841,12 @@ function Database(cn, dc, config) {
          * - When multiple rows are returned, it rejects with {@link errors.QueryResultError QueryResultError}:
          *   - `.message` = `Multiple rows were not expected.`
          *   - `.code` = {@link errors.queryResultErrorCode.multiple queryResultErrorCode.multiple}
+         * - Resolves with the new value, if transformation callback `cb` was specified.
          *
          * @see
          * {@link Database.one one},
-         * {@link Database.none none}
+         * {@link Database.none none},
+         * {@link Database.manyOrNone manyOrNone}
          *
          * @example
          *
@@ -31622,7 +30867,7 @@ function Database(cn, dc, config) {
          * @description
          * Executes a query that expects any number of rows.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31641,7 +30886,7 @@ function Database(cn, dc, config) {
          * and `values` is not `null` or `undefined`, it is automatically set within such object,
          * as an override for its internal `values`.
          *
-         * @returns {external:Promise}
+         * @returns {external:Promise<Array>}
          * A promise object that represents the query result:
          * - When no rows are returned, it resolves with an empty array.
          * - When 1 or more rows are returned, it resolves with the array of rows.
@@ -31649,7 +30894,10 @@ function Database(cn, dc, config) {
          * The resolved array is extended with hidden property `duration` - number of milliseconds
          * it took the client to execute the query.
          *
-         * @see {@link Database.any any}
+         * @see
+         * {@link Database.any any},
+         * {@link Database.many many},
+         * {@link Database.none none}
          *
          */
         obj.manyOrNone = function (query, values) {
@@ -31662,7 +30910,7 @@ function Database(cn, dc, config) {
          * Executes a query that expects any number of rows.
          * This is simply a shorter alias for method {@link Database.manyOrNone manyOrNone}.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31681,7 +30929,7 @@ function Database(cn, dc, config) {
          * and `values` is not `null` or `undefined`, it is automatically set within such object,
          * as an override for its internal `values`.
          *
-         * @returns {external:Promise}
+         * @returns {external:Promise<Array>}
          * A promise object that represents the query result:
          * - When no rows are returned, it resolves with an empty array.
          * - When 1 or more rows are returned, it resolves with the array of rows.
@@ -31705,7 +30953,7 @@ function Database(cn, dc, config) {
          * Executes a query without any expectation for the return data, to resolve with the
          * original $[Result] object when successful.
          *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31737,12 +30985,13 @@ function Database(cn, dc, config) {
          * A promise object that represents the query result:
          * - resolves with the original $[Result] object, extended with property `duration` -
          *   number of milliseconds it took the client to execute the query.
+         * - resolves with the new value, if transformation callback `cb` was specified.
          *
          * @example
          *
          * // use of value transformation:
          * // deleting rows and returning the number of rows deleted
-         * db.result('DELETE FROM Events WHERE id = $1', [123], r=>r.rowCount)
+         * db.result('DELETE FROM Events WHERE id = $1', [123], r => r.rowCount)
          *     .then(data=> {
          *         // data = number of rows that were deleted
          *     });
@@ -31751,7 +31000,7 @@ function Database(cn, dc, config) {
          *
          * // use of value transformation:
          * // getting only column details from a table
-         * db.result('SELECT * FROM Users LIMIT 0', null, r=>r.fields)
+         * db.result('SELECT * FROM Users LIMIT 0', null, r => r.fields)
          *     .then(data=> {
          *         // data = array of column descriptors
          *     });
@@ -31850,6 +31099,8 @@ function Database(cn, dc, config) {
          * It calls {@link Database.func func}(`procName`, `values`, `queryResult.one|queryResult.none`),
          * and then returns the same result as method {@link Database.oneOrNone oneOrNone}.
          *
+         * And if transformation callback `cb` was specified, it resolves with the new value.
+         *
          * @see
          * {@link Database.oneOrNone oneOrNone},
          * {@link Database.func func}
@@ -31876,12 +31127,7 @@ function Database(cn, dc, config) {
          *     });
          * ```
          *
-         * In addition to much shorter code, it offers the following benefits:
-         *
-         * - Use of a custom iterator has a much better performance than the standard {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map Array.map}
-         * - Automatic `this` context through the database protocol
-         *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -31909,7 +31155,7 @@ function Database(cn, dc, config) {
          * @param {} [thisArg]
          * Value to use as `this` when executing the callback.
          *
-         * @returns {external:Promise}
+         * @returns {external:Promise<Array>}
          * Resolves with the new array of values returned from the callback. The array is extended with
          * hidden property `duration` - number of milliseconds it took the client to execute the query.
          *
@@ -31965,7 +31211,7 @@ function Database(cn, dc, config) {
         obj.map = function (query, values, cb, thisArg) {
             return obj.any.call(this, query, values)
                 .then(data => {
-                    var result = $arr.map(data, cb, thisArg);
+                    var result = data.map(cb, thisArg);
                     $npm.utils.addReadProp(result, 'duration', data.duration, true);
                     return result;
                 });
@@ -31988,12 +31234,7 @@ function Database(cn, dc, config) {
          *     });
          * ```
          *
-         * In addition to much shorter code, it offers the following benefits:
-         *
-         * - Use of a custom iterator has a much better performance than the regular {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach Array.forEach}
-         * - Automatic `this` context through the database protocol
-         *
-         * @param {String|Object} query
+         * @param {string|object} query
          * Query to be executed, which can any of the following types:
          * - A non-empty query string
          * - Prepared Statement `{name, text, values, ...}` or {@link PreparedStatement} object
@@ -32021,7 +31262,7 @@ function Database(cn, dc, config) {
          * @param {} [thisArg]
          * Value to use as `this` when executing the callback.
          *
-         * @returns {external:Promise}
+         * @returns {external:Promise<Array<Object>>}
          * Resolves with the original array of rows, extended with hidden property `duration` -
          * number of milliseconds it took the client to execute the query.
          *
@@ -32046,7 +31287,7 @@ function Database(cn, dc, config) {
         obj.each = function (query, values, cb, thisArg) {
             return obj.any.call(this, query, values)
                 .then(data => {
-                    $arr.forEach(data, cb, thisArg);
+                    data.forEach(cb, thisArg);
                     return data;
                 });
         };
@@ -32087,7 +31328,6 @@ function Database(cn, dc, config) {
          *
          * // using the regular callback syntax:
          * db.task(t => {
-         *         // t = this
          *         // t.ctx = task context object
          *
          *         return t.one('SELECT id FROM Users WHERE name = $1', 'John')
@@ -32106,7 +31346,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // using the ES6 arrow syntax:
-         * db.task(t=> {
+         * db.task(t => {
          *         // t.ctx = task context object
          *         
          *         return t.one('SELECT id FROM Users WHERE name = $1', 'John')
@@ -32125,8 +31365,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // using an ES6 generator for the callback:
-         * db.task(function*(t) {
-         *         // t = this
+         * db.task(function * (t) {
          *         // t.ctx = task context object
          *
          *         let user = yield t.one('SELECT id FROM Users WHERE name = $1', 'John');
@@ -32186,7 +31425,6 @@ function Database(cn, dc, config) {
          *
          * // using the regular callback syntax:
          * db.tx(t => {
-         *         // t = this
          *         // t.ctx = transaction context object
          *
          *         return t.one('INSERT INTO Users(name, age) VALUES($1, $2) RETURNING id', ['Mike', 25])
@@ -32227,8 +31465,7 @@ function Database(cn, dc, config) {
          * @example
          *
          * // using an ES6 generator for the callback:
-         * db.tx(function*(t) {
-         *         // t = this
+         * db.tx(function * (t) {
          *         // t.ctx = transaction context object
          *
          *         let user = yield t.one('INSERT INTO Users(name, age) VALUES($1, $2) RETURNING id', ['Mike', 25]);
@@ -32288,7 +31525,7 @@ function Database(cn, dc, config) {
                 }
             }
 
-            var tsk = new config.$npm.task(taskCtx, tag, isTX, config);
+            var tsk = new config.$npm.task(taskCtx, tag, isTX, config); // eslint-disable-line
 
             extend(taskCtx, tsk);
 
@@ -32347,11 +31584,13 @@ function checkForDuplicates(cn, config) {
  * and then serializes the result into a JSON string.
  *
  * @param {string|object} cn - connection string or object
+ *
+ * @private
  */
 function normalizeConnection(cn) {
     if (typeof cn === 'object') {
         var obj = {}, keys = Object.keys(cn).sort();
-        $arr.forEach(keys, name => {
+        keys.forEach(name => {
             obj[name] = cn[name];
         });
         cn = obj;
@@ -32430,7 +31669,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 222 */
+/* 215 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -32531,7 +31770,7 @@ module.exports = ParameterizedQueryError;
 
 
 /***/ }),
-/* 223 */
+/* 216 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -32633,7 +31872,7 @@ module.exports = PreparedStatementError;
 
 
 /***/ }),
-/* 224 */
+/* 217 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -32817,21 +32056,21 @@ module.exports = {
 
 
 /***/ }),
-/* 225 */
+/* 218 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    concat: __webpack_require__(226),
-    insert: __webpack_require__(227),
-    update: __webpack_require__(229),
-    values: __webpack_require__(230),
-    sets: __webpack_require__(228),
+    concat: __webpack_require__(219),
+    insert: __webpack_require__(220),
+    update: __webpack_require__(222),
+    values: __webpack_require__(223),
+    sets: __webpack_require__(221),
     TableName: __webpack_require__(29),
     ColumnSet: __webpack_require__(18),
-    Column: __webpack_require__(67)
+    Column: __webpack_require__(64)
 };
 
 /**
@@ -32890,7 +32129,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 226 */
+/* 219 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -32901,8 +32140,6 @@ var $npm = {
     QueryFile: __webpack_require__(19)
 };
 
-var $arr = __webpack_require__(11);
-
 /**
  * @method helpers.concat
  * @description
@@ -32910,13 +32147,13 @@ var $arr = __webpack_require__(11);
  *
  * Concatenates multiple queries into a single query string.
  *
- * - Before joining any query, the method removes from it all leading and trailing spaces, tabs and semi-colons.
+ * - Before joining each query, the method removes from it all leading and trailing spaces, tabs and semi-colons.
  * - Empty queries are skipped automatically.
  *
  * @param {array<string|helpers.QueryFormat|QueryFile>} queries
  * Array of mixed-type elements:
  * - a simple query string, to be used as is
- * - a simple {@link helpers.QueryFormat QueryFormat}-like object = `{query, [values], [options]}`
+ * - a {@link helpers.QueryFormat QueryFormat}-like object = `{query, [values], [options]}`
  * - a {@link QueryFile} object
  *
  * @returns {string}
@@ -32931,7 +32168,6 @@ var $arr = __webpack_require__(11);
  *
  * var query = pgp.helpers.concat([
  *     {query: 'INSERT INTO Users(name, age) VALUES($1, $2)', values: ['John', 23]}, // QueryFormat-like object
- *     {query: 'DELETE FROM Log WHERE userName = $1', values: 'John'}, // QueryFormat-like object
  *     {query: qf1, values: [1, 'Name']}, // QueryFile with formatting parameters
  *     'SELECT count(*) FROM Users', // a simple-string query,
  *     qf2 // direct QueryFile object
@@ -32943,7 +32179,7 @@ function concat(queries) {
     if (!Array.isArray(queries)) {
         throw new TypeError('Parameter \'queries\' must be an array.');
     }
-    var all = $arr.map(queries, (q, index) => {
+    var all = queries.map((q, index) => {
         if (typeof q === 'string') {
             // a simple query string without parameters:
             return clean(q);
@@ -32961,7 +32197,7 @@ function concat(queries) {
         throw new Error('Invalid query element at index ' + index + '.');
     });
 
-    return $arr.filter(all, q => q).join(';');
+    return all.filter(q => q).join(';');
 }
 
 function clean(q) {
@@ -32991,7 +32227,7 @@ module.exports = concat;
 
 
 /***/ }),
-/* 227 */
+/* 220 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -33003,8 +32239,6 @@ var $npm = {
     formatting: __webpack_require__(5),
     utils: __webpack_require__(2)
 };
-
-var $arr = __webpack_require__(11);
 
 /**
  * @method helpers.insert
@@ -33120,7 +32354,7 @@ function insert(data, columns, table, capSQL) {
     query = format(query, [table.name, columns.names]);
 
     if (isArray) {
-        return query + $arr.map(data, (d, index) => {
+        return query + data.map((d, index) => {
                 if (!d || typeof d !== 'object') {
                     throw new Error('Invalid insert object at index ' + index + '.');
                 }
@@ -33139,7 +32373,7 @@ module.exports = insert;
 
 
 /***/ }),
-/* 228 */
+/* 221 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -33211,14 +32445,14 @@ function sets(data, columns) {
         columns = new $npm.ColumnSet(columns || data);
     }
 
-    return $npm.format(columns.assign(data), columns.prepare(data));
+    return $npm.format(columns.assign({source: data}), columns.prepare(data));
 }
 
 module.exports = sets;
 
 
 /***/ }),
-/* 229 */
+/* 222 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -33230,8 +32464,6 @@ var $npm = {
     formatting: __webpack_require__(5),
     utils: __webpack_require__(2)
 };
-
-var $arr = __webpack_require__(11);
 
 /**
  * @method helpers.update
@@ -33261,7 +32493,7 @@ var $arr = __webpack_require__(11);
  * is created - from the value of `columns` (if it was specified), or from the value of `data` (if it is not an array).
  *
  * When the final {@link helpers.ColumnSet ColumnSet} is empty (no columns in it), the method will throw
- * {@link external:Error Error} = `Cannot generate an UPDATE without any columns.` (see also {@link helpers.ColumnSet.canGenerate ColumnSet.canGenerate})
+ * {@link external:Error Error} = `Cannot generate an UPDATE without any columns.`, unless option `emptyUpdate` was specified.
  *
  * @param {helpers.TableName|string|{table,schema}} [table]
  * Table to be updated.
@@ -33279,8 +32511,22 @@ var $arr = __webpack_require__(11);
  * @param {string} [options.valueAlias=v]
  * Name of the SQL variable that represents the values.
  *
- * @returns {string}
- * The resulting query string that typically needs a `WHERE` condition appended.
+ * @param {} [options.emptyUpdate]
+ * **Added in v.5.6.7**
+ *
+ * This is a convenience option, to avoid throwing an error when generating a conditional update results in no columns.
+ *
+ * When present, regardless of the value, this option overrides the method's behaviour when applying `skip` logic results in no columns,
+ * i.e. when every column is being skipped.
+ *
+ * By default, in that situation the method throws {@link external:Error Error} = `Cannot generate an UPDATE without any columns.`
+ * But when this option is present, the method will instead return whatever value the option was passed.
+ *
+ * @returns {}
+ * The method usually returns the resulting query string that typically needs a `WHERE` condition appended.
+ *
+ * However, if it results in an empty update, and option `emptyUpdate` was passed in, then the method returns whatever
+ * value the option was passed.
  *
  * @see
  *  {@link helpers.Column Column},
@@ -33336,6 +32582,16 @@ var $arr = __webpack_require__(11);
  * //=> UPDATE "my-table" AS X SET "val"=Y."val","msg"=Y."msg" FROM (VALUES(1,123,'hello'),(2,456,'world!'))
  * //   AS Y("id","val","msg") WHERE Y.id = X.id
  *
+ * @example
+ *
+ * // Handling an empty update
+ *
+ * var cs = new pgp.helpers.ColumnSet(['?id', '?name'], {table: 'tt'}); // no actual update-able columns
+ * var result = pgp.helpers.update(dataMulti, cs, null, {emptyUpdate: 123});
+ * if(result === 123) {
+ *    // We know the update is empty, i.e. no columns that can be updated;
+ *    // And it didn't throw because we specified `emptyUpdate` option.
+ * }
  */
 function update(data, columns, table, options, capSQL) {
 
@@ -33360,29 +32616,28 @@ function update(data, columns, table, options, capSQL) {
         columns = new $npm.ColumnSet(columns || data);
     }
 
-    var format = $npm.formatting.as.format;
+    options = options || {};
+
+    var format = $npm.formatting.as.format,
+        useEmptyUpdate = 'emptyUpdate' in options;
 
     if (isArray) {
-        var tableAlias = 't', valueAlias = 'v';
-        if (options && typeof options === 'object') {
-            if (options.tableAlias && typeof options.tableAlias === 'string') {
-                tableAlias = options.tableAlias;
-            }
-            if (options.valueAlias && typeof options.valueAlias === 'string') {
-                valueAlias = options.valueAlias;
-            }
-        }
+        var tableAlias = $npm.formatting.as.alias($npm.utils.isNull(options.tableAlias) ? 't' : options.tableAlias);
+        var valueAlias = $npm.formatting.as.alias($npm.utils.isNull(options.valueAlias) ? 'v' : options.valueAlias);
 
         var q = capSQL ? sql.multi.capCase : sql.multi.lowCase;
 
-        var actualColumns = $arr.filter(columns.columns, c => !c.cnd);
+        var actualColumns = columns.columns.filter(c => !c.cnd);
 
-        checkColumns(actualColumns);
+        if (checkColumns(actualColumns)) {
+            return options.emptyUpdate;
+        }
+
         checkTable();
 
-        var targetCols = $arr.map(actualColumns, c => c.escapedName + '=' + valueAlias + '.' + c.escapedName).join();
+        var targetCols = actualColumns.map(c => c.escapedName + '=' + valueAlias + '.' + c.escapedName).join();
 
-        var values = $arr.map(data, (d, index) => {
+        var values = data.map((d, index) => {
             if (!d || typeof d !== 'object') {
                 throw new Error('Invalid update object at index ' + index + '.');
             }
@@ -33392,9 +32647,12 @@ function update(data, columns, table, options, capSQL) {
         return format(q, [table.name, tableAlias, targetCols, values, valueAlias, columns.names]);
     }
 
-    var updates = columns.assign(data);
+    var updates = columns.assign({source: data});
 
-    checkColumns(updates);
+    if (checkColumns(updates)) {
+        return options.emptyUpdate;
+    }
+
     checkTable();
 
     var query = capSQL ? sql.single.capCase : sql.single.lowCase;
@@ -33412,6 +32670,9 @@ function update(data, columns, table, options, capSQL) {
 
     function checkColumns(cols) {
         if (!cols.length) {
+            if (useEmptyUpdate) {
+                return true;
+            }
             throw new Error('Cannot generate an UPDATE without any columns.');
         }
     }
@@ -33432,7 +32693,7 @@ module.exports = update;
 
 
 /***/ }),
-/* 230 */
+/* 223 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -33444,8 +32705,6 @@ var $npm = {
     utils: __webpack_require__(2)
 };
 
-var $arr = __webpack_require__(11);
-
 /**
  * @method helpers.values
  * @description
@@ -33453,7 +32712,7 @@ var $arr = __webpack_require__(11);
  * to be used as part of a query:
  *
  * - from a single object: `(val_1, val_2, ...)`
- * - from an array of objects: `(val_11, val_12, ...), (val_21, val_22), ...`
+ * - from an array of objects: `(val_11, val_12, ...), (val_21, val_22, ...)`
  *
  * @param {object|object[]} data
  * A source object with properties as values, or an array of such objects.
@@ -33533,7 +32792,7 @@ function values(data, columns) {
     var format = $npm.formatting.as.format;
 
     if (isArray) {
-        return $arr.map(data, (d, index) => {
+        return data.map((d, index) => {
             if (!d || typeof d !== 'object') {
                 throw new Error('Invalid object at index ' + index + '.');
             }
@@ -33547,30 +32806,29 @@ module.exports = values;
 
 
 /***/ }),
-/* 231 */
+/* 224 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    con: __webpack_require__(23).local,
+    con: __webpack_require__(16).local,
     path: __webpack_require__(7),
-    pg: __webpack_require__(239),
-    minify: __webpack_require__(39),
-    array: __webpack_require__(11),
-    adapter: __webpack_require__(66),
-    result: __webpack_require__(40),
-    promise: __webpack_require__(232),
+    pg: __webpack_require__(234),
+    minify: __webpack_require__(37),
+    adapter: __webpack_require__(63),
+    result: __webpack_require__(38),
+    promise: __webpack_require__(225),
     formatting: __webpack_require__(5),
-    helpers: __webpack_require__(225),
+    helpers: __webpack_require__(218),
     queryFile: __webpack_require__(19),
     errors: __webpack_require__(27),
     utils: __webpack_require__(2),
-    pubUtils: __webpack_require__(237),
-    mode: __webpack_require__(71),
-    types: __webpack_require__(72),
-    package: __webpack_require__(78)
+    pubUtils: __webpack_require__(230),
+    mode: __webpack_require__(68),
+    types: __webpack_require__(69),
+    package: __webpack_require__(71)
 };
 
 /**
@@ -33680,7 +32938,7 @@ function $main(options) {
         options = {};
     } else {
         if (typeof options !== 'object') {
-            throw new TypeError('Invalid initialization options.');
+            throw new TypeError('Invalid initialization options: ' + JSON.stringify(options));
         }
 
         // list of supported initialization options:
@@ -33702,7 +32960,7 @@ function $main(options) {
     var config = {
         version: $npm.package.version,
         promiseLib: p.promiseLib,
-        promise: p.promise,
+        promise: p.promise
     };
 
     $npm.utils.addReadProp(config, '$npm', {}, true);
@@ -33722,13 +32980,13 @@ function $main(options) {
         }
     }
 
-    var Database = __webpack_require__(221)(config);
+    var Database = __webpack_require__(214)(config);
 
     var inst = (cn, dc) => {
         if ($npm.utils.isText(cn) || (cn && typeof cn === 'object')) {
             return new Database(cn, dc, config);
         }
-        throw new TypeError('Invalid connection details.');
+        throw new TypeError('Invalid connection details: ' + JSON.stringify(cn));
     };
 
     $npm.utils.addReadProperties(inst, rootNameSpace);
@@ -33927,13 +33185,13 @@ module.exports = $main;
 
 
 /***/ }),
-/* 232 */
+/* 225 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var PromiseAdapter = __webpack_require__(66);
+var PromiseAdapter = __webpack_require__(63);
 
 //////////////////////////////////////////
 // Parses and validates a promise library;
@@ -33950,12 +33208,12 @@ function parsePromiseLib(pl) {
     }
     var t = typeof pl;
     if (t === 'function' || t === 'object') {
-        var root = typeof pl.Promise === 'function' ? pl.Promise : pl;
+        var Root = typeof pl.Promise === 'function' ? pl.Promise : pl;
         promise = function (func) {
-            return new root(func);
+            return new Root(func);
         };
-        promise.resolve = root.resolve;
-        promise.reject = root.reject;
+        promise.resolve = Root.resolve;
+        promise.reject = Root.reject;
         if (typeof promise.resolve === 'function' && typeof promise.reject === 'function') {
             return promise;
         }
@@ -33981,7 +33239,7 @@ module.exports = init;
 
 
 /***/ }),
-/* 233 */
+/* 226 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -34102,19 +33360,19 @@ module.exports = $stream;
 
 
 /***/ }),
-/* 234 */
+/* 227 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    spex: __webpack_require__(263),
+    spex: __webpack_require__(253),
     utils: __webpack_require__(2),
-    mode: __webpack_require__(71),
+    mode: __webpack_require__(68),
     events: __webpack_require__(17),
-    query: __webpack_require__(69),
-    async: __webpack_require__(218)
+    query: __webpack_require__(66),
+    async: __webpack_require__(211)
 };
 
 /**
@@ -34350,10 +33608,9 @@ Task.exec = (ctx, obj, isTX, config) => {
                                 if (success) {
                                     update(false, true, cbData);
                                     return cbData;
-                                } else {
-                                    update(false, false, cbReason);
-                                    return $p.reject(cbReason);
                                 }
+                                update(false, false, cbReason);
+                                return $p.reject(cbReason);
                             },
                             // istanbul ignore next: either `commit` or `rollback` has failed, which is
                             // impossible to replicate in a test environment, so skipping from the test;
@@ -34420,7 +33677,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 235 */
+/* 228 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -34735,7 +33992,7 @@ module.exports = ParameterizedQuery;
 
 
 /***/ }),
-/* 236 */
+/* 229 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -35107,7 +34364,7 @@ module.exports = PreparedStatement;
 
 
 /***/ }),
-/* 237 */
+/* 230 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -35117,7 +34374,7 @@ var $npm = {
     fs: __webpack_require__(6),
     path: __webpack_require__(7),
     utils: __webpack_require__(2),
-    package: __webpack_require__(78)
+    package: __webpack_require__(71)
 };
 
 var EOL = __webpack_require__(4).EOL;
@@ -35189,9 +34446,9 @@ function _enumSql(dir, options, cb, namePath) {
             // istanbul ignore next
             if (options.ignoreErrors) {
                 return; // on to the next file/folder;
-            } else {
-                throw e;
             }
+            // istanbul ignore next
+            throw e;
         }
         if (stat.isDirectory()) {
             if (options.recursive) {
@@ -35542,7 +34799,7 @@ function buildSqlModule(config) {
 
     if ($npm.utils.isText(config)) {
         var path = $npm.utils.isPathAbsolute(config) ? config : $npm.path.join($npm.utils.startDir, config);
-        config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND';; throw e; }());
+        config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND'; throw e; }());
     } else {
         if ($npm.utils.isNull(config)) {
             var defConfig = $npm.path.join($npm.utils.startDir, 'sql-config.json');
@@ -35553,7 +34810,7 @@ function buildSqlModule(config) {
             // cannot test this automatically, because it requires that file 'sql-config.json'
             // resides within the Jasmine folder, since it is the client during the test.
             // istanbul ignore next;
-            config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND';; throw e; }());
+            config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND'; throw e; }());
         } else {
             if (!config || typeof config !== 'object') {
                 throw new TypeError('Invalid parameter \'config\' specified.');
@@ -35641,30 +34898,568 @@ function buildSqlModule(config) {
  *
  */
 module.exports = {
-    camelize: camelize,
-    camelizeVar: camelizeVar,
-    enumSql: enumSql,
-    objectToCode: objectToCode,
-    buildSqlModule: buildSqlModule
+    camelize,
+    camelizeVar,
+    enumSql,
+    objectToCode,
+    buildSqlModule
 };
 
 Object.freeze(module.exports);
 
 
 /***/ }),
-/* 238 */
+/* 231 */
+/***/ (function(module, exports) {
+
+var parseBits = function(data, bits, offset, invert, callback) {
+  offset = offset || 0;
+  invert = invert || false;
+  callback = callback || function(lastValue, newValue, bits) { return (lastValue * Math.pow(2, bits)) + newValue; };
+  var offsetBytes = offset >> 3;
+
+  var inv = function(value) {
+    if (invert) {
+      return ~value & 0xff;
+    }
+
+    return value;
+  };
+
+  // read first (maybe partial) byte
+  var mask = 0xff;
+  var firstBits = 8 - (offset % 8);
+  if (bits < firstBits) {
+    mask = (0xff << (8 - bits)) & 0xff;
+    firstBits = bits;
+  }
+
+  if (offset) {
+    mask = mask >> (offset % 8);
+  }
+
+  var result = 0;
+  if ((offset % 8) + bits >= 8) {
+    result = callback(0, inv(data[offsetBytes]) & mask, firstBits);
+  }
+
+  // read bytes
+  var bytes = (bits + offset) >> 3;
+  for (var i = offsetBytes + 1; i < bytes; i++) {
+    result = callback(result, inv(data[i]), 8);
+  }
+
+  // bits to read, that are not a complete byte
+  var lastBits = (bits + offset) % 8;
+  if (lastBits > 0) {
+    result = callback(result, inv(data[bytes]) >> (8 - lastBits), lastBits);
+  }
+
+  return result;
+};
+
+var parseFloatFromBits = function(data, precisionBits, exponentBits) {
+  var bias = Math.pow(2, exponentBits - 1) - 1;
+  var sign = parseBits(data, 1);
+  var exponent = parseBits(data, exponentBits, 1);
+
+  if (exponent === 0) {
+    return 0;
+  }
+
+  // parse mantissa
+  var precisionBitsCounter = 1;
+  var parsePrecisionBits = function(lastValue, newValue, bits) {
+    if (lastValue === 0) {
+      lastValue = 1;
+    }
+
+    for (var i = 1; i <= bits; i++) {
+      precisionBitsCounter /= 2;
+      if ((newValue & (0x1 << (bits - i))) > 0) {
+        lastValue += precisionBitsCounter;
+      }
+    }
+
+    return lastValue;
+  };
+
+  var mantissa = parseBits(data, precisionBits, exponentBits + 1, false, parsePrecisionBits);
+
+  // special cases
+  if (exponent == (Math.pow(2, exponentBits + 1) - 1)) {
+    if (mantissa === 0) {
+      return (sign === 0) ? Infinity : -Infinity;
+    }
+
+    return NaN;
+  }
+
+  // normale number
+  return ((sign === 0) ? 1 : -1) * Math.pow(2, exponent - bias) * mantissa;
+};
+
+var parseInt16 = function(value) {
+  if (parseBits(value, 1) == 1) {
+    return -1 * (parseBits(value, 15, 1, true) + 1);
+  }
+
+  return parseBits(value, 15, 1);
+};
+
+var parseInt32 = function(value) {
+  if (parseBits(value, 1) == 1) {
+    return -1 * (parseBits(value, 31, 1, true) + 1);
+  }
+
+  return parseBits(value, 31, 1);
+};
+
+var parseFloat32 = function(value) {
+  return parseFloatFromBits(value, 23, 8);
+};
+
+var parseFloat64 = function(value) {
+  return parseFloatFromBits(value, 52, 11);
+};
+
+var parseNumeric = function(value) {
+  var sign = parseBits(value, 16, 32);
+  if (sign == 0xc000) {
+    return NaN;
+  }
+
+  var weight = Math.pow(10000, parseBits(value, 16, 16));
+  var result = 0;
+
+  var digits = [];
+  var ndigits = parseBits(value, 16);
+  for (var i = 0; i < ndigits; i++) {
+    result += parseBits(value, 16, 64 + (16 * i)) * weight;
+    weight /= 10000;
+  }
+
+  var scale = Math.pow(10, parseBits(value, 16, 48));
+  return ((sign === 0) ? 1 : -1) * Math.round(result * scale) / scale;
+};
+
+var parseDate = function(isUTC, value) {
+  var sign = parseBits(value, 1);
+  var rawValue = parseBits(value, 63, 1);
+
+  // discard usecs and shift from 2000 to 1970
+  var result = new Date((((sign === 0) ? 1 : -1) * rawValue / 1000) + 946684800000);
+
+  if (!isUTC) {
+    result.setTime(result.getTime() + result.getTimezoneOffset() * 60000);
+  }
+
+  // add microseconds to the date
+  result.usec = rawValue % 1000;
+  result.getMicroSeconds = function() {
+    return this.usec;
+  };
+  result.setMicroSeconds = function(value) {
+    this.usec = value;
+  };
+  result.getUTCMicroSeconds = function() {
+    return this.usec;
+  };
+
+  return result;
+};
+
+var parseArray = function(value) {
+  var dim = parseBits(value, 32);
+
+  var flags = parseBits(value, 32, 32);
+  var elementType = parseBits(value, 32, 64);
+
+  var offset = 96;
+  var dims = [];
+  for (var i = 0; i < dim; i++) {
+    // parse dimension
+    dims[i] = parseBits(value, 32, offset);
+    offset += 32;
+
+    // ignore lower bounds
+    offset += 32;
+  }
+
+  var parseElement = function(elementType) {
+    // parse content length
+    var length = parseBits(value, 32, offset);
+    offset += 32;
+
+    // parse null values
+    if (length == 0xffffffff) {
+      return null;
+    }
+
+    var result;
+    if ((elementType == 0x17) || (elementType == 0x14)) {
+      // int/bigint
+      result = parseBits(value, length * 8, offset);
+      offset += length * 8;
+      return result;
+    }
+    else if (elementType == 0x19) {
+      // string
+      result = value.toString(this.encoding, offset >> 3, (offset += (length << 3)) >> 3);
+      return result;
+    }
+    else {
+      console.log("ERROR: ElementType not implemented: " + elementType);
+    }
+  };
+
+  var parse = function(dimension, elementType) {
+    var array = [];
+    var i;
+
+    if (dimension.length > 1) {
+      var count = dimension.shift();
+      for (i = 0; i < count; i++) {
+        array[i] = parse(dimension, elementType);
+      }
+      dimension.unshift(count);
+    }
+    else {
+      for (i = 0; i < dimension[0]; i++) {
+        array[i] = parseElement(elementType);
+      }
+    }
+
+    return array;
+  };
+
+  return parse(dims, elementType);
+};
+
+var parseText = function(value) {
+  return value.toString('utf8');
+};
+
+var parseBool = function(value) {
+  if(value === null) return null;
+  return (parseBits(value, 8) > 0);
+};
+
+var init = function(register) {
+  register(21, parseInt16);
+  register(23, parseInt32);
+  register(26, parseInt32);
+  register(1700, parseNumeric);
+  register(700, parseFloat32);
+  register(701, parseFloat64);
+  register(16, parseBool);
+  register(1114, parseDate.bind(null, false));
+  register(1184, parseDate.bind(null, true));
+  register(1000, parseArray);
+  register(1007, parseArray);
+  register(1016, parseArray);
+  register(1008, parseArray);
+  register(1009, parseArray);
+  register(25, parseText);
+};
+
+module.exports = {
+  init: init
+};
+
+
+/***/ }),
+/* 232 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var crypto = __webpack_require__(42);
+var arrayParser = __webpack_require__(72);
+
+//parses PostgreSQL server formatted date strings into javascript date objects
+var parseDate = function(isoDate) {
+  //TODO this could do w/ a refactor
+  var dateMatcher = /(\d{1,})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,})?/;
+
+  var match = dateMatcher.exec(isoDate);
+  //could not parse date
+  if(!match) {
+    dateMatcher = /^(\d{1,})-(\d{2})-(\d{2})$/;
+    match = dateMatcher.test(isoDate);
+    if(!match) {
+      return null;
+    } else {
+      //it is a date in YYYY-MM-DD format
+      //add time portion to force js to parse as local time
+      return new Date(isoDate + ' 00:00:00');
+    }
+  }
+  var isBC = /BC$/.test(isoDate);
+  var _year = parseInt(match[1], 10);
+  var isFirstCentury = (_year > 0) && (_year < 100);
+  var year = (isBC ? "-" : "") + match[1];
+
+  var month = parseInt(match[2],10)-1;
+  var day = match[3];
+  var hour = parseInt(match[4],10);
+  var min = parseInt(match[5],10);
+  var seconds = parseInt(match[6], 10);
+
+  var miliString = match[7];
+  var mili = 0;
+  if(miliString) {
+    mili = 1000 * parseFloat(miliString);
+  }
+
+  //match timezones like the following:
+  //Z (UTC)
+  //-05
+  //+06:30
+  var tZone = /([Z|+\-])(\d{2})?:?(\d{2})?:?(\d{2})?/.exec(isoDate.split(' ')[1]);
+  //minutes to adjust for timezone
+  var tzAdjust = 0;
+  var tzSign = 1;
+  var date;
+  if(tZone) {
+    var type = tZone[1];
+    switch(type) {
+    case 'Z':
+      break;
+    case '-':
+      tzSign = -1;
+    case '+':
+      tzAdjust = tzSign * (
+        (parseInt(tZone[2], 10) * 3600) +
+        (parseInt(tZone[3] || 0, 10) * 60) +
+        (parseInt(tZone[4] || 0, 10))
+      );
+      break;
+    default:
+      throw new Error("Unidentifed tZone part " + type);
+    }
+
+    var utcOffset = Date.UTC(year, month, day, hour, min, seconds, mili);
+
+    date = new Date(utcOffset - (tzAdjust * 1000));
+  }
+  //no timezone information
+  else {
+    date = new Date(year, month, day, hour, min, seconds, mili);
+  }
+
+  if (isFirstCentury) {
+    date.setUTCFullYear(year);
+  }
+
+  return date;
+};
+
+var parseBool = function(val) {
+  if(val === null) return val;
+  return val === 't';
+};
+
+var parseBoolArray = function(val) {
+  if(!val) { return null; }
+  var p = arrayParser.create(val, function(entry){
+    if(entry !== null) {
+      entry = parseBool(entry);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseIntegerArray = function(val) {
+  if(!val) { return null; }
+  var p = arrayParser.create(val, function(entry){
+    if(entry !== null) {
+      entry = parseInt(entry, 10);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseBigIntegerArray = function(val) {
+  if(!val) { return null; }
+  var p = arrayParser.create(val, function(entry){
+    if(entry !== null) {
+      entry = parseBigInteger(entry).trim();
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseFloatArray = function(val) {
+  if(!val) { return null; }
+  var p = arrayParser.create(val, function(entry) {
+    if(entry !== null) {
+      entry = parseFloat(entry);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var parseStringArray = function(val) {
+  if(!val) { return null; }
+
+  var p = arrayParser.create(val);
+  return p.parse();
+};
+
+var parseDateArray = function(val) {
+  if (!val) { return null; }
+
+  var p = arrayParser.create(val, function(entry) {
+    if (entry !== null) {
+      entry = parseDate(entry);
+    }
+    return entry;
+  });
+
+  return p.parse();
+};
+
+var NUM = '([+-]?\\d+)';
+var YEAR = NUM + '\\s+years?';
+var MON = NUM + '\\s+mons?';
+var DAY = NUM + '\\s+days?';
+var TIME = '([+-])?(\\d\\d):(\\d\\d):(\\d\\d)';
+var INTERVAL = [YEAR,MON,DAY,TIME].map(function(p){
+  return "("+p+")?";
+}).join('\\s*');
+
+var parseInterval = function(val) {
+  if (!val) { return {}; }
+  var m = new RegExp(INTERVAL).exec(val);
+  var i = {};
+  if (m[2]) { i.years = parseInt(m[2], 10); }
+  if (m[4]) { i.months = parseInt(m[4], 10); }
+  if (m[6]) { i.days = parseInt(m[6], 10); }
+  if (m[9]) { i.hours = parseInt(m[9], 10); }
+  if (m[10]) { i.minutes = parseInt(m[10], 10); }
+  if (m[11]) { i.seconds = parseInt(m[11], 10); }
+  if (m[8] == '-'){
+    if (i.hours) { i.hours *= -1; }
+    if (i.minutes) { i.minutes *= -1; }
+    if (i.seconds) { i.seconds *= -1; }
+  }
+  for (var field in i){
+    if (i[field] === 0) {
+      delete i[field];
+    }
+  }
+  return i;
+};
+
+var parseByteA = function(val) {
+  if(/^\\x/.test(val)){
+    // new 'hex' style response (pg >9.0)
+    return new Buffer(val.substr(2), 'hex');
+  }else{
+    var out = "";
+    var i = 0;
+    while(i < val.length){
+      if(val[i] != "\\"){
+        out += val[i];
+        ++i;
+      }else{
+        if(val.substr(i+1,3).match(/[0-7]{3}/)){
+          out += String.fromCharCode(parseInt(val.substr(i+1,3),8));
+          i += 4;
+        }else{
+          backslashes = 1;
+          while(i+backslashes < val.length && val[i+backslashes] == "\\")
+            backslashes++;
+          for(k=0; k<Math.floor(backslashes/2); ++k)
+            out += "\\";
+          i += Math.floor(backslashes / 2) * 2;
+        }
+      }
+    }
+    return new Buffer(out,"binary");
+  }
+};
+
+var maxLen = Number.MAX_VALUE.toString().length;
+
+var parseInteger = function(val) {
+  return parseInt(val, 10);
+};
+
+var parseBigInteger = function(val) {
+  var valStr = String(val);
+  if (/^\d+$/.test(valStr)) { return valStr; }
+  return val;
+};
+
+var parseJsonArray = function(val) {
+  var arr = parseStringArray(val);
+
+  if (!arr) {
+    return arr;
+  }
+
+  return arr.map(function(el) { return JSON.parse(el); });
+};
+
+var init = function(register) {
+  register(20, parseBigInteger); // int8
+  register(21, parseInteger); // int2
+  register(23, parseInteger); // int4
+  register(26, parseInteger); // oid
+  register(700, parseFloat); // float4/real
+  register(701, parseFloat); // float8/double
+  register(16, parseBool);
+  register(1082, parseDate); // date
+  register(1114, parseDate); // timestamp without timezone
+  register(1184, parseDate); // timestamp
+  register(1000, parseBoolArray);
+  register(1005, parseIntegerArray); // _int2
+  register(1007, parseIntegerArray); // _int4
+  register(1016, parseBigIntegerArray); // _int8
+  register(1021, parseFloatArray); // _float4
+  register(1022, parseFloatArray); // _float8
+  register(1231, parseFloatArray); // _numeric
+  register(1014, parseStringArray); //char
+  register(1015, parseStringArray); //varchar
+  register(1008, parseStringArray);
+  register(1009, parseStringArray);
+  register(1115, parseDateArray); // timestamp without time zone[]
+  register(1182, parseDateArray); // _date
+  register(1185, parseDateArray); // timestamp with time zone[]
+  register(1186, parseInterval);
+  register(17, parseByteA);
+  register(114, JSON.parse.bind(JSON));
+  register(3802, JSON.parse.bind(JSON));
+  register(199, parseJsonArray); // json[]
+  register(2951, parseStringArray); // uuid[]
+};
+
+module.exports = {
+  init: init
+};
+
+
+/***/ }),
+/* 233 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var crypto = __webpack_require__(40);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var pgPass = __webpack_require__(247);
-var TypeOverrides = __webpack_require__(77);
+var pgPass = __webpack_require__(242);
+var TypeOverrides = __webpack_require__(76);
 
-var ConnectionParameters = __webpack_require__(74);
-var Query = __webpack_require__(243);
-var defaults = __webpack_require__(20);
-var Connection = __webpack_require__(75);
+var ConnectionParameters = __webpack_require__(73);
+var Query = __webpack_require__(238);
+var defaults = __webpack_require__(21);
+var Connection = __webpack_require__(74);
 
 var Client = function(config) {
   EventEmitter.call(this);
@@ -35999,15 +35794,15 @@ module.exports = Client;
 
 
 /***/ }),
-/* 239 */
+/* 234 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var Client = __webpack_require__(238);
-var defaults =  __webpack_require__(20);
-var pool = __webpack_require__(242);
-var Connection = __webpack_require__(75);
+var Client = __webpack_require__(233);
+var defaults =  __webpack_require__(21);
+var pool = __webpack_require__(237);
+var Connection = __webpack_require__(74);
 
 var PG = function(clientConstructor) {
   EventEmitter.call(this);
@@ -36016,7 +35811,7 @@ var PG = function(clientConstructor) {
   this.Query = this.Client.Query;
   this.pools = pool(clientConstructor);
   this.Connection = Connection;
-  this.types = __webpack_require__(30);
+  this.types = __webpack_require__(20);
 };
 
 util.inherits(PG, EventEmitter);
@@ -36072,7 +35867,7 @@ PG.prototype.cancel = function(config, client, query) {
 };
 
 if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
-  module.exports = new PG(__webpack_require__(76));
+  module.exports = new PG(__webpack_require__(75));
 } else {
   module.exports = new PG(Client);
 
@@ -36081,7 +35876,7 @@ if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
     delete module.exports.native;
     var native = null;
     try {
-      native = new PG(__webpack_require__(76));
+      native = new PG(__webpack_require__(75));
     } catch (err) {
       if (err.code !== 'MODULE_NOT_FOUND') {
         throw err;
@@ -36095,13 +35890,13 @@ if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
 
 
 /***/ }),
-/* 240 */
+/* 235 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var utils = __webpack_require__(41);
-var NativeResult = __webpack_require__(241);
+var utils = __webpack_require__(39);
+var NativeResult = __webpack_require__(236);
 
 var NativeQuery = module.exports = function(native) {
   EventEmitter.call(this);
@@ -36231,7 +36026,7 @@ NativeQuery.prototype.submit = function(client) {
 
 
 /***/ }),
-/* 241 */
+/* 236 */
 /***/ (function(module, exports) {
 
 var NativeResult = module.exports = function(pq) {
@@ -36265,13 +36060,13 @@ NativeResult.prototype.addRow = function(row) {
 
 
 /***/ }),
-/* 242 */
+/* 237 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 
-var defaults = __webpack_require__(20);
-var genericPool = __webpack_require__(163);
+var defaults = __webpack_require__(21);
+var genericPool = __webpack_require__(159);
 
 
 module.exports = function(Client) {
@@ -36370,14 +36165,14 @@ module.exports = function(Client) {
 
 
 /***/ }),
-/* 243 */
+/* 238 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
 
-var Result = __webpack_require__(244);
-var utils = __webpack_require__(41);
+var Result = __webpack_require__(239);
+var utils = __webpack_require__(39);
 
 var Query = function(config, values, callback) {
   // use of "new" optional
@@ -36576,10 +36371,10 @@ module.exports = Query;
 
 
 /***/ }),
-/* 244 */
+/* 239 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var types = __webpack_require__(30);
+var types = __webpack_require__(20);
 
 //result object returned from query
 //in the 'end' event and also
@@ -36689,7 +36484,7 @@ module.exports = Result;
 
 
 /***/ }),
-/* 245 */
+/* 240 */
 /***/ (function(module, exports) {
 
 module.exports = {
@@ -36704,13 +36499,13 @@ module.exports = {
 				"spec": ">=5.1.0 <5.2.0",
 				"type": "range"
 			},
-			"/home/neil/DevGit/zf2dbmodelgen/modgen/node_modules/pg-promise"
+			"/home/neil/DevGit/ZenGate/node_modules/pg-promise"
 		]
 	],
 	"_from": "pg@>=5.1.0 <5.2.0",
 	"_id": "pg@5.1.0",
 	"_inCache": true,
-	"_location": "/pg-promise/pg",
+	"_location": "/pg",
 	"_nodeVersion": "6.1.0",
 	"_npmOperationalInternal": {
 		"host": "packages-16-east.internal.npmjs.com",
@@ -36738,7 +36533,7 @@ module.exports = {
 	"_shasum": "073b9b36763ad8a5478dbb85effef45e739ba9d8",
 	"_shrinkwrap": null,
 	"_spec": "pg@5.1",
-	"_where": "/home/neil/DevGit/zf2dbmodelgen/modgen/node_modules/pg-promise",
+	"_where": "/home/neil/DevGit/ZenGate/node_modules/pg-promise",
 	"author": {
 		"name": "Brian Carlson",
 		"email": "brian.m.carlson@gmail.com"
@@ -36803,7 +36598,7 @@ module.exports = {
 };
 
 /***/ }),
-/* 246 */
+/* 241 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -36811,7 +36606,7 @@ module.exports = {
 
 var path = __webpack_require__(7)
   , Stream = __webpack_require__(8).Stream
-  , Split = __webpack_require__(265)
+  , Split = __webpack_require__(255)
   , util = __webpack_require__(0)
   , defaultPort = 5432
   , isWin = (process.platform === 'win32')
@@ -37041,7 +36836,7 @@ var isValidEntry = module.exports.isValidEntry = function(entry){
 
 
 /***/ }),
-/* 247 */
+/* 242 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -37049,7 +36844,7 @@ var isValidEntry = module.exports.isValidEntry = function(entry){
 
 var path = __webpack_require__(7)
   , fs = __webpack_require__(6)
-  , helper = __webpack_require__(246)
+  , helper = __webpack_require__(241)
 ;
 
 
@@ -37071,7 +36866,77 @@ module.exports = function(connInfo, cb) {
 
 
 /***/ }),
-/* 248 */
+/* 243 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Connection = __webpack_require__(77);
+var Pool = __webpack_require__(244);
+var mysql = __webpack_require__(24);
+
+exports.createConnection = function(config){
+    return new Connection(config);
+}
+
+exports.createPool = function(config){
+    return new Pool(config);
+}
+
+exports.Types = mysql.Types;
+exports.escape = mysql.escape;
+exports.escapeId = mysql.escapeId;
+exports.format = mysql.format;
+
+
+/***/ }),
+/* 244 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Promise = __webpack_require__(33),
+    mysql = __webpack_require__(24),
+    Connection = __webpack_require__(77),
+    promiseCallback = __webpack_require__(78).promiseCallback;
+
+var pool = function(config) {
+    this.pool = mysql.createPool(config);
+};
+
+pool.prototype.getConnection = function getConnection() {
+    return promiseCallback.apply(this.pool, ['getConnection', arguments])
+    .then(function(con) {
+        return new Connection(null, con);
+    });
+};
+
+pool.prototype.releaseConnection = function releaseConnection(connection) {
+    //Use the underlying connection from the mysql-module here:
+    return this.pool.releaseConnection(connection.connection);
+};
+
+pool.prototype.query = function(sql, values) {
+    return promiseCallback.apply(this.pool, ['query', arguments]);
+};
+
+pool.prototype.end = function(data) {
+    return promiseCallback.apply(this.pool, ['end', arguments]);
+};
+
+pool.prototype.escape = function(value) {
+    return this.pool.escape(value);
+};
+
+pool.prototype.escapeId = function(value) {
+    return this.pool.escapeId(value);
+};
+
+pool.prototype.on = function(event, fn) {
+    this.pool.on(event, fn);
+};
+
+module.exports = pool;
+
+
+/***/ }),
+/* 245 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// export the class if we are in a Node-like system.
@@ -38272,724 +38137,7 @@ if (true)
 
 
 /***/ }),
-/* 249 */
-/***/ (function(module, exports) {
-
-var parseBits = function(data, bits, offset, invert, callback) {
-  offset = offset || 0;
-  invert = invert || false;
-  callback = callback || function(lastValue, newValue, bits) { return (lastValue * Math.pow(2, bits)) + newValue; };
-  var offsetBytes = offset >> 3;
-
-  var inv = function(value) {
-    if (invert) {
-      return ~value & 0xff;
-    }
-
-    return value;
-  };
-
-  // read first (maybe partial) byte
-  var mask = 0xff;
-  var firstBits = 8 - (offset % 8);
-  if (bits < firstBits) {
-    mask = (0xff << (8 - bits)) & 0xff;
-    firstBits = bits;
-  }
-
-  if (offset) {
-    mask = mask >> (offset % 8);
-  }
-
-  var result = 0;
-  if ((offset % 8) + bits >= 8) {
-    result = callback(0, inv(data[offsetBytes]) & mask, firstBits);
-  }
-
-  // read bytes
-  var bytes = (bits + offset) >> 3;
-  for (var i = offsetBytes + 1; i < bytes; i++) {
-    result = callback(result, inv(data[i]), 8);
-  }
-
-  // bits to read, that are not a complete byte
-  var lastBits = (bits + offset) % 8;
-  if (lastBits > 0) {
-    result = callback(result, inv(data[bytes]) >> (8 - lastBits), lastBits);
-  }
-
-  return result;
-};
-
-var parseFloatFromBits = function(data, precisionBits, exponentBits) {
-  var bias = Math.pow(2, exponentBits - 1) - 1;
-  var sign = parseBits(data, 1);
-  var exponent = parseBits(data, exponentBits, 1);
-
-  if (exponent === 0) {
-    return 0;
-  }
-
-  // parse mantissa
-  var precisionBitsCounter = 1;
-  var parsePrecisionBits = function(lastValue, newValue, bits) {
-    if (lastValue === 0) {
-      lastValue = 1;
-    }
-
-    for (var i = 1; i <= bits; i++) {
-      precisionBitsCounter /= 2;
-      if ((newValue & (0x1 << (bits - i))) > 0) {
-        lastValue += precisionBitsCounter;
-      }
-    }
-
-    return lastValue;
-  };
-
-  var mantissa = parseBits(data, precisionBits, exponentBits + 1, false, parsePrecisionBits);
-
-  // special cases
-  if (exponent == (Math.pow(2, exponentBits + 1) - 1)) {
-    if (mantissa === 0) {
-      return (sign === 0) ? Infinity : -Infinity;
-    }
-
-    return NaN;
-  }
-
-  // normale number
-  return ((sign === 0) ? 1 : -1) * Math.pow(2, exponent - bias) * mantissa;
-};
-
-var parseInt16 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 15, 1, true) + 1);
-  }
-
-  return parseBits(value, 15, 1);
-};
-
-var parseInt32 = function(value) {
-  if (parseBits(value, 1) == 1) {
-    return -1 * (parseBits(value, 31, 1, true) + 1);
-  }
-
-  return parseBits(value, 31, 1);
-};
-
-var parseFloat32 = function(value) {
-  return parseFloatFromBits(value, 23, 8);
-};
-
-var parseFloat64 = function(value) {
-  return parseFloatFromBits(value, 52, 11);
-};
-
-var parseNumeric = function(value) {
-  var sign = parseBits(value, 16, 32);
-  if (sign == 0xc000) {
-    return NaN;
-  }
-
-  var weight = Math.pow(10000, parseBits(value, 16, 16));
-  var result = 0;
-
-  var digits = [];
-  var ndigits = parseBits(value, 16);
-  for (var i = 0; i < ndigits; i++) {
-    result += parseBits(value, 16, 64 + (16 * i)) * weight;
-    weight /= 10000;
-  }
-
-  var scale = Math.pow(10, parseBits(value, 16, 48));
-  return ((sign === 0) ? 1 : -1) * Math.round(result * scale) / scale;
-};
-
-var parseDate = function(isUTC, value) {
-  var sign = parseBits(value, 1);
-  var rawValue = parseBits(value, 63, 1);
-
-  // discard usecs and shift from 2000 to 1970
-  var result = new Date((((sign === 0) ? 1 : -1) * rawValue / 1000) + 946684800000);
-
-  if (!isUTC) {
-    result.setTime(result.getTime() + result.getTimezoneOffset() * 60000);
-  }
-
-  // add microseconds to the date
-  result.usec = rawValue % 1000;
-  result.getMicroSeconds = function() {
-    return this.usec;
-  };
-  result.setMicroSeconds = function(value) {
-    this.usec = value;
-  };
-  result.getUTCMicroSeconds = function() {
-    return this.usec;
-  };
-
-  return result;
-};
-
-var parseArray = function(value) {
-  var dim = parseBits(value, 32);
-
-  var flags = parseBits(value, 32, 32);
-  var elementType = parseBits(value, 32, 64);
-
-  var offset = 96;
-  var dims = [];
-  for (var i = 0; i < dim; i++) {
-    // parse dimension
-    dims[i] = parseBits(value, 32, offset);
-    offset += 32;
-
-    // ignore lower bounds
-    offset += 32;
-  }
-
-  var parseElement = function(elementType) {
-    // parse content length
-    var length = parseBits(value, 32, offset);
-    offset += 32;
-
-    // parse null values
-    if (length == 0xffffffff) {
-      return null;
-    }
-
-    var result;
-    if ((elementType == 0x17) || (elementType == 0x14)) {
-      // int/bigint
-      result = parseBits(value, length * 8, offset);
-      offset += length * 8;
-      return result;
-    }
-    else if (elementType == 0x19) {
-      // string
-      result = value.toString(this.encoding, offset >> 3, (offset += (length << 3)) >> 3);
-      return result;
-    }
-    else {
-      console.log("ERROR: ElementType not implemented: " + elementType);
-    }
-  };
-
-  var parse = function(dimension, elementType) {
-    var array = [];
-    var i;
-
-    if (dimension.length > 1) {
-      var count = dimension.shift();
-      for (i = 0; i < count; i++) {
-        array[i] = parse(dimension, elementType);
-      }
-      dimension.unshift(count);
-    }
-    else {
-      for (i = 0; i < dimension[0]; i++) {
-        array[i] = parseElement(elementType);
-      }
-    }
-
-    return array;
-  };
-
-  return parse(dims, elementType);
-};
-
-var parseText = function(value) {
-  return value.toString('utf8');
-};
-
-var parseBool = function(value) {
-  if(value === null) return null;
-  return (parseBits(value, 8) > 0);
-};
-
-var init = function(register) {
-  register(21, parseInt16);
-  register(23, parseInt32);
-  register(26, parseInt32);
-  register(1700, parseNumeric);
-  register(700, parseFloat32);
-  register(701, parseFloat64);
-  register(16, parseBool);
-  register(1114, parseDate.bind(null, false));
-  register(1184, parseDate.bind(null, true));
-  register(1000, parseArray);
-  register(1007, parseArray);
-  register(1016, parseArray);
-  register(1008, parseArray);
-  register(1009, parseArray);
-  register(25, parseText);
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 250 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var array = __webpack_require__(80)
-var ap = __webpack_require__(92)
-var arrayParser = __webpack_require__(79);
-var parseDate = __webpack_require__(252);
-var parseInterval = __webpack_require__(253);
-var parseByteA = __webpack_require__(251);
-
-function allowNull (fn) {
-  return function nullAllowed (value) {
-    if (value === null) return value
-    return fn(value)
-  }
-}
-
-function parseBool (value) {
-  if (value === null) return value
-  return value === 't';
-}
-
-function parseBoolArray (value) {
-  if (!value) return null
-  return array.parse(value, parseBool)
-}
-
-function parseIntegerArray (value) {
-  if (!value) return null
-  return array.parse(value, allowNull(ap.partialRight(parseInt, 10)))
-}
-
-function parseBigIntegerArray (value) {
-  if (!value) return null
-  return array.parse(value, allowNull(function (entry) {
-    return parseBigInteger(entry).trim()
-  }))
-}
-
-var parseFloatArray = function(value) {
-  if(!value) { return null; }
-  var p = arrayParser.create(value, function(entry) {
-    if(entry !== null) {
-      entry = parseFloat(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseStringArray = function(value) {
-  if(!value) { return null; }
-
-  var p = arrayParser.create(value);
-  return p.parse();
-};
-
-var parseDateArray = function(value) {
-  if (!value) { return null; }
-
-  var p = arrayParser.create(value, function(entry) {
-    if (entry !== null) {
-      entry = parseDate(entry);
-    }
-    return entry;
-  });
-
-  return p.parse();
-};
-
-var parseByteAArray = function(value) {
-  var arr = parseStringArray(value);
-  if (!arr) return arr;
-
-  return arr.map(function(element) {
-    return parseByteA(element);
-  });
-};
-
-var parseInteger = function(value) {
-  return parseInt(value, 10);
-};
-
-var parseBigInteger = function(value) {
-  var valStr = String(value);
-  if (/^\d+$/.test(valStr)) { return valStr; }
-  return value;
-};
-
-var parseJsonArray = function(value) {
-  var arr = parseStringArray(value);
-
-  if (!arr) {
-    return arr;
-  }
-
-  return arr.map(function(el) { return JSON.parse(el); });
-};
-
-var parsePoint = function(value) {
-  if (value[0] !== '(') { return null; }
-
-  value = value.substring( 1, value.length - 1 ).split(',');
-
-  return {
-    x: parseFloat(value[0])
-  , y: parseFloat(value[1])
-  };
-};
-
-var parseCircle = function(value) {
-  if (value[0] !== '<' && value[1] !== '(') { return null; }
-
-  var point = '(';
-  var radius = '';
-  var pointParsed = false;
-  for (var i = 2; i < value.length - 1; i++){
-    if (!pointParsed) {
-      point += value[i];
-    }
-
-    if (value[i] === ')') {
-      pointParsed = true;
-      continue;
-    } else if (!pointParsed) {
-      continue;
-    }
-
-    if (value[i] === ','){
-      continue;
-    }
-
-    radius += value[i];
-  }
-  var result = parsePoint(point);
-  result.radius = parseFloat(radius);
-
-  return result;
-};
-
-var init = function(register) {
-  register(20, parseBigInteger); // int8
-  register(21, parseInteger); // int2
-  register(23, parseInteger); // int4
-  register(26, parseInteger); // oid
-  register(700, parseFloat); // float4/real
-  register(701, parseFloat); // float8/double
-  register(16, parseBool);
-  register(1082, parseDate); // date
-  register(1114, parseDate); // timestamp without timezone
-  register(1184, parseDate); // timestamp
-  register(600, parsePoint); // point
-  register(718, parseCircle); // circle
-  register(1000, parseBoolArray);
-  register(1001, parseByteAArray);
-  register(1005, parseIntegerArray); // _int2
-  register(1007, parseIntegerArray); // _int4
-  register(1028, parseIntegerArray); // oid[]
-  register(1016, parseBigIntegerArray); // _int8
-  register(1021, parseFloatArray); // _float4
-  register(1022, parseFloatArray); // _float8
-  register(1231, parseFloatArray); // _numeric
-  register(1014, parseStringArray); //char
-  register(1015, parseStringArray); //varchar
-  register(1008, parseStringArray);
-  register(1009, parseStringArray);
-  register(1115, parseDateArray); // timestamp without time zone[]
-  register(1182, parseDateArray); // _date
-  register(1185, parseDateArray); // timestamp with time zone[]
-  register(1186, parseInterval);
-  register(17, parseByteA);
-  register(114, JSON.parse.bind(JSON)); // json
-  register(3802, JSON.parse.bind(JSON)); // jsonb
-  register(199, parseJsonArray); // json[]
-  register(3807, parseJsonArray); // jsonb[]
-  register(2951, parseStringArray); // uuid[]
-  register(791, parseStringArray); // money[]
-  register(1183, parseStringArray); // time[]
-};
-
-module.exports = {
-  init: init
-};
-
-
-/***/ }),
-/* 251 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = function parseBytea (input) {
-  if (/^\\x/.test(input)) {
-    // new 'hex' style response (pg >9.0)
-    return new Buffer(input.substr(2), 'hex')
-  }
-  var output = ''
-  var i = 0
-  while (i < input.length) {
-    if (input[i] !== '\\') {
-      output += input[i]
-      ++i
-    } else {
-      if (/[0-7]{3}/.test(input.substr(i + 1, 3))) {
-        output += String.fromCharCode(parseInt(input.substr(i + 1, 3), 8))
-        i += 4
-      } else {
-        var backslashes = 1
-        while (i + backslashes < input.length && input[i + backslashes] === '\\') {
-          backslashes++
-        }
-        for (var k = 0; k < Math.floor(backslashes / 2); ++k) {
-          output += '\\'
-        }
-        i += Math.floor(backslashes / 2) * 2
-      }
-    }
-  }
-  return new Buffer(output, 'binary')
-}
-
-
-/***/ }),
-/* 252 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var DATE_TIME = /(\d{1,})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,})?/
-var DATE = /^(\d{1,})-(\d{2})-(\d{2})$/
-var TIME_ZONE = /([Z+-])(\d{2})?:?(\d{2})?:?(\d{2})?/
-var BC = /BC$/
-var INFINITY = /^-?infinity$/
-
-module.exports = function parseDate (isoDate) {
-  if (INFINITY.test(isoDate)) {
-    // Capitalize to Infinity before passing to Number
-    return Number(isoDate.replace('i', 'I'))
-  }
-  var matches = DATE_TIME.exec(isoDate)
-
-  if (!matches) {
-    // Force YYYY-MM-DD dates to be parsed as local time
-    return DATE.test(isoDate) ?
-      getDate(isoDate) :
-      null
-  }
-
-  var isBC = BC.test(isoDate)
-  var year = parseInt(matches[1], 10)
-  var isFirstCentury = year > 0 && year < 100
-  year = (isBC ? '-' : '') + year
-
-  var month = parseInt(matches[2], 10) - 1
-  var day = matches[3]
-  var hour = parseInt(matches[4], 10)
-  var minute = parseInt(matches[5], 10)
-  var second = parseInt(matches[6], 10)
-
-  var ms = matches[7]
-  ms = ms ? 1000 * parseFloat(ms) : 0
-
-  var date
-  var offset = timeZoneOffset(isoDate)
-  if (offset != null) {
-    var utc = Date.UTC(year, month, day, hour, minute, second, ms)
-    date = new Date(utc - offset)
-  } else {
-    date = new Date(year, month, day, hour, minute, second, ms)
-  }
-
-  if (isFirstCentury) {
-    date.setUTCFullYear(year)
-  }
-
-  return date
-}
-
-function getDate (isoDate) {
-  var matches = DATE.exec(isoDate)
-  var year = parseInt(matches[1], 10)
-  var month = parseInt(matches[2], 10) - 1
-  var day = matches[3]
-  // YYYY-MM-DD will be parsed as local time
-  var date = new Date(year, month, day)
-  date.setFullYear(year)
-  return date
-}
-
-// match timezones:
-// Z (UTC)
-// -05
-// +06:30
-function timeZoneOffset (isoDate) {
-  var zone = TIME_ZONE.exec(isoDate.split(' ')[1])
-  if (!zone) return
-  var type = zone[1]
-
-  if (type === 'Z') {
-    return 0
-  }
-  var sign = type === '-' ? -1 : 1
-  var offset = parseInt(zone[2], 10) * 3600 +
-    parseInt(zone[3] || 0, 10) * 60 +
-    parseInt(zone[4] || 0, 10)
-
-  return offset * sign * 1000
-}
-
-
-/***/ }),
-/* 253 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var extend = __webpack_require__(270)
-
-module.exports = PostgresInterval
-
-function PostgresInterval (raw) {
-  if (!(this instanceof PostgresInterval)) {
-    return new PostgresInterval(raw)
-  }
-  extend(this, parse(raw))
-}
-var properties = ['seconds', 'minutes', 'hours', 'days', 'months', 'years']
-PostgresInterval.prototype.toPostgres = function () {
-  var filtered = properties.filter(this.hasOwnProperty, this)
-  if (filtered.length === 0) return '0'
-  return filtered
-    .map(function (property) {
-      return this[property] + ' ' + property
-    }, this)
-    .join(' ')
-}
-
-var NUMBER = '([+-]?\\d+)'
-var YEAR = NUMBER + '\\s+years?'
-var MONTH = NUMBER + '\\s+mons?'
-var DAY = NUMBER + '\\s+days?'
-var TIME = '([+-])?([\\d]*):(\\d\\d):(\\d\\d):?(\\d\\d\\d)?'
-var INTERVAL = new RegExp([YEAR, MONTH, DAY, TIME].map(function (regexString) {
-  return '(' + regexString + ')?'
-})
-.join('\\s*'))
-
-// Positions of values in regex match
-var positions = {
-  years: 2,
-  months: 4,
-  days: 6,
-  hours: 9,
-  minutes: 10,
-  seconds: 11,
-  milliseconds: 12
-}
-// We can use negative time
-var negatives = ['hours', 'minutes', 'seconds']
-
-function parse (interval) {
-  if (!interval) return {}
-  var matches = INTERVAL.exec(interval)
-  var isNegative = matches[8] === '-'
-  return Object.keys(positions)
-    .reduce(function (parsed, property) {
-      var position = positions[property]
-      var value = matches[position]
-      // no empty string
-      if (!value) return parsed
-      value = parseInt(value, 10)
-      // no zeros
-      if (!value) return parsed
-      if (isNegative && ~negatives.indexOf(property)) {
-        value *= -1
-      }
-      parsed[property] = value
-      return parsed
-    }, {})
-}
-
-
-/***/ }),
-/* 254 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Connection = __webpack_require__(81);
-var Pool = __webpack_require__(255);
-var mysql = __webpack_require__(24);
-
-exports.createConnection = function(config){
-    return new Connection(config);
-}
-
-exports.createPool = function(config){
-    return new Pool(config);
-}
-
-exports.Types = mysql.Types;
-exports.escape = mysql.escape;
-exports.escapeId = mysql.escapeId;
-exports.format = mysql.format;
-
-
-/***/ }),
-/* 255 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Promise = __webpack_require__(34),
-    mysql = __webpack_require__(24),
-    Connection = __webpack_require__(81),
-    promiseCallback = __webpack_require__(82).promiseCallback;
-
-var pool = function(config) {
-    this.pool = mysql.createPool(config);
-};
-
-pool.prototype.getConnection = function getConnection() {
-    return promiseCallback.apply(this.pool, ['getConnection', arguments])
-    .then(function(con) {
-        return new Connection(null, con);
-    });
-};
-
-pool.prototype.releaseConnection = function releaseConnection(connection) {
-    //Use the underlying connection from the mysql-module here:
-    return this.pool.releaseConnection(connection.connection);
-};
-
-pool.prototype.query = function(sql, values) {
-    return promiseCallback.apply(this.pool, ['query', arguments]);
-};
-
-pool.prototype.end = function(data) {
-    return promiseCallback.apply(this.pool, ['end', arguments]);
-};
-
-pool.prototype.escape = function(value) {
-    return this.pool.escape(value);
-};
-
-pool.prototype.escapeId = function(value) {
-    return this.pool.escapeId(value);
-};
-
-pool.prototype.on = function(event, fn) {
-    this.pool.on(event, fn);
-};
-
-module.exports = pool;
-
-
-/***/ }),
-/* 256 */
+/* 246 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -39074,16 +38222,16 @@ module.exports = PromiseAdapter;
 
 
 /***/ }),
-/* 257 */
+/* 247 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    BatchError: __webpack_require__(83),
-    PageError: __webpack_require__(84),
-    SequenceError: __webpack_require__(85)
+    BatchError: __webpack_require__(79),
+    PageError: __webpack_require__(80),
+    SequenceError: __webpack_require__(81)
 };
 
 /**
@@ -39120,13 +38268,13 @@ Object.freeze(module.exports);
 
 
 /***/ }),
-/* 258 */
+/* 248 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var BatchError = __webpack_require__(83);
+var BatchError = __webpack_require__(79);
 
 /**
  * @method batch
@@ -39279,13 +38427,13 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 259 */
+/* 249 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var PageError = __webpack_require__(84);
+var PageError = __webpack_require__(80);
 
 /**
  * @method page
@@ -39472,13 +38620,13 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 260 */
+/* 250 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var SequenceError = __webpack_require__(85);
+var SequenceError = __webpack_require__(81);
 
 /**
  * @method sequence
@@ -39675,14 +38823,14 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 261 */
+/* 251 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    read: __webpack_require__(262)
+    read: __webpack_require__(252)
 };
 
 /**
@@ -39750,7 +38898,7 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 262 */
+/* 252 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -39947,19 +39095,19 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 263 */
+/* 253 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    utils: __webpack_require__(264),
-    batch: __webpack_require__(258),
-    page: __webpack_require__(259),
-    sequence: __webpack_require__(260),
-    stream: __webpack_require__(261),
-    errors: __webpack_require__(257)
+    utils: __webpack_require__(254),
+    batch: __webpack_require__(248),
+    page: __webpack_require__(249),
+    sequence: __webpack_require__(250),
+    stream: __webpack_require__(251),
+    errors: __webpack_require__(247)
 };
 
 /**
@@ -40055,7 +39203,7 @@ function parsePromiseLib(lib) {
     throw new TypeError("Invalid promise library specified.");
 }
 
-main.PromiseAdapter = __webpack_require__(256);
+main.PromiseAdapter = __webpack_require__(246);
 Object.freeze(main);
 
 module.exports = main;
@@ -40077,13 +39225,13 @@ module.exports = main;
 
 
 /***/ }),
-/* 264 */
+/* 254 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var stat = __webpack_require__(31);
+var stat = __webpack_require__(30);
 
 module.exports = function ($p) {
 
@@ -40178,7 +39326,7 @@ module.exports = function ($p) {
 
 
 /***/ }),
-/* 265 */
+/* 255 */
 /***/ (function(module, exports, __webpack_require__) {
 
 //filter will reemit the data if cb(err,pass) pass is truthy
@@ -40188,8 +39336,8 @@ module.exports = function ($p) {
 // the most basic reduce just emits one 'data' event after it has recieved 'end'
 
 
-var through = __webpack_require__(268)
-var Decoder = __webpack_require__(274).StringDecoder
+var through = __webpack_require__(258)
+var Decoder = __webpack_require__(263).StringDecoder
 
 module.exports = split
 
@@ -40247,14 +39395,14 @@ function split (matcher, mapper, options) {
 
 
 /***/ }),
-/* 266 */
+/* 256 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(267);
+module.exports = __webpack_require__(257);
 
 
 /***/ }),
-/* 267 */
+/* 257 */
 /***/ (function(module, exports) {
 
 var SqlString  = exports;
@@ -40478,7 +39626,7 @@ function convertTimezone(tz) {
 
 
 /***/ }),
-/* 268 */
+/* 258 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Stream = __webpack_require__(8)
@@ -40592,7 +39740,7 @@ function through (write, end, opts) {
 
 
 /***/ }),
-/* 269 */
+/* 259 */
 /***/ (function(module, exports) {
 
 module.exports = function(module) {
@@ -40620,99 +39768,55 @@ module.exports = function(module) {
 
 
 /***/ }),
-/* 270 */
-/***/ (function(module, exports) {
-
-module.exports = extend
-
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function extend(target) {
-    for (var i = 1; i < arguments.length; i++) {
-        var source = arguments[i]
-
-        for (var key in source) {
-            if (hasOwnProperty.call(source, key)) {
-                target[key] = source[key]
-            }
-        }
-    }
-
-    return target
-}
-
-
-/***/ }),
-/* 271 */
+/* 260 */
 /***/ (function(module, exports) {
 
 module.exports = {
-	"rimacondb": {
+	"riskmanagement": {
 		"type": "pg",
 		"server": "192.168.77.2",
 		"port": "5432",
-		"username": "postgres",
-		"password": "postgres",
-		"dbname": "RiMaConDB"
+		"username": "rmuser",
+		"password": "verycomplexpassword",
+		"dbname": "RMManage"
 	},
 	"steeldb": {
 		"type": "mysql",
-		"server": "192.168.84.2",
+		"server": "192.168.77.3",
 		"port": "3306",
 		"username": "root",
-		"password": "p33l",
-		"dbname": "machforms"
+		"password": "anotherjollycomplexpassword",
+		"dbname": "SteelStock"
 	},
-	"default": "rimacondb",
-	"author": "Neil.Smith@WebTarget.co.uk",
+	"default": "riskmanagement",
+	"author": "NeilDOTSmith@WebTargetDOTcoANDANOTHERDOTuk",
 	"fileroot": "../settings/PHPTemplates/",
 	"outputfolder": "../output/"
 };
 
 /***/ }),
-/* 272 */
+/* 261 */
 /***/ (function(module, exports) {
 
 module.exports = require("child_process");
 
 /***/ }),
-/* 273 */
+/* 262 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 274 */
+/* 263 */
 /***/ (function(module, exports) {
 
 module.exports = require("string_decoder");
 
 /***/ }),
-/* 275 */
+/* 264 */
 /***/ (function(module, exports) {
 
 module.exports = require("timers");
-
-/***/ }),
-/* 276 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const configService_1 = __webpack_require__(89);
-const cycle_1 = __webpack_require__(90);
-var program = __webpack_require__(91);
-program
-    .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
-    .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
-    .option('-n, --namespace <Namespace>', 'The namespace for your table\'s class')
-    .option('-a, --tablealias <Alias>', 'Alias a table; i.e. User instead of t_user')
-    .option('-u, --author <Author>', 'Software author. Can be defaulted in dbconfig.json')
-    .parse(process.argv);
-program.datecreated = new Date().toLocaleString();
-let c = new cycle_1.Cycle(new configService_1.configService(program));
-
 
 /***/ })
 /******/ ]);

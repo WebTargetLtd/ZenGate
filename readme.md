@@ -89,7 +89,6 @@ Install the node_modules that you'll need.
 
 On the command line:
 
-- `cd src`
 - `webpack --progress --colors --watch`
 
 Webpack will watch the folder for changes and overwrite the `./dist/ZenGate.js` file.
