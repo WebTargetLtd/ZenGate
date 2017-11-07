@@ -18,6 +18,7 @@ namespace ${namespace}\Model;
 ${WebTarget}
 
 use ReflectionClass;
+use Zend\Filter;
 use ${namespace}\Model\Definitions\def${table} as defs;
 
 class ${table}  {
@@ -39,8 +40,8 @@ class ${table}  {
      */
     public function exchangeArray(array $data) {
 
-
-${exchangearray}
+        $_fltIntNULL = new Filter\ToNull(Filter\ToNull::TYPE_STRING);
+        ${exchangearray}
        
     }
 

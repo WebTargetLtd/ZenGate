@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 91);
+/******/ 	return __webpack_require__(__webpack_require__.s = 99);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -78,7 +78,7 @@ module.exports = require("util");
 
 "use strict";
 
-var es5 = __webpack_require__(12);
+var es5 = __webpack_require__(13);
 var canEvaluate = typeof navigator == "undefined";
 
 var errorObj = {e: {}};
@@ -302,10 +302,11 @@ function safeToString(obj) {
 }
 
 function isError(obj) {
-    return obj !== null &&
+    return obj instanceof Error ||
+        (obj !== null &&
            typeof obj === "object" &&
            typeof obj.message === "string" &&
-           typeof obj.name === "string";
+           typeof obj.name === "string");
 }
 
 function markAsOriginatingFromRejection(e) {
@@ -465,7 +466,10 @@ module.exports = ret;
 "use strict";
 
 
-var $path = __webpack_require__(7);
+const $npm = {
+    path: __webpack_require__(6),
+    patterns: __webpack_require__(39)
+};
 
 ////////////////////////////////////////////
 // Simpler check for null/undefined;
@@ -484,7 +488,7 @@ function isText(txt) {
 // based on type and property names.
 function isObject(value, properties) {
     if (value && typeof value === 'object') {
-        for (var i = 0; i < properties.length; i++) {
+        for (let i = 0; i < properties.length; i++) {
             if (!(properties[i] in value)) {
                 return false;
             }
@@ -500,7 +504,7 @@ function isObject(value, properties) {
 // Proper configuration is having NODE_ENV = 'development', but this
 // method only checks for 'dev' being present, and regardless of the case.
 function isDev() {
-    var env = global.process.env.NODE_ENV || '';
+    const env = global.process.env.NODE_ENV || '';
     return env.toLowerCase().indexOf('dev') !== -1;
 }
 
@@ -514,12 +518,12 @@ function lock(obj, freeze, options) {
     if (freeze) {
         Object.freeze(obj); // freeze the entire object, permanently;
     } else {
-        var desc = {
+        const desc = {
             writable: false,
             configurable: false,
             enumerable: true
         };
-        for (var p in obj) {
+        for (let p in obj) {
             Object.defineProperty(obj, p, desc);
         }
     }
@@ -529,7 +533,7 @@ function lock(obj, freeze, options) {
 // Adds properties from source to the target,
 // making them read-only and enumerable.
 function addReadProperties(target, source) {
-    for (var p in source) {
+    for (let p in source) {
         addReadProp(target, p, source[p]);
     }
 }
@@ -550,14 +554,14 @@ function addReadProp(obj, name, value, hidden) {
 // if password is present, it is masked with symbol '#'.
 function getSafeConnection(cn) {
     if (typeof cn === 'object') {
-        var copy = JSON.parse(JSON.stringify(cn));
+        const copy = JSON.parse(JSON.stringify(cn));
         if (typeof copy.password === 'string') {
             copy.password = copy.password.replace(/./g, '#');
         }
         return copy;
     }
     // or else it is a connection string;
-    return cn.replace(/:(?![\/])([^@]+)/, (_, m) => {
+    return cn.replace(/:(?![/])([^@]+)/, (_, m) => {
         return ':' + new Array(m.length + 1).join('#');
     });
 }
@@ -577,17 +581,16 @@ function inherits(child, parent) {
 ///////////////////////////////////////////////////////////////////////////
 // Checks if the path is absolute;
 //
-// We exclude this from the coverage, because the code is platform-specific,
-// and while most of its code is for Windows, Travis CI is a linux platform.
+// Though we do test it, we still skip it from the coverage,
+// because it is platform-specific.
 //
 // istanbul ignore next
 function isPathAbsolute(path) {
     // Based on: https://github.com/sindresorhus/path-is-absolute
     if (process.platform === 'win32') {
-        var splitDeviceRe = /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
-        var result = splitDeviceRe.exec(path);
-        var device = result[1] || '';
-        var isUnc = !!device && device.charAt(1) !== ':';
+        const result = $npm.patterns.splitDevice.exec(path);
+        const device = result[1] || '';
+        const isUnc = !!device && device.charAt(1) !== ':';
         return !!result[2] || isUnc;
     }
     return path.charAt(0) === '/';
@@ -608,7 +611,7 @@ function InternalError(error) {
     this.error = error;
 }
 
-var exp = {
+const exp = {
     InternalError,
     getLocalStack,
     isPathAbsolute,
@@ -624,10 +627,10 @@ var exp = {
     inherits
 };
 
-var mainFile = process.argv[1];
+const mainFile = process.argv[1];
 
 // istanbul ignore next
-exp.startDir = mainFile ? $path.dirname(mainFile) : process.cwd();
+exp.startDir = mainFile ? $npm.path.dirname(mainFile) : process.cwd();
 
 Object.freeze(exp);
 
@@ -653,10 +656,13 @@ module.exports = require("os");
 "use strict";
 
 
-var $pgUtils = __webpack_require__(39);
+const $npm = {
+    pgUtils: __webpack_require__(42),
+    patterns: __webpack_require__(39)
+};
 
 // Format Modification Flags;
-var fmFlags = {
+const fmFlags = {
     raw: 1, // Raw-Text variable
     alias: 2, // SQL Alias
     name: 4, // SQL Name/Identifier
@@ -666,7 +672,7 @@ var fmFlags = {
 };
 
 // Format Modification Map;
-var fmMap = {
+const fmMap = {
     '^': fmFlags.raw,
     ':raw': fmFlags.raw,
     ':alias': fmFlags.alias,
@@ -678,6 +684,8 @@ var fmMap = {
     '#': fmFlags.value
 };
 
+const maxVariable = 100000; // maximum supported variable is '$100000'
+
 ////////////////////////////////////////////////////
 // Converts a single value into its Postgres format.
 function formatValue(value, fm, cc) {
@@ -687,14 +695,14 @@ function formatValue(value, fm, cc) {
     }
 
     if (value && typeof value === 'object') {
-        var ctf = value['formatDBType']; // custom type formatting;
+        const ctf = value['formatDBType']; // custom type formatting;
         if (typeof ctf === 'function') {
             fm |= value._rawDBType ? fmFlags.raw : 0;
             return formatValue(resolveFunc(ctf, value), fm, cc);
         }
     }
 
-    var isRaw = !!(fm & fmFlags.raw);
+    const isRaw = !!(fm & fmFlags.raw);
     fm &= ~fmFlags.raw;
 
     switch (fm) {
@@ -743,7 +751,7 @@ function formatValue(value, fm, cc) {
 // as per PostgreSQL documentation: http://www.postgresql.org/docs/9.4/static/arrays.html
 // Arrays of any depth/dimension are supported.
 function formatArray(array) {
-    var loop = a => '[' + a.map(v => v instanceof Array ? loop(v) : formatValue(v)).join() + ']';
+    const loop = a => '[' + a.map(v => v instanceof Array ? loop(v) : formatValue(v)).join() + ']';
     return 'array' + loop(array);
 }
 
@@ -760,13 +768,12 @@ function formatCSV(values) {
 
 ///////////////////////////////
 // Query formatting helpers;
-var formatAs = {
+const formatAs = {
 
     object: (query, obj, raw, options) => {
         options = options && typeof options === 'object' ? options : {};
-        var pattern = /\$(?:({)|(\()|(<)|(\[)|(\/))\s*[a-zA-Z0-9\$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?\s*(?:(?=\2)(?=\3)(?=\4)(?=\5)}|(?=\1)(?=\3)(?=\4)(?=\5)\)|(?=\1)(?=\2)(?=\4)(?=\5)>|(?=\1)(?=\2)(?=\3)(?=\5)]|(?=\1)(?=\2)(?=\3)(?=\4)\/)/g;
-        return query.replace(pattern, name => {
-            var v = formatAs.stripName(name.replace(/^\$[{(<[/]|[\s})>\]/]/g, ''), raw);
+        return query.replace($npm.patterns.namedParameters, name => {
+            const v = formatAs.stripName(name.replace(/^\$[{(<[/]|[\s})>\]/]/g, ''), raw);
             if (v.name in obj) {
                 return formatValue(obj[v.name], v.fm, obj);
             }
@@ -774,7 +781,7 @@ var formatAs = {
                 return formatValue(obj, v.fm);
             }
             if ('default' in options) {
-                var d = options.default, value = typeof d === 'function' ? d.call(obj, v.name, obj) : d;
+                const d = options.default, value = typeof d === 'function' ? d.call(obj, v.name, obj) : d;
                 return formatValue(value, v.fm, obj);
             }
             if (options.partial) {
@@ -787,14 +794,17 @@ var formatAs = {
 
     array: (query, array, raw, options) => {
         options = options && typeof options === 'object' ? options : {};
-        return query.replace(/\$([1-9][0-9]{0,3}(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?)/g, name => {
-            var v = formatAs.stripName(name.substr(1), raw);
-            var idx = v.name - 1;
+        return query.replace($npm.patterns.multipleValues, name => {
+            const v = formatAs.stripName(name.substr(1), raw);
+            const idx = v.name - 1;
+            if (idx >= maxVariable) {
+                throw new RangeError('Variable $' + v.name + ' exceeds supported maximum of $' + maxVariable);
+            }
             if (idx < array.length) {
                 return formatValue(array[idx], v.fm);
             }
             if ('default' in options) {
-                var d = options.default, value = typeof d === 'function' ? d.call(array, idx, array) : d;
+                const d = options.default, value = typeof d === 'function' ? d.call(array, idx, array) : d;
                 return formatValue(value, v.fm);
             }
             if (options.partial) {
@@ -805,14 +815,14 @@ var formatAs = {
     },
 
     value: (query, value, raw) => {
-        return query.replace(/\$1(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/g, name => {
-            var v = formatAs.stripName(name, raw);
+        return query.replace($npm.patterns.singleValue, name => {
+            const v = formatAs.stripName(name, raw);
             return formatValue(value, v.fm);
         });
     },
 
     stripName: (name, raw) => {
-        var mod = name.match(/\^|~|#|:raw|:alias|:name|:json|:csv|:value/);
+        const mod = name.match($npm.patterns.hasValidModifier);
         if (mod) {
             return {
                 name: name.substr(0, mod.index),
@@ -885,7 +895,7 @@ function $formatQuery(query, values, raw, options) {
         throw new TypeError('Parameter \'query\' must be a text string.');
     }
     if (values && typeof values === 'object') {
-        var ctf = values['formatDBType']; // custom type formatting;
+        const ctf = values['formatDBType']; // custom type formatting;
         if (typeof ctf === 'function') {
             return $formatQuery(query, resolveFunc(ctf, values), raw || values._rawDBType, options);
         }
@@ -905,7 +915,7 @@ function $formatQuery(query, values, raw, options) {
 //////////////////////////////////////////////////////
 // Formats a standard PostgreSQL function call query;
 function $formatFunction(funcName, values, capSQL) {
-    var sql = capSQL ? 'SELECT * FROM ' : 'select * from ';
+    const sql = capSQL ? 'SELECT * FROM ' : 'select * from ';
     return sql + funcName + '(' + formatCSV(values) + ')';
 }
 
@@ -946,7 +956,7 @@ function $formatSqlName(name) {
  * {@link formatting.format format} - formats a query according to parameters.
  *
  */
-var $as = {
+const $as = {
 
     /**
      * @method formatting.text
@@ -991,7 +1001,9 @@ var $as = {
      * @description
      * Properly escapes an sql name or identifier, fixing double-quote symbols and wrapping the result in double quotes.
      *
-     * Implements a safe way to format SQL Names that neutralizes SQL Injection.
+     * Implements a safe way to format $[SQL Names] that neutralizes SQL Injection.
+     *
+     * When formatting a query, a variable makes use of this method via modifier `:name` or `~`. See method {@link formatting.format format}.
      *
      * @param {string|function|array|object} name
      * SQL name or identifier, or a function that returns it.
@@ -1002,15 +1014,17 @@ var $as = {
      *
      * If the `name` contains only a single `*` (trailing spaces are ignored), then `name` is returned exactly as is (unescaped).
      *
-     * - If `name` is an Array, it is formatted as a comma-separated list of SQL names
-     * - If `name` is a non-Array object, its keys are formatted as a comma-separated list of SQL names
+     * - If `name` is an Array, it is formatted as a comma-separated list of $[SQL Names]
+     * - If `name` is a non-Array object, its keys are formatted as a comma-separated list of $[SQL Names]
      *
      * Passing in an empty array/object will throw {@link external:Error Error} = `Cannot retrieve sql names from an empty array/object.`
      *
      * @returns {string}
-     * The SQL Name/Identifier, properly escaped for compliance with the PostgreSQL standard for SQL names and identifiers.
+     * The SQL Name/Identifier, properly escaped for compliance with the PostgreSQL standard for $[SQL Names] and identifiers.
      *
-     * @see {@link formatting.alias alias}
+     * @see
+     * {@link formatting.alias alias},
+     * {@link formatting.format format}
      *
      * @example
      *
@@ -1029,7 +1043,7 @@ var $as = {
                 return /^\s*\*(\s*)$/.test(name) ? name : $formatSqlName(name);
             }
             if (typeof name === 'object') {
-                var keys = Array.isArray(name) ? name : Object.keys(name);
+                const keys = Array.isArray(name) ? name : Object.keys(name);
                 if (!keys.length) {
                     throw new Error('Cannot retrieve sql names from an empty array/object.');
                 }
@@ -1049,9 +1063,11 @@ var $as = {
      * @description
      * ** Added in v5.9.0 **
      *
-     * Simpler, non-verbose version of method {@link formatting.name name}, to handle only a simple string-identifier
+     * Simpler (non-verbose) version of method {@link formatting.name name}, to handle only a regular string-identifier
      * that's used as an SQL alias, i.e. it doesn't support `*` or an array/object of names, which in the context of
      * an SQL alias would be incorrect.
+     *
+     * When formatting a query, a variable makes use of this method via modifier `:alias`. See method {@link formatting.format format}.
      *
      * @param {string|function} name
      * SQL alias name, or a function that returns it.
@@ -1061,9 +1077,12 @@ var $as = {
      * If `name` doesn't resolve into a non-empty string, it throws {@link external:TypeError TypeError} = `Invalid sql alias: ...`
      *
      * @returns {string}
-     * The SQL alias, properly escaped for compliance with the PostgreSQL standard for SQL names and identifiers.
+     * The SQL alias, properly escaped for compliance with the PostgreSQL standard for $[SQL Names] and identifiers.
      *
-     * @see {@link formatting.name name}
+     * @see
+     * {@link formatting.name name},
+     * {@link formatting.format format}
+     *
      */
     alias: name => {
         name = resolveFunc(name);
@@ -1076,8 +1095,9 @@ var $as = {
     /**
      * @method formatting.value
      * @description
-     * Represents an open value, one to be formatted according to its type, properly escaped,
-     * but without surrounding quotes for text types.
+     * Represents an open value, one to be formatted according to its type, properly escaped, but without surrounding quotes for text types.
+     *
+     * When formatting a query, a variable makes use of this method via modifier `:value` or `#`. See method {@link formatting.format format}.
      *
      * @param {value|function} value
      * Value to be converted, or a function that returns the value.
@@ -1086,6 +1106,9 @@ var $as = {
      *
      * @returns {string}
      * Formatted and properly escaped string, but without surrounding quotes for text types.
+     *
+     * @see {@link formatting.format format}
+     *
      */
     value: value => {
         value = resolveFunc(value);
@@ -1117,7 +1140,7 @@ var $as = {
             return 'null';
         }
         if (obj instanceof Buffer) {
-            var s = '\\x' + obj.toString('hex');
+            const s = '\\x' + obj.toString('hex');
             return raw ? s : wrapText(s);
         }
         throw new TypeError(wrapText(obj) + ' is not a Buffer object.');
@@ -1162,7 +1185,7 @@ var $as = {
             return 'null';
         }
         if (d instanceof Date) {
-            var s = $pgUtils.prepareValue(d);
+            const s = $npm.pgUtils.prepareValue(d);
             return raw ? s : wrapText(s);
         }
         throw new TypeError(wrapText(d) + ' is not a Date object.');
@@ -1206,8 +1229,7 @@ var $as = {
     /**
      * @method formatting.array
      * @description
-     * Converts an array of values into its PostgreSQL presentation as an Array-Type
-     * constructor string: `array[]`.
+     * Converts an array of values into its PostgreSQL presentation as an Array-Type constructor string: `array[]`.
      *
      * @param {Array|function} arr
      * Array to be converted, or a function that returns one.
@@ -1228,21 +1250,26 @@ var $as = {
     /**
      * @method formatting.csv
      * @description
-     * Converts a single value or an array of values into a CSV string, with all values formatted
-     * according to their type.
+     * Converts a single value or an array of values into a CSV string, with all values formatted according to their type.
+     *
+     * When formatting a query, a variable makes use of this method via modifier `:csv`. See method {@link formatting.format format}.
      *
      * @param {Array|value|function} values
      * Value(s) to be converted, or a function that returns it.
      *
      * @returns {string}
+     *
+     * @see {@link formatting.format format}
      */
     csv: values => formatCSV(resolveFunc(values)),
 
     /**
      * @method formatting.json
      * @description
-     * Converts any value into JSON (using `JSON.stringify`), and returns it as
-     * a valid string, with single-quote symbols fixed, unless flag `raw` is set.
+     * Converts any value into JSON (using `JSON.stringify`), and returns it as a valid string, with single-quote
+     * symbols fixed, unless flag `raw` is set.
+     *
+     * When formatting a query, a variable makes use of this method via modifier `:json`. See method {@link formatting.format format}.
      *
      * @param {} data
      * Object/value to be converted, or a function that returns it.
@@ -1251,6 +1278,8 @@ var $as = {
      * Indicates when not to escape the result.
      *
      * @returns {string}
+     *
+     * @see {@link formatting.format format}
      */
     json: (data, raw) => {
         data = resolveFunc(data);
@@ -1258,7 +1287,7 @@ var $as = {
             throwIfRaw(raw);
             return 'null';
         }
-        var s = JSON.stringify(data);
+        const s = JSON.stringify(data);
         return raw ? s : wrapText(safeText(s));
     },
 
@@ -1287,7 +1316,7 @@ var $as = {
         if (typeof func !== 'function') {
             throw new TypeError(wrapText(func) + ' is not a function.');
         }
-        var fm = raw ? fmFlags.raw : null;
+        const fm = raw ? fmFlags.raw : null;
         return formatValue(resolveFunc(func, cc), fm, cc);
     },
 
@@ -1297,9 +1326,8 @@ var $as = {
      * Replaces variables in a string according to the type of `values`:
      *
      * - Replaces `$1` occurrences when `values` is of type `string`, `boolean`, `number`, `Date`, `Buffer` or when it is `null`.
-     * - Replaces variables `$1`, `$2`, ...`$9999` when `values` is an array of parameters. When a variable is out of range,
-     *   it throws {@link external:RangeError RangeError} = `Variable $n out of range. Parameters array length: x`, unless
-     *   option `partial` is used.
+     * - Replaces variables `$1`, `$2`, ...`$100000` when `values` is an array of parameters. It throws a {@link external:RangeError RangeError}
+     * when the values or variables are out of range.
      * - Replaces `$*propName*`, where `*` is any of `{}`, `()`, `[]`, `<>`, `//`, when `values` is an object that's not a
      * `Date`, `Buffer`, {@link QueryFile} or `null`. Special property name `this` refers to the formatting object itself,
      *   to be injected as a JSON string. When referencing a property that doesn't exist in the formatting object, it throws
@@ -1317,9 +1345,9 @@ var $as = {
      * - SQL name variables end with `:name` or symbol `~` (tilde), and provide proper escaping for SQL names/identifiers:
      *   - `$1:name`, `$2:name`,..., and `$*propName:name*` (see `*` above)
      *   - `$1~`, `$2~`,..., and `$*propName~*` (see `*` above)
+     * - **Version 5.9.0** added support for modifier `:alias` - non-verbose $[SQL Names] escaping.
      * - JSON override ends with `:json` to format the value of any type as a JSON string
      * - CSV override ends with `:csv` to format an array as a properly escaped comma-separated list of values.
-     * - Version 5.9.0 added support for `:alias` - non-verbose SQL Name escaping.
      *
      * @param {string|QueryFile|object} query
      * A query string, a {@link QueryFile} or any object that implements $[Custom Type Formatting], to be formatted according to `values`.
@@ -1388,24 +1416,85 @@ module.exports = {
  */
 
 
-
 /***/ }),
 /* 6 */
-/***/ (function(module, exports) {
-
-module.exports = require("fs");
-
-/***/ }),
-/* 7 */
 /***/ (function(module, exports) {
 
 module.exports = require("path");
 
 /***/ }),
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* eslint-disable node/no-deprecated-api */
+var buffer = __webpack_require__(273)
+var Buffer = buffer.Buffer
+
+// alternative to using Object.keys for old browsers
+function copyProps (src, dst) {
+  for (var key in src) {
+    dst[key] = src[key]
+  }
+}
+if (Buffer.from && Buffer.alloc && Buffer.allocUnsafe && Buffer.allocUnsafeSlow) {
+  module.exports = buffer
+} else {
+  // Copy properties from require('buffer')
+  copyProps(buffer, exports)
+  exports.Buffer = SafeBuffer
+}
+
+function SafeBuffer (arg, encodingOrOffset, length) {
+  return Buffer(arg, encodingOrOffset, length)
+}
+
+// Copy static methods from Buffer
+copyProps(Buffer, SafeBuffer)
+
+SafeBuffer.from = function (arg, encodingOrOffset, length) {
+  if (typeof arg === 'number') {
+    throw new TypeError('Argument must not be a number')
+  }
+  return Buffer(arg, encodingOrOffset, length)
+}
+
+SafeBuffer.alloc = function (size, fill, encoding) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  var buf = Buffer(size)
+  if (fill !== undefined) {
+    if (typeof encoding === 'string') {
+      buf.fill(fill, encoding)
+    } else {
+      buf.fill(fill)
+    }
+  } else {
+    buf.fill(0)
+  }
+  return buf
+}
+
+SafeBuffer.allocUnsafe = function (size) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  return Buffer(size)
+}
+
+SafeBuffer.allocUnsafeSlow = function (size) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  return buffer.SlowBuffer(size)
+}
+
+
+/***/ }),
 /* 8 */
 /***/ (function(module, exports) {
 
-module.exports = require("stream");
+module.exports = require("fs");
 
 /***/ }),
 /* 9 */
@@ -1413,7 +1502,7 @@ module.exports = require("stream");
 
 "use strict";
 
-var es5 = __webpack_require__(12);
+var es5 = __webpack_require__(13);
 var Objectfreeze = es5.freeze;
 var util = __webpack_require__(1);
 var inherits = util.inherits;
@@ -1534,36 +1623,44 @@ module.exports = {
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports.ClientAuthenticationPacket = __webpack_require__(178);
-exports.ComChangeUserPacket = __webpack_require__(179);
-exports.ComPingPacket = __webpack_require__(180);
-exports.ComQueryPacket = __webpack_require__(181);
-exports.ComQuitPacket = __webpack_require__(182);
-exports.ComStatisticsPacket = __webpack_require__(183);
-exports.EmptyPacket = __webpack_require__(184);
-exports.EofPacket = __webpack_require__(185);
-exports.ErrorPacket = __webpack_require__(186);
-exports.Field = __webpack_require__(57);
-exports.FieldPacket = __webpack_require__(187);
-exports.HandshakeInitializationPacket = __webpack_require__(188);
-exports.LocalDataFilePacket = __webpack_require__(189);
-exports.OkPacket = __webpack_require__(190);
-exports.OldPasswordPacket = __webpack_require__(191);
-exports.ResultSetHeaderPacket = __webpack_require__(192);
-exports.RowDataPacket = __webpack_require__(193);
-exports.SSLRequestPacket = __webpack_require__(194);
-exports.StatisticsPacket = __webpack_require__(195);
-exports.UseOldPasswordPacket = __webpack_require__(196);
+exports.AuthSwitchRequestPacket = __webpack_require__(184);
+exports.AuthSwitchResponsePacket = __webpack_require__(185);
+exports.ClientAuthenticationPacket = __webpack_require__(186);
+exports.ComChangeUserPacket = __webpack_require__(187);
+exports.ComPingPacket = __webpack_require__(188);
+exports.ComQueryPacket = __webpack_require__(189);
+exports.ComQuitPacket = __webpack_require__(190);
+exports.ComStatisticsPacket = __webpack_require__(191);
+exports.EmptyPacket = __webpack_require__(192);
+exports.EofPacket = __webpack_require__(193);
+exports.ErrorPacket = __webpack_require__(194);
+exports.Field = __webpack_require__(63);
+exports.FieldPacket = __webpack_require__(195);
+exports.HandshakeInitializationPacket = __webpack_require__(196);
+exports.LocalDataFilePacket = __webpack_require__(197);
+exports.OkPacket = __webpack_require__(198);
+exports.OldPasswordPacket = __webpack_require__(199);
+exports.ResultSetHeaderPacket = __webpack_require__(200);
+exports.RowDataPacket = __webpack_require__(201);
+exports.SSLRequestPacket = __webpack_require__(202);
+exports.StatisticsPacket = __webpack_require__(203);
+exports.UseOldPasswordPacket = __webpack_require__(204);
 
 
 /***/ }),
 /* 11 */
+/***/ (function(module, exports) {
+
+module.exports = require("stream");
+
+/***/ }),
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Util           = __webpack_require__(0);
 var EventEmitter   = __webpack_require__(3).EventEmitter;
 var Packets        = __webpack_require__(10);
-var ErrorConstants = __webpack_require__(175);
+var ErrorConstants = __webpack_require__(181);
 
 // istanbul ignore next: Node.js < 0.10 not covered
 var listenerCount = EventEmitter.listenerCount
@@ -1614,7 +1711,9 @@ Sequence.prototype._packetToError = function(packet) {
   var err  = new Error(code + ': ' + packet.message);
   err.code = code;
   err.errno = packet.errno;
-  err.sqlState = packet.sqlState;
+
+  err.sqlMessage = packet.message;
+  err.sqlState   = packet.sqlState;
 
   return err;
 };
@@ -1691,7 +1790,7 @@ Sequence.prototype._onTimeout = function _onTimeout() {
 
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports) {
 
 var isES5 = (function(){
@@ -1777,9 +1876,10 @@ if (isES5) {
 
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -1806,48 +1906,52 @@ if (isES5) {
 // prototypally inherits from Readable, and then parasitically from
 // Writable.
 
-module.exports = Duplex;
+
+
+/*<replacement>*/
+
+var processNextTick = __webpack_require__(32);
+/*</replacement>*/
 
 /*<replacement>*/
 var objectKeys = Object.keys || function (obj) {
   var keys = [];
-  for (var key in obj) keys.push(key);
-  return keys;
-}
+  for (var key in obj) {
+    keys.push(key);
+  }return keys;
+};
 /*</replacement>*/
 
+module.exports = Duplex;
 
 /*<replacement>*/
-var util = __webpack_require__(14);
-util.inherits = __webpack_require__(15);
+var util = __webpack_require__(15);
+util.inherits = __webpack_require__(16);
 /*</replacement>*/
 
-var Readable = __webpack_require__(59);
-var Writable = __webpack_require__(61);
+var Readable = __webpack_require__(65);
+var Writable = __webpack_require__(67);
 
 util.inherits(Duplex, Readable);
 
-forEach(objectKeys(Writable.prototype), function(method) {
-  if (!Duplex.prototype[method])
-    Duplex.prototype[method] = Writable.prototype[method];
-});
+var keys = objectKeys(Writable.prototype);
+for (var v = 0; v < keys.length; v++) {
+  var method = keys[v];
+  if (!Duplex.prototype[method]) Duplex.prototype[method] = Writable.prototype[method];
+}
 
 function Duplex(options) {
-  if (!(this instanceof Duplex))
-    return new Duplex(options);
+  if (!(this instanceof Duplex)) return new Duplex(options);
 
   Readable.call(this, options);
   Writable.call(this, options);
 
-  if (options && options.readable === false)
-    this.readable = false;
+  if (options && options.readable === false) this.readable = false;
 
-  if (options && options.writable === false)
-    this.writable = false;
+  if (options && options.writable === false) this.writable = false;
 
   this.allowHalfOpen = true;
-  if (options && options.allowHalfOpen === false)
-    this.allowHalfOpen = false;
+  if (options && options.allowHalfOpen === false) this.allowHalfOpen = false;
 
   this.once('end', onend);
 }
@@ -1856,23 +1960,53 @@ function Duplex(options) {
 function onend() {
   // if we allow half-open state, or if the writable side ended,
   // then we're ok.
-  if (this.allowHalfOpen || this._writableState.ended)
-    return;
+  if (this.allowHalfOpen || this._writableState.ended) return;
 
   // no more data can be written.
   // But allow more writes to happen in this tick.
-  process.nextTick(this.end.bind(this));
+  processNextTick(onEndNT, this);
 }
 
-function forEach (xs, f) {
+function onEndNT(self) {
+  self.end();
+}
+
+Object.defineProperty(Duplex.prototype, 'destroyed', {
+  get: function () {
+    if (this._readableState === undefined || this._writableState === undefined) {
+      return false;
+    }
+    return this._readableState.destroyed && this._writableState.destroyed;
+  },
+  set: function (value) {
+    // we ignore the value if the stream
+    // has not been initialized yet
+    if (this._readableState === undefined || this._writableState === undefined) {
+      return;
+    }
+
+    // backward compatibility, the user is explicitly
+    // managing destroyed
+    this._readableState.destroyed = value;
+    this._writableState.destroyed = value;
+  }
+});
+
+Duplex.prototype._destroy = function (err, cb) {
+  this.push(null);
+  this.end();
+
+  processNextTick(cb, err);
+};
+
+function forEach(xs, f) {
   for (var i = 0, l = xs.length; i < l; i++) {
     f(xs[i], i);
   }
 }
 
-
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports) {
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -1985,7 +2119,7 @@ function objectToString(o) {
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 try {
@@ -1993,18 +2127,18 @@ try {
   if (typeof util.inherits !== 'function') throw '';
   module.exports = util.inherits;
 } catch (e) {
-  module.exports = __webpack_require__(161);
+  module.exports = __webpack_require__(167);
 }
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var Writer = __webpack_require__(164);
+var Writer = __webpack_require__(170);
 
 function getLocal() {
     return new Writer();
@@ -2048,21 +2182,21 @@ Object.freeze(exp);
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    con: __webpack_require__(16).local,
-    main: __webpack_require__(65),
+const $npm = {
+    con: __webpack_require__(17).local,
+    main: __webpack_require__(75),
     utils: __webpack_require__(2)
 };
 
 /////////////////////////////////
 // Client notification helpers;
-var $events = {
+const $events = {
 
     /**
      * @event connect
@@ -2093,12 +2227,12 @@ var $events = {
      *
      * @example
      *
-     * var options = {
+     * const options = {
      *
      *     // pg-promise initialization options...
      *
      *     connect: (client, dc, isFresh) => {
-     *         var cp = client.connectionParameters;
+     *         const cp = client.connectionParameters;
      *         console.log("Connected to database:", cp.database);
      *     }
      *
@@ -2134,12 +2268,12 @@ var $events = {
      *
      * @example
      *
-     * var options = {
+     * const options = {
      *
      *     // pg-promise initialization options...
      *
      *     disconnect: (client, dc) => {
-     *        var cp = client.connectionParameters;
+     *        const cp = client.connectionParameters;
      *        console.log("Disconnecting from database:", cp.database);
      *     }
      *
@@ -2263,19 +2397,19 @@ var $events = {
      *
      * // Example below shows the fastest way to camelize column names:
      *
-     * var options = {
+     * const options = {
      *     receive: (data, result, e) => {
      *         camelizeColumns(data);
      *     }
      * };
      *
      * function camelizeColumns(data) {
-     *     var template = data[0];
-     *     for (var prop in template) {
-     *         var camel = pgp.utils.camelize(prop);
-     *         if (!(camel in template)) {
-     *             for (var i = 0; i < data.length; i++) {
-     *                 var d = data[i];
+     *     const tmp = data[0];
+     *     for (let prop in tmp) {
+     *         const camel = pgp.utils.camelize(prop);
+     *         if (!(camel in tmp)) {
+     *             for (let i = 0; i < data.length; i++) {
+     *                 const d = data[i];
      *                 d[camel] = d[prop];
      *                 delete d[prop];
      *             }
@@ -2309,7 +2443,7 @@ var $events = {
      *
      * @example
      *
-     * var options = {
+     * const options = {
      *     task: e => {
      *         if (e.ctx.finish) {
      *             // this is a task->finish event;
@@ -2352,7 +2486,7 @@ var $events = {
      *
      * @example
      *
-     * var options = {
+     * const options = {
      *     transact: e => {
      *         if (e.ctx.finish) {
      *             // this is a transaction->finish event;
@@ -2398,7 +2532,7 @@ var $events = {
      * for its complete documentation.
      *
      * @example
-     * var options = {
+     * const options = {
      *
      *     // pg-promise initialization options...
      *
@@ -2468,7 +2602,7 @@ var $events = {
      * // In the example below we extend the protocol with function `addImage`
      * // that will insert one binary image and resolve with the new record id.
      *
-     * var options = {
+     * const options = {
      *     extend: (obj, dc) => {
      *         // obj = this;
      *         // dc = database context;
@@ -2495,7 +2629,7 @@ var $events = {
      * }
      *
      * // Overriding 'extend' event;
-     * var options = {
+     * const options = {
      *     extend: (obj, dc) => {
      *         // obj = this;
      *         // dc = database context;
@@ -2542,7 +2676,7 @@ var $events = {
 
         /* istanbul ignore if */
         if (!$npm.main.suppressErrors) {
-            var stack = e instanceof Error ? e.stack : new Error().stack;
+            const stack = e instanceof Error ? e.stack : new Error().stack;
             $npm.con.error('Unexpected error in \'%s\' event handler.\n%s\n', event, stack);
         }
     }
@@ -2552,18 +2686,18 @@ module.exports = $events;
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
     formatting: __webpack_require__(5),
-    TableName: __webpack_require__(29),
-    Column: __webpack_require__(64)
+    TableName: __webpack_require__(30),
+    Column: __webpack_require__(74)
 };
 
 /**
@@ -2634,7 +2768,7 @@ var $npm = {
  * // 7. Property 'total' must be skipped during updates, if 'amount' was 0, plus its
  * //    column name is 'total-val'
  *
- * var cs = new pgp.helpers.ColumnSet([
+ * const cs = new pgp.helpers.ColumnSet([
  *     '?id', // ColumnConfig equivalent: {name: 'id', cnd: true}
  *     'list:csv', // ColumnConfig equivalent: {name: 'list', mod: ':csv'}
  *     {
@@ -2669,7 +2803,7 @@ var $npm = {
  * ], {table: {table: 'purchases', schema: 'fiscal'}});
  *
  * // Alternatively, you could take the table declaration out:
- * // var table = new pgp.helpers.TableName('purchases', 'fiscal');
+ * // const table = new pgp.helpers.TableName('purchases', 'fiscal');
  *
  * console.log(cs); // console output for the object:
  * //=>
@@ -2720,7 +2854,7 @@ function ColumnSet(columns, options) {
         throw new TypeError('Invalid parameter \'columns\' specified.');
     }
 
-    var inherit, names, variables, updates, isSimple = true;
+    let inherit, names, variables, updates, isSimple = true;
 
     if (!$npm.utils.isNull(options)) {
         if (typeof options !== 'object') {
@@ -2756,9 +2890,9 @@ function ColumnSet(columns, options) {
      * Array of {@link helpers.Column Column} objects.
      */
     if (Array.isArray(columns)) {
-        var colNames = {};
+        const colNames = {};
         this.columns = columns.map(c => {
-            var col = (c instanceof $npm.Column) ? c : new $npm.Column(c);
+            const col = (c instanceof $npm.Column) ? c : new $npm.Column(c);
             if (col.name in colNames) {
                 throw new Error('Duplicate column name "' + col.name + '".');
             }
@@ -2770,7 +2904,7 @@ function ColumnSet(columns, options) {
             this.columns = [columns];
         } else {
             this.columns = [];
-            for (var name in columns) {
+            for (let name in columns) {
                 if (inherit || Object.prototype.hasOwnProperty.call(columns, name)) {
                     this.columns.push(new $npm.Column(name));
                 }
@@ -2780,8 +2914,8 @@ function ColumnSet(columns, options) {
 
     Object.freeze(this.columns);
 
-    for (var i = 0; i < this.columns.length; i++) {
-        var c = this.columns[i];
+    for (let i = 0; i < this.columns.length; i++) {
+        const c = this.columns[i];
         // ColumnSet is simple when the source objects require no preparation,
         // and should be used directly:
         if (c.prop || c.init || 'def' in c) {
@@ -2800,7 +2934,7 @@ function ColumnSet(columns, options) {
      * Returns a string - comma-separated list of all column names, properly escaped.
      *
      * @example
-     * var cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
+     * const cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
      * console.log(cs.names);
      * //=> "id","cells","doc"
      */
@@ -2822,8 +2956,10 @@ function ColumnSet(columns, options) {
      *
      * Returns a string - formatting template for all column values.
      *
+     * @see {@link helpers.ColumnSet.assign assign}
+     *
      * @example
-     * var cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
+     * const cs = new ColumnSet(['id^', {name: 'cells', cast: 'int[]'}, 'doc:json']);
      * console.log(cs.variables);
      * //=> ${id^},${cells}::int[],${doc:json}
      */
@@ -2859,14 +2995,16 @@ function ColumnSet(columns, options) {
      * Note that even if you do not specify the object, the columns marked as conditional (`cnd: true`) will always be skipped.
      *
      * @param {string} [options.prefix]
-     * Alias prefix to be added before each column.
+     * In cases where needed, an alias prefix to be added before each column.
      *
      * @returns {string}
      * Comma-separated list of variable-to-column assignments.
      *
+     * @see {@link helpers.ColumnSet#variables variables}
+     *
      * @example
      *
-     * var cs = new pgp.helpers.ColumnSet([
+     * const cs = new pgp.helpers.ColumnSet([
      *     '?first', // = {name: 'first', cnd: true}
      *     'second:json',
      *     {name: 'third', mod: ':raw', cast: 'text'}
@@ -2879,20 +3017,20 @@ function ColumnSet(columns, options) {
      * //=> "a b c"."second"=${second:json},"a b c"."third"=${third:raw}::text
      */
     this.assign = options => {
-        var hasPrefix = options && options.prefix && typeof options.prefix === 'string';
+        const hasPrefix = options && options.prefix && typeof options.prefix === 'string';
         if (updates && !hasPrefix) {
             return updates;
         }
-        var dynamic = hasPrefix,
-            hasSource = options && options.source && typeof options.source === 'object';
-        var list = this.columns.filter(c => {
+        let dynamic = hasPrefix;
+        const hasSource = options && options.source && typeof options.source === 'object';
+        let list = this.columns.filter(c => {
             if (c.cnd) {
                 return false;
             }
             if (c.skip) {
                 dynamic = true;
                 if (hasSource) {
-                    var a = colDesc(c, options.source);
+                    const a = colDesc(c, options.source);
                     if (c.skip.call(options.source, a)) {
                         return false;
                     }
@@ -2901,7 +3039,7 @@ function ColumnSet(columns, options) {
             return true;
         });
 
-        var prefix = hasPrefix ? $npm.formatting.as.alias(options.prefix) + '.' : '';
+        const prefix = hasPrefix ? $npm.formatting.as.alias(options.prefix) + '.' : '';
         list = list.map(c => prefix + c.escapedName + '=' + c.variable + c.castText).join();
 
         if (!dynamic) {
@@ -2931,9 +3069,9 @@ function ColumnSet(columns, options) {
      *
      * @example
      *
-     * var pgp = require('pg-promise')();
+     * const pgp = require('pg-promise')();
      *
-     * var cs = new pgp.helpers.ColumnSet(['one', 'two'], {table: 'my-table'});
+     * const cs = new pgp.helpers.ColumnSet(['one', 'two'], {table: 'my-table'});
      * console.log(cs);
      * //=>
      * // ColumnSet {
@@ -2947,7 +3085,7 @@ function ColumnSet(columns, options) {
      * //        }
      * //    ]
      * // }
-     * var csExtended = cs.extend(['three']);
+     * const csExtended = cs.extend(['three']);
      * console.log(csExtended);
      * //=>
      * // ColumnSet {
@@ -2966,7 +3104,7 @@ function ColumnSet(columns, options) {
      * // }
      */
     this.extend = columns => {
-        var cs = columns;
+        let cs = columns;
         if (!(cs instanceof ColumnSet)) {
             cs = new ColumnSet(columns);
         }
@@ -2995,9 +3133,9 @@ function ColumnSet(columns, options) {
      *
      * @example
      *
-     * var pgp = require('pg-promise')();
+     * const pgp = require('pg-promise')();
      *
-     * var cs = new pgp.helpers.ColumnSet(['?one', 'two:json'], {table: 'my-table'});
+     * const cs = new pgp.helpers.ColumnSet(['?one', 'two:json'], {table: 'my-table'});
      * console.log(cs);
      * //=>
      * // ColumnSet {
@@ -3013,7 +3151,7 @@ function ColumnSet(columns, options) {
      * //        }
      * //    ]
      * // }
-     * var csMerged = cs.merge(['two', 'three^']);
+     * const csMerged = cs.merge(['two', 'three^']);
      * console.log(csMerged);
      * //=>
      * // ColumnSet {
@@ -3035,11 +3173,11 @@ function ColumnSet(columns, options) {
      *
      */
     this.merge = columns => {
-        var cs = columns;
+        let cs = columns;
         if (!(cs instanceof ColumnSet)) {
             cs = new ColumnSet(columns);
         }
-        var colNames = {}, cols = [];
+        const colNames = {}, cols = [];
         this.columns.forEach((c, idx) => {
             cols.push(c);
             colNames[c.name] = idx;
@@ -3080,9 +3218,9 @@ function ColumnSet(columns, options) {
         if (isSimple) {
             return source; // a simple ColumnSet requires no object preparation;
         }
-        var target = {};
+        const target = {};
         this.columns.forEach(c => {
-            var a = colDesc(c, source);
+            const a = colDesc(c, source);
             if (c.init) {
                 target[a.name] = c.init.call(source, a);
             } else {
@@ -3097,7 +3235,7 @@ function ColumnSet(columns, options) {
     Object.freeze(this);
 
     function colDesc(column, source) {
-        var a = {
+        const a = {
             source: source,
             name: column.prop || column.name
         };
@@ -3125,7 +3263,7 @@ function ColumnSet(columns, options) {
  */
 ColumnSet.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
+    const gap0 = $npm.utils.messageGap(level),
         gap1 = $npm.utils.messageGap(level + 1),
         lines = [
             'ColumnSet {'
@@ -3154,21 +3292,21 @@ module.exports = ColumnSet;
 
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    fs: __webpack_require__(6),
+const $npm = {
+    fs: __webpack_require__(8),
     os: __webpack_require__(4),
-    path: __webpack_require__(7),
-    con: __webpack_require__(16).local,
-    minify: __webpack_require__(37),
+    path: __webpack_require__(6),
+    con: __webpack_require__(17).local,
+    minify: __webpack_require__(38),
     utils: __webpack_require__(2),
     format: __webpack_require__(5).as.format,
-    QueryFileError: __webpack_require__(28)
+    QueryFileError: __webpack_require__(29)
 };
 
 /**
@@ -3212,12 +3350,12 @@ var $npm = {
  * // - have all sql files for Products in ./sql/products
  * // - have your sql provider module as ./sql/index.js
  *
- * var QueryFile = require('pg-promise').QueryFile;
- * var path = require('path');
+ * const QueryFile = require('pg-promise').QueryFile;
+ * const path = require('path');
  *
  * // Helper for linking to external query files:
  * function sql(file) {
- *     var fullPath = path.join(__dirname, file); // generating full path;
+ *     const fullPath = path.join(__dirname, file); // generating full path;
  *     return new QueryFile(fullPath, {minify: true});
  * }
  *
@@ -3239,8 +3377,8 @@ var $npm = {
  * @example
  * // Testing our SQL provider
  *
- * var db = require('./db'); // our database module;
- * var sql = require('./sql').users; // our sql for users;
+ * const db = require('./db'); // our database module;
+ * const sql = require('./sql').users; // our sql for users;
  *
  * module.exports = {
  *     addUser: (name, age) => db.none(sql.add, [name, age]),
@@ -3254,7 +3392,9 @@ function QueryFile(file, options) {
         return new QueryFile(file, options);
     }
 
-    var sql, error, ready, modTime, after, filePath = file, opt = {
+    let sql, error, ready, modTime, after, filePath = file;
+
+    const opt = {
         debug: $npm.utils.isDev(),
         minify: false,
         compress: false,
@@ -3319,7 +3459,7 @@ function QueryFile(file, options) {
      *
      */
     this.prepare = function (throwErrors) {
-        var lastMod;
+        let lastMod;
         if (opt.debug && ready) {
             try {
                 lastMod = $npm.fs.statSync(filePath).mtime.getTime();
@@ -3423,7 +3563,7 @@ function QueryFile(file, options) {
     this.prepare();
 }
 
-var usedPath = {};
+const usedPath = {};
 
 /**
  * @method QueryFile.toString
@@ -3439,8 +3579,8 @@ var usedPath = {};
  */
 QueryFile.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap = $npm.utils.messageGap(level + 1);
-    var lines = [
+    const gap = $npm.utils.messageGap(level + 1);
+    const lines = [
         'QueryFile {'
     ];
     this.prepare();
@@ -3514,12 +3654,12 @@ module.exports = QueryFile;
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var textParsers = __webpack_require__(232);
-var binaryParsers = __webpack_require__(231);
-var arrayParser = __webpack_require__(72);
+var textParsers = __webpack_require__(244);
+var binaryParsers = __webpack_require__(243);
+var arrayParser = __webpack_require__(82);
 
 var typeParsers = {
   text: {},
@@ -3567,84 +3707,16 @@ module.exports = {
 
 
 /***/ }),
-/* 21 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var defaults = module.exports = {
-  // database host. defaults to localhost
-  host: 'localhost',
-
-  //database user's name
-  user: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
-
-  //name of database to connect
-  database: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
-
-  //database user's password
-  password: null,
-
-  // a Postgres connection string to be used instead of setting individual connection items
-  // NOTE:  Setting this value will cause it to override any other value (such as database or user) defined
-  // in the defaults object.
-  connectionString : undefined,
-
-  //database port
-  port: 5432,
-
-  //number of rows to return at a time from a prepared statement's
-  //portal. 0 will return all rows at once
-  rows: 0,
-
-  // binary result mode
-  binary: false,
-
-  //Connection pool options - see https://github.com/coopernurse/node-pool
-  //number of connections to use in connection pool
-  //0 will disable connection pooling
-  poolSize: 10,
-
-  //max milliseconds a client can go unused before it is removed
-  //from the pool and destroyed
-  poolIdleTimeout: 30000,
-
-  //frequency to check for idle clients within the client pool
-  reapIntervalMillis: 1000,
-
-  //if true the most recently released resources will be the first to be allocated
-  returnToHead: false,
-
-  //pool log function / boolean
-  poolLog: false,
-
-  client_encoding: "",
-
-  ssl: false,
-
-  application_name: undefined,
-  fallback_application_name: undefined,
-
-  parseInputDatesAsUTC: false
-};
-
-//parse int8 so you can get your count values as actual numbers
-module.exports.__defineSetter__("parseInt8", function(val) {
-  __webpack_require__(20).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
-});
-
-
-/***/ }),
 /* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var forEach = Array.prototype.forEach, create = Object.create;
+var _undefined = __webpack_require__(51)(); // Support ES3 engines
 
-module.exports = function (arg/*, …args*/) {
-	var set = create(null);
-	forEach.call(arguments, function (name) { set[name] = true; });
-	return set;
+module.exports = function (val) {
+ return (val !== _undefined) && (val !== null);
 };
 
 
@@ -3655,14 +3727,35 @@ module.exports = function (arg/*, …args*/) {
 "use strict";
 
 
-module.exports = function (value) {
-	if (value == null) throw new TypeError("Cannot use null or undefined");
-	return value;
+var forEach = Array.prototype.forEach, create = Object.create;
+
+// eslint-disable-next-line no-unused-vars
+module.exports = function (arg /*, …args*/) {
+	var set = create(null);
+	forEach.call(arguments, function (name) {
+		set[name] = true;
+	});
+	return set;
 };
 
 
 /***/ }),
 /* 24 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isValue = __webpack_require__(22);
+
+module.exports = function (value) {
+	if (!isValue(value)) throw new TypeError("Cannot use null or undefined");
+	return value;
+};
+
+
+/***/ }),
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var Classes = Object.create(null);
@@ -3762,6 +3855,18 @@ exports.format = function format(sql, values, stringifyObjects, timeZone) {
 };
 
 /**
+ * Wrap raw SQL strings from escape overriding.
+ * @param {string} sql The raw SQL
+ * @return {object} Wrapped object
+ * @public
+ */
+exports.raw = function raw(sql) {
+  var SqlString = loadClass('SqlString');
+
+  return SqlString.raw(sql);
+};
+
+/**
  * The type constants.
  * @public
  */
@@ -3785,25 +3890,25 @@ function loadClass(className) {
   // This uses a switch for static require analysis
   switch (className) {
     case 'Connection':
-      Class = __webpack_require__(25);
+      Class = __webpack_require__(26);
       break;
     case 'ConnectionConfig':
-      Class = __webpack_require__(35);
+      Class = __webpack_require__(36);
       break;
     case 'Pool':
-      Class = __webpack_require__(51);
+      Class = __webpack_require__(57);
       break;
     case 'PoolCluster':
-      Class = __webpack_require__(166);
+      Class = __webpack_require__(172);
       break;
     case 'PoolConfig':
-      Class = __webpack_require__(52);
+      Class = __webpack_require__(58);
       break;
     case 'SqlString':
-      Class = __webpack_require__(55);
+      Class = __webpack_require__(61);
       break;
     case 'Types':
-      Class = __webpack_require__(36);
+      Class = __webpack_require__(37);
       break;
     default:
       throw new Error('Cannot find class \'' + className + '\'');
@@ -3817,17 +3922,17 @@ function loadClass(className) {
 
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Crypto           = __webpack_require__(40);
+var Crypto           = __webpack_require__(44);
 var Events           = __webpack_require__(3);
-var Net              = __webpack_require__(83);
-var tls              = __webpack_require__(84);
-var ConnectionConfig = __webpack_require__(35);
-var Protocol         = __webpack_require__(173);
-var SqlString        = __webpack_require__(55);
-var Query            = __webpack_require__(58);
+var Net              = __webpack_require__(91);
+var tls              = __webpack_require__(92);
+var ConnectionConfig = __webpack_require__(36);
+var Protocol         = __webpack_require__(179);
+var SqlString        = __webpack_require__(61);
+var Query            = __webpack_require__(64);
 var Util             = __webpack_require__(0);
 
 module.exports = Connection;
@@ -4286,7 +4391,7 @@ Connection.prototype._implyConnect = function() {
 
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ (function(module, exports) {
 
 // Manually extracted from mysql-5.5.23/include/mysql_com.h
@@ -4318,17 +4423,17 @@ exports.CLIENT_REMEMBER_OPTIONS       = 2147483648;
 
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    qResult: __webpack_require__(217),
-    qFile: __webpack_require__(28),
-    prepared: __webpack_require__(216),
-    paramQuery: __webpack_require__(215)
+const $npm = {
+    qResult: __webpack_require__(229),
+    qFile: __webpack_require__(29),
+    prepared: __webpack_require__(228),
+    paramQuery: __webpack_require__(227)
 };
 
 /**
@@ -4373,16 +4478,16 @@ Object.freeze(module.exports);
 
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    minify: __webpack_require__(37)
+    minify: __webpack_require__(38)
 };
 
 /**
@@ -4417,7 +4522,7 @@ var $npm = {
  *
  */
 function QueryFileError(error, qf) {
-    var temp = Error.apply(this, arguments);
+    const temp = Error.apply(this, arguments);
     temp.name = this.name = 'QueryFileError';
     this.stack = temp.stack;
     if (error instanceof $npm.minify.SQLParsingError) {
@@ -4452,7 +4557,7 @@ QueryFileError.prototype = Object.create(Error.prototype, {
  */
 QueryFileError.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
+    const gap0 = $npm.utils.messageGap(level),
         gap1 = $npm.utils.messageGap(level + 1),
         lines = [
             'QueryFileError {',
@@ -4476,13 +4581,13 @@ module.exports = QueryFileError;
 
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     utils: __webpack_require__(2),
     formatting: __webpack_require__(5)
 };
@@ -4526,7 +4631,7 @@ var $npm = {
  *
  * @example
  *
- * var table = new pgp.helpers.TableName('my-table', 'my-schema');
+ * const table = new pgp.helpers.TableName('my-table', 'my-schema');
  * console.log(table);
  * //=> "my-schema"."my-table"
  *
@@ -4596,13 +4701,129 @@ module.exports = TableName;
 
 
 /***/ }),
-/* 30 */
+/* 31 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var defaults = module.exports = {
+  // database host. defaults to localhost
+  host: 'localhost',
+
+  //database user's name
+  user: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
+
+  //name of database to connect
+  database: process.platform === 'win32' ? process.env.USERNAME : process.env.USER,
+
+  //database user's password
+  password: null,
+
+  // a Postgres connection string to be used instead of setting individual connection items
+  // NOTE:  Setting this value will cause it to override any other value (such as database or user) defined
+  // in the defaults object.
+  connectionString : undefined,
+
+  //database port
+  port: 5432,
+
+  //number of rows to return at a time from a prepared statement's
+  //portal. 0 will return all rows at once
+  rows: 0,
+
+  // binary result mode
+  binary: false,
+
+  //Connection pool options - see https://github.com/coopernurse/node-pool
+  //number of connections to use in connection pool
+  //0 will disable connection pooling
+  poolSize: 10,
+
+  //max milliseconds a client can go unused before it is removed
+  //from the pool and destroyed
+  poolIdleTimeout: 30000,
+
+  //frequency to check for idle clients within the client pool
+  reapIntervalMillis: 1000,
+
+  //if true the most recently released resources will be the first to be allocated
+  returnToHead: false,
+
+  //pool log function / boolean
+  poolLog: false,
+
+  client_encoding: "",
+
+  ssl: false,
+
+  application_name: undefined,
+  fallback_application_name: undefined,
+
+  parseInputDatesAsUTC: false
+};
+
+//parse int8 so you can get your count values as actual numbers
+module.exports.__defineSetter__("parseInt8", function(val) {
+  __webpack_require__(21).setTypeParser(20, 'text', val ? parseInt : function(val) { return val; });
+});
+
+
+/***/ }),
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var stream = __webpack_require__(8);
+if (!process.version ||
+    process.version.indexOf('v0.') === 0 ||
+    process.version.indexOf('v1.') === 0 && process.version.indexOf('v1.8.') !== 0) {
+  module.exports = nextTick;
+} else {
+  module.exports = process.nextTick;
+}
+
+function nextTick(fn, arg1, arg2, arg3) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('"callback" argument must be a function');
+  }
+  var len = arguments.length;
+  var args, i;
+  switch (len) {
+  case 0:
+  case 1:
+    return process.nextTick(fn);
+  case 2:
+    return process.nextTick(function afterTickOne() {
+      fn.call(null, arg1);
+    });
+  case 3:
+    return process.nextTick(function afterTickTwo() {
+      fn.call(null, arg1, arg2);
+    });
+  case 4:
+    return process.nextTick(function afterTickThree() {
+      fn.call(null, arg1, arg2, arg3);
+    });
+  default:
+    args = new Array(len - 1);
+    i = 0;
+    while (i < args.length) {
+      args[i++] = arguments[i];
+    }
+    return process.nextTick(function afterTick() {
+      fn.apply(null, args);
+    });
+  }
+}
+
+
+/***/ }),
+/* 33 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var stream = __webpack_require__(11);
 var util = __webpack_require__(0);
 
 /////////////////////////////////////
@@ -4663,54 +4884,30 @@ module.exports = {
 
 
 /***/ }),
-/* 31 */
+/* 34 */
 /***/ (function(module, exports) {
 
 module.exports = require("assert");
 
 /***/ }),
-/* 32 */
-/***/ (function(module, exports) {
-
-module.exports = require("buffer");
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var old;
-if (typeof Promise !== "undefined") old = Promise;
-function noConflict() {
-    try { if (Promise === bluebird) Promise = old; }
-    catch (e) {}
-    return bluebird;
-}
-var bluebird = __webpack_require__(111)();
-bluebird.noConflict = noConflict;
-module.exports = bluebird;
-
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = __webpack_require__(126)()
-	? Array.from
-	: __webpack_require__(127);
-
-
-/***/ }),
 /* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var urlParse        = __webpack_require__(41).parse;
-var ClientConstants = __webpack_require__(26);
-var Charsets        = __webpack_require__(56);
+"use strict";
+
+
+module.exports = __webpack_require__(134)()
+	? Array.from
+	: __webpack_require__(135);
+
+
+/***/ }),
+/* 36 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var urlParse        = __webpack_require__(45).parse;
+var ClientConstants = __webpack_require__(27);
+var Charsets        = __webpack_require__(62);
 var SSLProfiles     = null;
 
 module.exports = ConnectionConfig;
@@ -4834,7 +5031,7 @@ ConnectionConfig.getDefaultFlags = function getDefaultFlags(options) {
 
 ConnectionConfig.getSSLProfile = function getSSLProfile(name) {
   if (!SSLProfiles) {
-    SSLProfiles = __webpack_require__(177);
+    SSLProfiles = __webpack_require__(183);
   }
 
   var ssl = SSLProfiles[name];
@@ -4912,7 +5109,7 @@ ConnectionConfig.parseUrl = function(url) {
 
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ (function(module, exports) {
 
 // Manually extracted from mysql-5.7.9/include/mysql.h.pp
@@ -4951,23 +5148,68 @@ exports.GEOMETRY    = 0xff; // aka GEOMETRY
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var parser = __webpack_require__(207);
-var error = __webpack_require__(62);
+var parser = __webpack_require__(218);
+var error = __webpack_require__(71);
 
-parser.minify.SQLParsingError = error.SQLParsingError;
-parser.minify.parsingErrorCode = error.parsingErrorCode;
+parser.SQLParsingError = error.SQLParsingError;
+parser.parsingErrorCode = error.parsingErrorCode;
 
-module.exports = parser.minify;
+module.exports = parser;
 
 
 /***/ }),
-/* 38 */
+/* 39 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/*
+  The most important regular expressions and data as used by the library,
+  isolated here to help with possible edge cases during integration.
+*/
+
+module.exports = {
+    // Searches for all Named Parameters, supporting any of the following syntax:
+    // ${propName}, $(propName), $[propName], $/propName/, $<propName>
+    namedParameters: /\$(?:({)|(\()|(<)|(\[)|(\/))\s*[a-zA-Z0-9$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?\s*(?:(?=\2)(?=\3)(?=\4)(?=\5)}|(?=\1)(?=\3)(?=\4)(?=\5)\)|(?=\1)(?=\2)(?=\4)(?=\5)>|(?=\1)(?=\2)(?=\3)(?=\5)]|(?=\1)(?=\2)(?=\3)(?=\4)\/)/g,
+
+    // Searches for all variables $1, $2, ...$100000, and while it will find greater than $100000
+    // variables, the formatting engine is expected to throw an error for those.
+    multipleValues: /\$([1-9][0-9]{0,16}(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?)/g,
+
+    // Searches for all occurrences of variable $1
+    singleValue: /\$1(?![0-9])(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/g,
+
+    // Matches a valid column name, which can contain any combination of letters, digits and underscores,
+    // can optionally start with ?, and optionally end with any of the supported formatting modifiers.
+    validColumn: /\??[a-zA-Z0-9$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/,
+
+    // Matches a valid open-name JavaScript variable, according to the following rules:
+    // - can contain any combination of letters, digits, dollars and underscores ($, _);
+    // - cannot start with a digit
+    validVariable: /^[0-9]+|[a-zA-Z0-9$_]+/,
+
+    // Matches a valid modifier in a column/property:
+    hasValidModifier: /\^|~|#|:raw|:alias|:name|:json|:csv|:value/,
+
+    // List of all supported formatting modifiers:
+    validModifiers: ['^', '~', '#', ':raw', ':alias', ':name', ':json', ':csv', ':value'],
+
+    // Splits device information for a file path, to determine whether the path is absolute or relative;
+    // This is specifically for Windows, and based on: https://github.com/sindresorhus/path-is-absolute
+    splitDevice: /^([a-zA-Z]:|[\\/]{2}[^\\/]+[\\/]+[^\\/]+)?([\\/])?([\s\S]*?)$/
+};
+
+
+/***/ }),
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4992,7 +5234,7 @@ module.exports = parser.minify;
  *
  * @see {@link Database.query}, {@link Database.func}
  */
-var queryResult = {
+const queryResult = {
     /** Single row is expected. */
     one: 1,
     /** One or more rows expected. */
@@ -5009,10 +5251,109 @@ module.exports = queryResult;
 
 
 /***/ }),
-/* 39 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var defaults = __webpack_require__(21);
+var url = __webpack_require__(45);
+var dns = __webpack_require__(275);
+
+var defaults = __webpack_require__(31);
+
+var val = function(key, config, envVar) {
+  if (envVar === undefined) {
+    envVar = process.env[ 'PG' + key.toUpperCase() ];
+  } else if (envVar === false) {
+    // do nothing ... use false
+  } else {
+    envVar = process.env[ envVar ];
+  }
+
+  return config[key] ||
+    envVar ||
+    defaults[key];
+};
+
+//parses a connection string
+var parse = __webpack_require__(217).parse;
+
+var useSsl = function() {
+  switch(process.env.PGSSLMODE) {
+  case "disable":
+    return false;
+  case "prefer":
+  case "require":
+  case "verify-ca":
+  case "verify-full":
+    return true;
+  }
+  return defaults.ssl;
+};
+
+var ConnectionParameters = function(config) {
+  //if a string is passed, it is a raw connection string so we parse it into a config
+  config = typeof config == 'string' ? parse(config) : (config || {});
+  //if the config has a connectionString defined, parse IT into the config we use
+  //this will override other default values with what is stored in connectionString
+  if(config.connectionString) {
+    config = parse(config.connectionString);
+  }
+  this.user = val('user', config);
+  this.database = val('database', config);
+  this.port = parseInt(val('port', config), 10);
+  this.host = val('host', config);
+  this.password = val('password', config);
+  this.binary = val('binary', config);
+  this.ssl = typeof config.ssl === 'boolean' ? config.ssl : useSsl();
+  this.client_encoding = val("client_encoding", config);
+  //a domain socket begins with '/'
+  this.isDomainSocket = (!(this.host||'').indexOf('/'));
+
+  this.application_name = val('application_name', config, 'PGAPPNAME');
+  this.fallback_application_name = val('fallback_application_name', config, false);
+};
+
+var add = function(params, config, paramName) {
+  var value = config[paramName];
+  if(value) {
+    params.push(paramName+"='"+value+"'");
+  }
+};
+
+ConnectionParameters.prototype.getLibpqConnectionString = function(cb) {
+  var params = [];
+  add(params, this, 'user');
+  add(params, this, 'password');
+  add(params, this, 'port');
+  add(params, this, 'application_name');
+  add(params, this, 'fallback_application_name');
+
+  if(this.database) {
+    params.push("dbname='" + this.database + "'");
+  }
+  if(this.host) {
+    params.push("host=" + this.host);
+  }
+  if(this.isDomainSocket) {
+    return cb(null, params.join(' '));
+  }
+  if(this.client_encoding) {
+    params.push("client_encoding='" + this.client_encoding + "'");
+  }
+  dns.lookup(this.host, function(err, address) {
+    if(err) return cb(err, null);
+    params.push("hostaddr=" + address);
+    return cb(null, params.join(' '));
+  });
+};
+
+module.exports = ConnectionParameters;
+
+
+/***/ }),
+/* 42 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var defaults = __webpack_require__(31);
 
 // convert a JS array to a postgres array literal
 // uses comma separator so won't work for types like box that use
@@ -5149,19 +5490,47 @@ module.exports = {
 
 
 /***/ }),
-/* 40 */
+/* 43 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Promise = __webpack_require__(47);
+
+var promiseCallback = function(functionName, params) {
+  var self = this;
+  params = Array.prototype.slice.call(params, 0);
+  return new Promise(function(resolve, reject) {
+    params.push(function(err) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      if (err) {
+        return reject(err);
+      }
+
+      return resolve.apply(this, args);
+    });
+
+    self[functionName].apply(self, params);
+  });
+};
+
+module.exports = {
+  promiseCallback: promiseCallback,
+};
+
+
+/***/ }),
+/* 44 */
 /***/ (function(module, exports) {
 
 module.exports = require("crypto");
 
 /***/ }),
-/* 41 */
+/* 45 */
 /***/ (function(module, exports) {
 
 module.exports = require("url");
 
 /***/ }),
-/* 42 */
+/* 46 */
 /***/ (function(module, exports) {
 
 function webpackEmptyContext(req) {
@@ -5170,17 +5539,35 @@ function webpackEmptyContext(req) {
 webpackEmptyContext.keys = function() { return []; };
 webpackEmptyContext.resolve = webpackEmptyContext;
 module.exports = webpackEmptyContext;
-webpackEmptyContext.id = 42;
+webpackEmptyContext.id = 46;
 
 /***/ }),
-/* 43 */
+/* 47 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var old;
+if (typeof Promise !== "undefined") old = Promise;
+function noConflict() {
+    try { if (Promise === bluebird) Promise = old; }
+    catch (e) {}
+    return bluebird;
+}
+var bluebird = __webpack_require__(119)();
+bluebird.noConflict = noConflict;
+module.exports = bluebird;
+
+
+/***/ }),
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 module.exports = function(NEXT_FILTER) {
 var util = __webpack_require__(1);
-var getKeys = __webpack_require__(12).keys;
+var getKeys = __webpack_require__(13).keys;
 var tryCatch = util.tryCatch;
 var errorObj = util.errorObj;
 
@@ -5222,7 +5609,7 @@ return catchFilter;
 
 
 /***/ }),
-/* 44 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5231,7 +5618,7 @@ var util = __webpack_require__(1);
 var maybeWrapAsError = util.maybeWrapAsError;
 var errors = __webpack_require__(9);
 var OperationalError = errors.OperationalError;
-var es5 = __webpack_require__(12);
+var es5 = __webpack_require__(13);
 
 function isUntypedError(obj) {
     return obj instanceof Error &&
@@ -5280,16 +5667,16 @@ module.exports = nodebackForPromise;
 
 
 /***/ }),
-/* 45 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var assign        = __webpack_require__(136)
-  , normalizeOpts = __webpack_require__(46)
-  , isCallable    = __webpack_require__(139)
-  , contains      = __webpack_require__(143)
+var assign        = __webpack_require__(143)
+  , normalizeOpts = __webpack_require__(52)
+  , isCallable    = __webpack_require__(146)
+  , contains      = __webpack_require__(150)
 
   , d;
 
@@ -5350,11 +5737,24 @@ d.gs = function (dscr, get, set/*, options*/) {
 
 
 /***/ }),
-/* 46 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
+
+// eslint-disable-next-line no-empty-function
+module.exports = function () {};
+
+
+/***/ }),
+/* 52 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isValue = __webpack_require__(22);
 
 var forEach = Array.prototype.forEach, create = Object.create;
 
@@ -5363,10 +5763,11 @@ var process = function (src, obj) {
 	for (key in src) obj[key] = src[key];
 };
 
-module.exports = function (options/*, …options*/) {
+// eslint-disable-next-line no-unused-vars
+module.exports = function (opts1 /*, …options*/) {
 	var result = create(null);
 	forEach.call(arguments, function (options) {
-		if (options == null) return;
+		if (!isValue(options)) return;
 		process(Object(options), result);
 	});
 	return result;
@@ -5374,26 +5775,26 @@ module.exports = function (options/*, …options*/) {
 
 
 /***/ }),
-/* 47 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 module.exports = function (fn) {
-	if (typeof fn !== 'function') throw new TypeError(fn + " is not a function");
+	if (typeof fn !== "function") throw new TypeError(fn + " is not a function");
 	return fn;
 };
 
 
 /***/ }),
-/* 48 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var esniff = __webpack_require__(155)
+var esniff = __webpack_require__(162)
 
   , i, current, literals, substitutions, sOut, sEscape, sAhead, sIn, sInEscape, template;
 
@@ -5473,14 +5874,14 @@ module.exports = function (str) {
 
 
 /***/ }),
-/* 49 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var resolve  = __webpack_require__(154)
-  , passthru = __webpack_require__(153);
+var resolve  = __webpack_require__(161)
+  , passthru = __webpack_require__(160);
 
 module.exports = function (data, context/*, options*/) {
 	return passthru.apply(null, resolve(data, context, arguments[2]));
@@ -5488,27 +5889,27 @@ module.exports = function (data, context/*, options*/) {
 
 
 /***/ }),
-/* 50 */
+/* 56 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(34)
-  , primitiveSet = __webpack_require__(22);
+var from         = __webpack_require__(35)
+  , primitiveSet = __webpack_require__(23);
 
 module.exports = primitiveSet.apply(null, from('\n\r\u2028\u2029'));
 
 
 /***/ }),
-/* 51 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var mysql          = __webpack_require__(24);
-var Connection     = __webpack_require__(25);
+var mysql          = __webpack_require__(25);
+var Connection     = __webpack_require__(26);
 var EventEmitter   = __webpack_require__(3).EventEmitter;
 var Util           = __webpack_require__(0);
-var PoolConnection = __webpack_require__(167);
+var PoolConnection = __webpack_require__(173);
 
 module.exports = Pool;
 
@@ -5801,11 +6202,11 @@ function spliceConnection(array, connection) {
 
 
 /***/ }),
-/* 52 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var ConnectionConfig = __webpack_require__(35);
+var ConnectionConfig = __webpack_require__(36);
 
 module.exports = PoolConfig;
 function PoolConfig(options) {
@@ -5839,7 +6240,7 @@ PoolConfig.prototype.newConnectionConfig = function newConnectionConfig() {
 
 
 /***/ }),
-/* 53 */
+/* 59 */
 /***/ (function(module, exports) {
 
 
@@ -5876,11 +6277,11 @@ PoolSelector.ORDER = function PoolSelectorOrder() {
 
 
 /***/ }),
-/* 54 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Buffer = __webpack_require__(32).Buffer;
-var Crypto = __webpack_require__(40);
+var Buffer = __webpack_require__(7).Buffer;
+var Crypto = __webpack_require__(44);
 var Auth   = exports;
 
 function sha1(msg) {
@@ -5891,9 +6292,9 @@ function sha1(msg) {
 Auth.sha1 = sha1;
 
 function xor(a, b) {
-  a = new Buffer(a, 'binary');
-  b = new Buffer(b, 'binary');
-  var result = new Buffer(a.length);
+  a = Buffer.from(a, 'binary');
+  b = Buffer.from(b, 'binary');
+  var result = Buffer.allocUnsafe(a.length);
   for (var i = 0; i < a.length; i++) {
     result[i] = (a[i] ^ b[i]);
   }
@@ -5903,11 +6304,11 @@ Auth.xor = xor;
 
 Auth.token = function(password, scramble) {
   if (!password) {
-    return new Buffer(0);
+    return Buffer.alloc(0);
   }
 
   // password must be in binary format, not utf8
-  var stage1 = sha1((new Buffer(password, 'utf8')).toString('binary'));
+  var stage1 = sha1((Buffer.from(password, 'utf8')).toString('binary'));
   var stage2 = sha1(stage1);
   var stage3 = sha1(scramble.toString('binary') + stage2);
   return xor(stage3, stage1);
@@ -5919,10 +6320,10 @@ Auth.hashPassword = function(password) {
   var nr = [0x5030, 0x5735],
       add = 7,
       nr2 = [0x1234, 0x5671],
-      result = new Buffer(8);
+      result = Buffer.alloc(8);
 
   if (typeof password === 'string'){
-    password = new Buffer(password);
+    password = Buffer.from(password);
   }
 
   for (var i = 0; i < password.length; i++) {
@@ -5934,7 +6335,7 @@ Auth.hashPassword = function(password) {
 
     // nr^= (((nr & 63)+add)*c)+ (nr << 8);
     // nr = xor(nr, add(mul(add(and(nr, 63), add), c), shl(nr, 8)))
-    nr = this.xor32(nr, this.add32(this.mul32(this.add32(this.and32(nr, [0,63]), [0,add]), [0,c]), this.shl32(nr, 8)));
+    nr = this.xor32(nr, this.add32(this.mul32(this.add32(this.and32(nr, [0, 63]), [0, add]), [0, c]), this.shl32(nr, 8)));
 
     // nr2+=(nr2 << 8) ^ nr;
     // nr2 = add(nr2, xor(shl(nr2, 8), nr))
@@ -5967,7 +6368,7 @@ Auth.myRnd = function(r){
 };
 
 Auth.scramble323 = function(message, password) {
-  var to = new Buffer(8),
+  var to = Buffer.allocUnsafe(8),
       hashPass = this.hashPassword(password),
       hashMessage = this.hashPassword(message.slice(0, 8)),
       seed1 = this.int32Read(hashPass, 0) ^ this.int32Read(hashMessage, 0),
@@ -5986,18 +6387,18 @@ Auth.scramble323 = function(message, password) {
   return to;
 };
 
-Auth.xor32 = function(a,b){
+Auth.xor32 = function(a, b){
   return [a[0] ^ b[0], a[1] ^ b[1]];
 };
 
-Auth.add32 = function(a,b){
+Auth.add32 = function(a, b){
   var w1 = a[1] + b[1],
       w2 = a[0] + b[0] + ((w1 & 0xFFFF0000) >> 16);
 
   return [w2 & 0xFFFF, w1 & 0xFFFF];
 };
 
-Auth.mul32 = function(a,b){
+Auth.mul32 = function(a, b){
   // based on this example of multiplying 32b ints using 16b
   // http://www.dsprelated.com/showmessage/89790/1.php
   var w1 = a[1] * b[1],
@@ -6006,11 +6407,11 @@ Auth.mul32 = function(a,b){
   return [w2 & 0xFFFF, w1 & 0xFFFF];
 };
 
-Auth.and32 = function(a,b){
+Auth.and32 = function(a, b){
   return [a[0] & b[0], a[1] & b[1]];
 };
 
-Auth.shl32 = function(a,b){
+Auth.shl32 = function(a, b){
   // assume b is 16 or less
   var w1 = a[1] << b,
       w2 = (a[0] << b) | ((w1 & 0xFFFF0000) >> 16);
@@ -6034,14 +6435,14 @@ Auth.int32Read = function(buffer, offset){
 
 
 /***/ }),
-/* 55 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(256);
+module.exports = __webpack_require__(267);
 
 
 /***/ }),
-/* 56 */
+/* 62 */
 /***/ (function(module, exports) {
 
 exports.BIG5_CHINESE_CI              = 1;
@@ -6309,10 +6710,10 @@ exports.UTF32    = exports.UTF32_GENERAL_CI;
 
 
 /***/ }),
-/* 57 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Types = __webpack_require__(36);
+var Types = __webpack_require__(37);
 
 module.exports = Field;
 function Field(options) {
@@ -6349,16 +6750,16 @@ function typeToString(t) {
 
 
 /***/ }),
-/* 58 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence     = __webpack_require__(11);
+var Sequence     = __webpack_require__(12);
 var Util         = __webpack_require__(0);
 var Packets      = __webpack_require__(10);
-var ResultSet    = __webpack_require__(174);
-var ServerStatus = __webpack_require__(176);
-var fs           = __webpack_require__(6);
-var Readable     = __webpack_require__(204);
+var ResultSet    = __webpack_require__(180);
+var ServerStatus = __webpack_require__(182);
+var fs           = __webpack_require__(8);
+var Readable     = __webpack_require__(214);
 
 module.exports = Query;
 Util.inherits(Query, Sequence);
@@ -6439,6 +6840,8 @@ Query.prototype['ErrorPacket'] = function(packet) {
     : undefined;
 
   err.index = this._index;
+  err.sql   = this.sql;
+
   this.end(err, results, fields);
 };
 
@@ -6549,21 +6952,21 @@ Query.prototype.stream = function(options) {
     });
   });
 
-  this.on('result',function(row,i) {
+  this.on('result', function(row, i) {
     if (!stream.push(row)) self._connection.pause();
-    stream.emit('result',row,i);  // replicate old emitter
+    stream.emit('result', row, i);  // replicate old emitter
   });
 
-  this.on('error',function(err) {
-    stream.emit('error',err);  // Pass on any errors
+  this.on('error', function(err) {
+    stream.emit('error', err);  // Pass on any errors
   });
 
   this.on('end', function() {
     stream.push(null);  // pushing null, indicating EOF
   });
 
-  this.on('fields',function(fields,i) {
-    stream.emit('fields',fields,i);  // replicate old emitter
+  this.on('fields', function(fields, i) {
+    stream.emit('fields', fields, i);  // replicate old emitter
   });
 
   return stream;
@@ -6571,9 +6974,10 @@ Query.prototype.stream = function(options) {
 
 
 /***/ }),
-/* 59 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6595,64 +6999,111 @@ Query.prototype.stream = function(options) {
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
+
+/*<replacement>*/
+
+var processNextTick = __webpack_require__(32);
+/*</replacement>*/
+
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = __webpack_require__(162);
+var isArray = __webpack_require__(211);
 /*</replacement>*/
 
-
 /*<replacement>*/
-var Buffer = __webpack_require__(32).Buffer;
+var Duplex;
 /*</replacement>*/
 
 Readable.ReadableState = ReadableState;
 
+/*<replacement>*/
 var EE = __webpack_require__(3).EventEmitter;
 
-/*<replacement>*/
-if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
+var EElistenerCount = function (emitter, type) {
   return emitter.listeners(type).length;
 };
 /*</replacement>*/
 
-var Stream = __webpack_require__(8);
-
 /*<replacement>*/
-var util = __webpack_require__(14);
-util.inherits = __webpack_require__(15);
+var Stream = __webpack_require__(69);
 /*</replacement>*/
 
-var StringDecoder;
-
+// TODO(bmeurer): Change this back to const once hole checks are
+// properly optimized away early in Ignition+TurboFan.
+/*<replacement>*/
+var Buffer = __webpack_require__(7).Buffer;
+var OurUint8Array = global.Uint8Array || function () {};
+function _uint8ArrayToBuffer(chunk) {
+  return Buffer.from(chunk);
+}
+function _isUint8Array(obj) {
+  return Buffer.isBuffer(obj) || obj instanceof OurUint8Array;
+}
+/*</replacement>*/
 
 /*<replacement>*/
-var debug = __webpack_require__(0);
-if (debug && debug.debuglog) {
-  debug = debug.debuglog('stream');
+var util = __webpack_require__(15);
+util.inherits = __webpack_require__(16);
+/*</replacement>*/
+
+/*<replacement>*/
+var debugUtil = __webpack_require__(0);
+var debug = void 0;
+if (debugUtil && debugUtil.debuglog) {
+  debug = debugUtil.debuglog('stream');
 } else {
   debug = function () {};
 }
 /*</replacement>*/
 
+var BufferList = __webpack_require__(213);
+var destroyImpl = __webpack_require__(68);
+var StringDecoder;
 
 util.inherits(Readable, Stream);
 
+var kProxyEvents = ['error', 'close', 'destroy', 'pause', 'resume'];
+
+function prependListener(emitter, event, fn) {
+  // Sadly this is not cacheable as some libraries bundle their own
+  // event emitter implementation with them.
+  if (typeof emitter.prependListener === 'function') {
+    return emitter.prependListener(event, fn);
+  } else {
+    // This is a hack to make sure that our error handler is attached before any
+    // userland ones.  NEVER DO THIS. This is here only because this code needs
+    // to continue to work with older versions of Node.js that do not include
+    // the prependListener() method. The goal is to eventually remove this hack.
+    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);else if (isArray(emitter._events[event])) emitter._events[event].unshift(fn);else emitter._events[event] = [fn, emitter._events[event]];
+  }
+}
+
 function ReadableState(options, stream) {
-  var Duplex = __webpack_require__(13);
+  Duplex = Duplex || __webpack_require__(14);
 
   options = options || {};
+
+  // object stream flag. Used to make read(n) ignore n and to
+  // make all the buffer merging and length checks go away
+  this.objectMode = !!options.objectMode;
+
+  if (stream instanceof Duplex) this.objectMode = this.objectMode || !!options.readableObjectMode;
 
   // the point at which it stops calling _read() to fill the buffer
   // Note: 0 is a valid value, means "don't call _read preemptively ever"
   var hwm = options.highWaterMark;
-  var defaultHwm = options.objectMode ? 16 : 16 * 1024;
-  this.highWaterMark = (hwm || hwm === 0) ? hwm : defaultHwm;
+  var defaultHwm = this.objectMode ? 16 : 16 * 1024;
+  this.highWaterMark = hwm || hwm === 0 ? hwm : defaultHwm;
 
   // cast to ints.
-  this.highWaterMark = ~~this.highWaterMark;
+  this.highWaterMark = Math.floor(this.highWaterMark);
 
-  this.buffer = [];
+  // A linked list is used to store data chunks instead of an array because the
+  // linked list can remove elements from the beginning faster than
+  // array.shift()
+  this.buffer = new BufferList();
   this.length = 0;
   this.pipes = null;
   this.pipesCount = 0;
@@ -6661,10 +7112,10 @@ function ReadableState(options, stream) {
   this.endEmitted = false;
   this.reading = false;
 
-  // a flag to be able to tell if the onwrite cb is called immediately,
-  // or on a later tick.  We set this to true at first, because any
-  // actions that shouldn't happen until "later" should generally also
-  // not happen before the first write call.
+  // a flag to be able to tell if the event 'readable'/'data' is emitted
+  // immediately, or on a later tick.  We set this to true at first, because
+  // any actions that shouldn't happen until "later" should generally also
+  // not happen before the first read call.
   this.sync = true;
 
   // whenever we return null, then we set a flag to say
@@ -6672,23 +7123,15 @@ function ReadableState(options, stream) {
   this.needReadable = false;
   this.emittedReadable = false;
   this.readableListening = false;
+  this.resumeScheduled = false;
 
-
-  // object stream flag. Used to make read(n) ignore n and to
-  // make all the buffer merging and length checks go away
-  this.objectMode = !!options.objectMode;
-
-  if (stream instanceof Duplex)
-    this.objectMode = this.objectMode || !!options.readableObjectMode;
+  // has it been destroyed
+  this.destroyed = false;
 
   // Crypto is kind of old and crusty.  Historically, its default string
   // encoding is 'binary' so we have to make this configurable.
   // Everything else in the universe uses 'utf8', though.
   this.defaultEncoding = options.defaultEncoding || 'utf8';
-
-  // when piping, we only care about 'readable' events that happen
-  // after read()ing all the bytes and not getting any pushback.
-  this.ranOut = false;
 
   // the number of writers that are awaiting a drain event in .pipe()s
   this.awaitDrain = 0;
@@ -6699,99 +7142,144 @@ function ReadableState(options, stream) {
   this.decoder = null;
   this.encoding = null;
   if (options.encoding) {
-    if (!StringDecoder)
-      StringDecoder = __webpack_require__(82).StringDecoder;
+    if (!StringDecoder) StringDecoder = __webpack_require__(70).StringDecoder;
     this.decoder = new StringDecoder(options.encoding);
     this.encoding = options.encoding;
   }
 }
 
 function Readable(options) {
-  var Duplex = __webpack_require__(13);
+  Duplex = Duplex || __webpack_require__(14);
 
-  if (!(this instanceof Readable))
-    return new Readable(options);
+  if (!(this instanceof Readable)) return new Readable(options);
 
   this._readableState = new ReadableState(options, this);
 
   // legacy
   this.readable = true;
 
+  if (options) {
+    if (typeof options.read === 'function') this._read = options.read;
+
+    if (typeof options.destroy === 'function') this._destroy = options.destroy;
+  }
+
   Stream.call(this);
 }
+
+Object.defineProperty(Readable.prototype, 'destroyed', {
+  get: function () {
+    if (this._readableState === undefined) {
+      return false;
+    }
+    return this._readableState.destroyed;
+  },
+  set: function (value) {
+    // we ignore the value if the stream
+    // has not been initialized yet
+    if (!this._readableState) {
+      return;
+    }
+
+    // backward compatibility, the user is explicitly
+    // managing destroyed
+    this._readableState.destroyed = value;
+  }
+});
+
+Readable.prototype.destroy = destroyImpl.destroy;
+Readable.prototype._undestroy = destroyImpl.undestroy;
+Readable.prototype._destroy = function (err, cb) {
+  this.push(null);
+  cb(err);
+};
 
 // Manually shove something into the read() buffer.
 // This returns true if the highWaterMark has not been hit yet,
 // similar to how Writable.write() returns true if you should
 // write() some more.
-Readable.prototype.push = function(chunk, encoding) {
+Readable.prototype.push = function (chunk, encoding) {
   var state = this._readableState;
+  var skipChunkCheck;
 
-  if (util.isString(chunk) && !state.objectMode) {
-    encoding = encoding || state.defaultEncoding;
-    if (encoding !== state.encoding) {
-      chunk = new Buffer(chunk, encoding);
-      encoding = '';
+  if (!state.objectMode) {
+    if (typeof chunk === 'string') {
+      encoding = encoding || state.defaultEncoding;
+      if (encoding !== state.encoding) {
+        chunk = Buffer.from(chunk, encoding);
+        encoding = '';
+      }
+      skipChunkCheck = true;
     }
+  } else {
+    skipChunkCheck = true;
   }
 
-  return readableAddChunk(this, state, chunk, encoding, false);
+  return readableAddChunk(this, chunk, encoding, false, skipChunkCheck);
 };
 
 // Unshift should *always* be something directly out of read()
-Readable.prototype.unshift = function(chunk) {
-  var state = this._readableState;
-  return readableAddChunk(this, state, chunk, '', true);
+Readable.prototype.unshift = function (chunk) {
+  return readableAddChunk(this, chunk, null, true, false);
 };
 
-function readableAddChunk(stream, state, chunk, encoding, addToFront) {
-  var er = chunkInvalid(state, chunk);
-  if (er) {
-    stream.emit('error', er);
-  } else if (util.isNullOrUndefined(chunk)) {
+function readableAddChunk(stream, chunk, encoding, addToFront, skipChunkCheck) {
+  var state = stream._readableState;
+  if (chunk === null) {
     state.reading = false;
-    if (!state.ended)
-      onEofChunk(stream, state);
-  } else if (state.objectMode || chunk && chunk.length > 0) {
-    if (state.ended && !addToFront) {
-      var e = new Error('stream.push() after EOF');
-      stream.emit('error', e);
-    } else if (state.endEmitted && addToFront) {
-      var e = new Error('stream.unshift() after end event');
-      stream.emit('error', e);
-    } else {
-      if (state.decoder && !addToFront && !encoding)
-        chunk = state.decoder.write(chunk);
-
-      if (!addToFront)
-        state.reading = false;
-
-      // if we want the data now, just emit it.
-      if (state.flowing && state.length === 0 && !state.sync) {
-        stream.emit('data', chunk);
-        stream.read(0);
-      } else {
-        // update the buffer info.
-        state.length += state.objectMode ? 1 : chunk.length;
-        if (addToFront)
-          state.buffer.unshift(chunk);
-        else
-          state.buffer.push(chunk);
-
-        if (state.needReadable)
-          emitReadable(stream);
+    onEofChunk(stream, state);
+  } else {
+    var er;
+    if (!skipChunkCheck) er = chunkInvalid(state, chunk);
+    if (er) {
+      stream.emit('error', er);
+    } else if (state.objectMode || chunk && chunk.length > 0) {
+      if (typeof chunk !== 'string' && !state.objectMode && Object.getPrototypeOf(chunk) !== Buffer.prototype) {
+        chunk = _uint8ArrayToBuffer(chunk);
       }
 
-      maybeReadMore(stream, state);
+      if (addToFront) {
+        if (state.endEmitted) stream.emit('error', new Error('stream.unshift() after end event'));else addChunk(stream, state, chunk, true);
+      } else if (state.ended) {
+        stream.emit('error', new Error('stream.push() after EOF'));
+      } else {
+        state.reading = false;
+        if (state.decoder && !encoding) {
+          chunk = state.decoder.write(chunk);
+          if (state.objectMode || chunk.length !== 0) addChunk(stream, state, chunk, false);else maybeReadMore(stream, state);
+        } else {
+          addChunk(stream, state, chunk, false);
+        }
+      }
+    } else if (!addToFront) {
+      state.reading = false;
     }
-  } else if (!addToFront) {
-    state.reading = false;
   }
 
   return needMoreData(state);
 }
 
+function addChunk(stream, state, chunk, addToFront) {
+  if (state.flowing && state.length === 0 && !state.sync) {
+    stream.emit('data', chunk);
+    stream.read(0);
+  } else {
+    // update the buffer info.
+    state.length += state.objectMode ? 1 : chunk.length;
+    if (addToFront) state.buffer.unshift(chunk);else state.buffer.push(chunk);
 
+    if (state.needReadable) emitReadable(stream);
+  }
+  maybeReadMore(stream, state);
+}
+
+function chunkInvalid(state, chunk) {
+  var er;
+  if (!_isUint8Array(chunk) && typeof chunk !== 'string' && chunk !== undefined && !state.objectMode) {
+    er = new TypeError('Invalid non-string/buffer chunk');
+  }
+  return er;
+}
 
 // if it's past the high water mark, we can push in some more.
 // Also, if we have no data yet, we can stand some
@@ -6801,92 +7289,75 @@ function readableAddChunk(stream, state, chunk, encoding, addToFront) {
 // needReadable was set, then we ought to push more, so that another
 // 'readable' event will be triggered.
 function needMoreData(state) {
-  return !state.ended &&
-         (state.needReadable ||
-          state.length < state.highWaterMark ||
-          state.length === 0);
+  return !state.ended && (state.needReadable || state.length < state.highWaterMark || state.length === 0);
 }
 
+Readable.prototype.isPaused = function () {
+  return this._readableState.flowing === false;
+};
+
 // backwards compatibility.
-Readable.prototype.setEncoding = function(enc) {
-  if (!StringDecoder)
-    StringDecoder = __webpack_require__(82).StringDecoder;
+Readable.prototype.setEncoding = function (enc) {
+  if (!StringDecoder) StringDecoder = __webpack_require__(70).StringDecoder;
   this._readableState.decoder = new StringDecoder(enc);
   this._readableState.encoding = enc;
   return this;
 };
 
-// Don't raise the hwm > 128MB
+// Don't raise the hwm > 8MB
 var MAX_HWM = 0x800000;
-function roundUpToNextPowerOf2(n) {
+function computeNewHighWaterMark(n) {
   if (n >= MAX_HWM) {
     n = MAX_HWM;
   } else {
-    // Get the next highest power of 2
+    // Get the next highest power of 2 to prevent increasing hwm excessively in
+    // tiny amounts
     n--;
-    for (var p = 1; p < 32; p <<= 1) n |= n >> p;
+    n |= n >>> 1;
+    n |= n >>> 2;
+    n |= n >>> 4;
+    n |= n >>> 8;
+    n |= n >>> 16;
     n++;
   }
   return n;
 }
 
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
 function howMuchToRead(n, state) {
-  if (state.length === 0 && state.ended)
-    return 0;
-
-  if (state.objectMode)
-    return n === 0 ? 0 : 1;
-
-  if (isNaN(n) || util.isNull(n)) {
-    // only flow one buffer at a time
-    if (state.flowing && state.buffer.length)
-      return state.buffer[0].length;
-    else
-      return state.length;
+  if (n <= 0 || state.length === 0 && state.ended) return 0;
+  if (state.objectMode) return 1;
+  if (n !== n) {
+    // Only flow one buffer at a time
+    if (state.flowing && state.length) return state.buffer.head.data.length;else return state.length;
   }
-
-  if (n <= 0)
+  // If we're asking for more than the current hwm, then raise the hwm.
+  if (n > state.highWaterMark) state.highWaterMark = computeNewHighWaterMark(n);
+  if (n <= state.length) return n;
+  // Don't have enough
+  if (!state.ended) {
+    state.needReadable = true;
     return 0;
-
-  // If we're asking for more than the target buffer level,
-  // then raise the water mark.  Bump up to the next highest
-  // power of 2, to prevent increasing it excessively in tiny
-  // amounts.
-  if (n > state.highWaterMark)
-    state.highWaterMark = roundUpToNextPowerOf2(n);
-
-  // don't have that much.  return null, unless we've ended.
-  if (n > state.length) {
-    if (!state.ended) {
-      state.needReadable = true;
-      return 0;
-    } else
-      return state.length;
   }
-
-  return n;
+  return state.length;
 }
 
 // you can override either this method, or the async _read(n) below.
-Readable.prototype.read = function(n) {
+Readable.prototype.read = function (n) {
   debug('read', n);
+  n = parseInt(n, 10);
   var state = this._readableState;
   var nOrig = n;
 
-  if (!util.isNumber(n) || n > 0)
-    state.emittedReadable = false;
+  if (n !== 0) state.emittedReadable = false;
 
   // if we're doing read(0) to trigger a readable event, but we
   // already have a bunch of data in the buffer, then just trigger
   // the 'readable' event and move on.
-  if (n === 0 &&
-      state.needReadable &&
-      (state.length >= state.highWaterMark || state.ended)) {
+  if (n === 0 && state.needReadable && (state.length >= state.highWaterMark || state.ended)) {
     debug('read: emitReadable', state.length, state.ended);
-    if (state.length === 0 && state.ended)
-      endReadable(this);
-    else
-      emitReadable(this);
+    if (state.length === 0 && state.ended) endReadable(this);else emitReadable(this);
     return null;
   }
 
@@ -6894,8 +7365,7 @@ Readable.prototype.read = function(n) {
 
   // if we've ended, and we're now clear, then finish it up.
   if (n === 0 && state.ended) {
-    if (state.length === 0)
-      endReadable(this);
+    if (state.length === 0) endReadable(this);
     return null;
   }
 
@@ -6936,67 +7406,47 @@ Readable.prototype.read = function(n) {
   if (state.ended || state.reading) {
     doRead = false;
     debug('reading or ended', doRead);
-  }
-
-  if (doRead) {
+  } else if (doRead) {
     debug('do read');
     state.reading = true;
     state.sync = true;
     // if the length is currently zero, then we *need* a readable event.
-    if (state.length === 0)
-      state.needReadable = true;
+    if (state.length === 0) state.needReadable = true;
     // call internal read method
     this._read(state.highWaterMark);
     state.sync = false;
+    // If _read pushed data synchronously, then `reading` will be false,
+    // and we need to re-evaluate how much data we can return to the user.
+    if (!state.reading) n = howMuchToRead(nOrig, state);
   }
-
-  // If _read pushed data synchronously, then `reading` will be false,
-  // and we need to re-evaluate how much data we can return to the user.
-  if (doRead && !state.reading)
-    n = howMuchToRead(nOrig, state);
 
   var ret;
-  if (n > 0)
-    ret = fromList(n, state);
-  else
-    ret = null;
+  if (n > 0) ret = fromList(n, state);else ret = null;
 
-  if (util.isNull(ret)) {
+  if (ret === null) {
     state.needReadable = true;
     n = 0;
+  } else {
+    state.length -= n;
   }
 
-  state.length -= n;
+  if (state.length === 0) {
+    // If we have nothing in the buffer, then we want to know
+    // as soon as we *do* get something into the buffer.
+    if (!state.ended) state.needReadable = true;
 
-  // If we have nothing in the buffer, then we want to know
-  // as soon as we *do* get something into the buffer.
-  if (state.length === 0 && !state.ended)
-    state.needReadable = true;
+    // If we tried to read() past the EOF, then emit end on the next tick.
+    if (nOrig !== n && state.ended) endReadable(this);
+  }
 
-  // If we tried to read() past the EOF, then emit end on the next tick.
-  if (nOrig !== n && state.ended && state.length === 0)
-    endReadable(this);
-
-  if (!util.isNull(ret))
-    this.emit('data', ret);
+  if (ret !== null) this.emit('data', ret);
 
   return ret;
 };
 
-function chunkInvalid(state, chunk) {
-  var er = null;
-  if (!util.isBuffer(chunk) &&
-      !util.isString(chunk) &&
-      !util.isNullOrUndefined(chunk) &&
-      !state.objectMode) {
-    er = new TypeError('Invalid non-string/buffer chunk');
-  }
-  return er;
-}
-
-
 function onEofChunk(stream, state) {
-  if (state.decoder && !state.ended) {
+  if (state.ended) return;
+  if (state.decoder) {
     var chunk = state.decoder.end();
     if (chunk && chunk.length) {
       state.buffer.push(chunk);
@@ -7018,12 +7468,7 @@ function emitReadable(stream) {
   if (!state.emittedReadable) {
     debug('emitReadable', state.flowing);
     state.emittedReadable = true;
-    if (state.sync)
-      process.nextTick(function() {
-        emitReadable_(stream);
-      });
-    else
-      emitReadable_(stream);
+    if (state.sync) processNextTick(emitReadable_, stream);else emitReadable_(stream);
   }
 }
 
@@ -7032,7 +7477,6 @@ function emitReadable_(stream) {
   stream.emit('readable');
   flow(stream);
 }
-
 
 // at this point, the user has presumably seen the 'readable' event,
 // and called read() to consume some data.  that may have triggered
@@ -7043,23 +7487,18 @@ function emitReadable_(stream) {
 function maybeReadMore(stream, state) {
   if (!state.readingMore) {
     state.readingMore = true;
-    process.nextTick(function() {
-      maybeReadMore_(stream, state);
-    });
+    processNextTick(maybeReadMore_, stream, state);
   }
 }
 
 function maybeReadMore_(stream, state) {
   var len = state.length;
-  while (!state.reading && !state.flowing && !state.ended &&
-         state.length < state.highWaterMark) {
+  while (!state.reading && !state.flowing && !state.ended && state.length < state.highWaterMark) {
     debug('maybeReadMore read 0');
     stream.read(0);
     if (len === state.length)
       // didn't get any data, stop spinning.
-      break;
-    else
-      len = state.length;
+      break;else len = state.length;
   }
   state.readingMore = false;
 }
@@ -7068,11 +7507,11 @@ function maybeReadMore_(stream, state) {
 // call cb(er, data) where data is <= n in length.
 // for virtual (non-string, non-buffer) streams, "length" is somewhat
 // arbitrary, and perhaps not very meaningful.
-Readable.prototype._read = function(n) {
-  this.emit('error', new Error('not implemented'));
+Readable.prototype._read = function (n) {
+  this.emit('error', new Error('_read() is not implemented'));
 };
 
-Readable.prototype.pipe = function(dest, pipeOpts) {
+Readable.prototype.pipe = function (dest, pipeOpts) {
   var src = this;
   var state = this._readableState;
 
@@ -7090,21 +7529,19 @@ Readable.prototype.pipe = function(dest, pipeOpts) {
   state.pipesCount += 1;
   debug('pipe count=%d opts=%j', state.pipesCount, pipeOpts);
 
-  var doEnd = (!pipeOpts || pipeOpts.end !== false) &&
-              dest !== process.stdout &&
-              dest !== process.stderr;
+  var doEnd = (!pipeOpts || pipeOpts.end !== false) && dest !== process.stdout && dest !== process.stderr;
 
-  var endFn = doEnd ? onend : cleanup;
-  if (state.endEmitted)
-    process.nextTick(endFn);
-  else
-    src.once('end', endFn);
+  var endFn = doEnd ? onend : unpipe;
+  if (state.endEmitted) processNextTick(endFn);else src.once('end', endFn);
 
   dest.on('unpipe', onunpipe);
-  function onunpipe(readable) {
+  function onunpipe(readable, unpipeInfo) {
     debug('onunpipe');
     if (readable === src) {
-      cleanup();
+      if (unpipeInfo && unpipeInfo.hasUnpiped === false) {
+        unpipeInfo.hasUnpiped = true;
+        cleanup();
+      }
     }
   }
 
@@ -7120,6 +7557,7 @@ Readable.prototype.pipe = function(dest, pipeOpts) {
   var ondrain = pipeOnDrain(src);
   dest.on('drain', ondrain);
 
+  var cleanedUp = false;
   function cleanup() {
     debug('cleanup');
     // cleanup event handlers once the pipe is broken
@@ -7129,27 +7567,39 @@ Readable.prototype.pipe = function(dest, pipeOpts) {
     dest.removeListener('error', onerror);
     dest.removeListener('unpipe', onunpipe);
     src.removeListener('end', onend);
-    src.removeListener('end', cleanup);
+    src.removeListener('end', unpipe);
     src.removeListener('data', ondata);
+
+    cleanedUp = true;
 
     // if the reader is waiting for a drain event from this
     // specific writer, then it would cause it to never start
     // flowing again.
     // So, if this is awaiting a drain, then we just call it now.
     // If we don't know, then assume that we are waiting for one.
-    if (state.awaitDrain &&
-        (!dest._writableState || dest._writableState.needDrain))
-      ondrain();
+    if (state.awaitDrain && (!dest._writableState || dest._writableState.needDrain)) ondrain();
   }
 
+  // If the user pushes more data while we're writing to dest then we'll end up
+  // in ondata again. However, we only want to increase awaitDrain once because
+  // dest will only emit one 'drain' event for the multiple writes.
+  // => Introduce a guard on increasing awaitDrain.
+  var increasedAwaitDrain = false;
   src.on('data', ondata);
   function ondata(chunk) {
     debug('ondata');
+    increasedAwaitDrain = false;
     var ret = dest.write(chunk);
-    if (false === ret) {
-      debug('false write response, pause',
-            src._readableState.awaitDrain);
-      src._readableState.awaitDrain++;
+    if (false === ret && !increasedAwaitDrain) {
+      // If the user unpiped during `dest.write()`, it is possible
+      // to get stuck in a permanently paused state if that write
+      // also returned false.
+      // => Check whether `dest` is still a piping destination.
+      if ((state.pipesCount === 1 && state.pipes === dest || state.pipesCount > 1 && indexOf(state.pipes, dest) !== -1) && !cleanedUp) {
+        debug('false write response, pause', src._readableState.awaitDrain);
+        src._readableState.awaitDrain++;
+        increasedAwaitDrain = true;
+      }
       src.pause();
     }
   }
@@ -7160,19 +7610,11 @@ Readable.prototype.pipe = function(dest, pipeOpts) {
     debug('onerror', er);
     unpipe();
     dest.removeListener('error', onerror);
-    if (EE.listenerCount(dest, 'error') === 0)
-      dest.emit('error', er);
+    if (EElistenerCount(dest, 'error') === 0) dest.emit('error', er);
   }
-  // This is a brutally ugly hack to make sure that our error handler
-  // is attached before any userland ones.  NEVER DO THIS.
-  if (!dest._events || !dest._events.error)
-    dest.on('error', onerror);
-  else if (isArray(dest._events.error))
-    dest._events.error.unshift(onerror);
-  else
-    dest._events.error = [onerror, dest._events.error];
 
-
+  // Make sure our error handler is attached before userland ones.
+  prependListener(dest, 'error', onerror);
 
   // Both close and finish should trigger unpipe, but only once.
   function onclose() {
@@ -7205,41 +7647,36 @@ Readable.prototype.pipe = function(dest, pipeOpts) {
 };
 
 function pipeOnDrain(src) {
-  return function() {
+  return function () {
     var state = src._readableState;
     debug('pipeOnDrain', state.awaitDrain);
-    if (state.awaitDrain)
-      state.awaitDrain--;
-    if (state.awaitDrain === 0 && EE.listenerCount(src, 'data')) {
+    if (state.awaitDrain) state.awaitDrain--;
+    if (state.awaitDrain === 0 && EElistenerCount(src, 'data')) {
       state.flowing = true;
       flow(src);
     }
   };
 }
 
-
-Readable.prototype.unpipe = function(dest) {
+Readable.prototype.unpipe = function (dest) {
   var state = this._readableState;
+  var unpipeInfo = { hasUnpiped: false };
 
   // if we're not piping anywhere, then do nothing.
-  if (state.pipesCount === 0)
-    return this;
+  if (state.pipesCount === 0) return this;
 
   // just one destination.  most common case.
   if (state.pipesCount === 1) {
     // passed in one, but it's not the right one.
-    if (dest && dest !== state.pipes)
-      return this;
+    if (dest && dest !== state.pipes) return this;
 
-    if (!dest)
-      dest = state.pipes;
+    if (!dest) dest = state.pipes;
 
     // got a match.
     state.pipes = null;
     state.pipesCount = 0;
     state.flowing = false;
-    if (dest)
-      dest.emit('unpipe', this);
+    if (dest) dest.emit('unpipe', this, unpipeInfo);
     return this;
   }
 
@@ -7253,51 +7690,41 @@ Readable.prototype.unpipe = function(dest) {
     state.pipesCount = 0;
     state.flowing = false;
 
-    for (var i = 0; i < len; i++)
-      dests[i].emit('unpipe', this);
-    return this;
+    for (var i = 0; i < len; i++) {
+      dests[i].emit('unpipe', this, unpipeInfo);
+    }return this;
   }
 
   // try to find the right one.
-  var i = indexOf(state.pipes, dest);
-  if (i === -1)
-    return this;
+  var index = indexOf(state.pipes, dest);
+  if (index === -1) return this;
 
-  state.pipes.splice(i, 1);
+  state.pipes.splice(index, 1);
   state.pipesCount -= 1;
-  if (state.pipesCount === 1)
-    state.pipes = state.pipes[0];
+  if (state.pipesCount === 1) state.pipes = state.pipes[0];
 
-  dest.emit('unpipe', this);
+  dest.emit('unpipe', this, unpipeInfo);
 
   return this;
 };
 
 // set up data events if they are asked for
 // Ensure readable listeners eventually get something
-Readable.prototype.on = function(ev, fn) {
+Readable.prototype.on = function (ev, fn) {
   var res = Stream.prototype.on.call(this, ev, fn);
 
-  // If listening to data, and it has not explicitly been paused,
-  // then call resume to start the flow of data on the next tick.
-  if (ev === 'data' && false !== this._readableState.flowing) {
-    this.resume();
-  }
-
-  if (ev === 'readable' && this.readable) {
+  if (ev === 'data') {
+    // Start flowing on next tick if stream isn't explicitly paused
+    if (this._readableState.flowing !== false) this.resume();
+  } else if (ev === 'readable') {
     var state = this._readableState;
-    if (!state.readableListening) {
-      state.readableListening = true;
+    if (!state.endEmitted && !state.readableListening) {
+      state.readableListening = state.needReadable = true;
       state.emittedReadable = false;
-      state.needReadable = true;
       if (!state.reading) {
-        var self = this;
-        process.nextTick(function() {
-          debug('readable nexttick read 0');
-          self.read(0);
-        });
+        processNextTick(nReadingNextTick, this);
       } else if (state.length) {
-        emitReadable(this, state);
+        emitReadable(this);
       }
     }
   }
@@ -7306,17 +7733,18 @@ Readable.prototype.on = function(ev, fn) {
 };
 Readable.prototype.addListener = Readable.prototype.on;
 
+function nReadingNextTick(self) {
+  debug('readable nexttick read 0');
+  self.read(0);
+}
+
 // pause() and resume() are remnants of the legacy readable stream API
 // If the user uses them, then switch into old mode.
-Readable.prototype.resume = function() {
+Readable.prototype.resume = function () {
   var state = this._readableState;
   if (!state.flowing) {
     debug('resume');
     state.flowing = true;
-    if (!state.reading) {
-      debug('resume read 0');
-      this.read(0);
-    }
     resume(this, state);
   }
   return this;
@@ -7325,21 +7753,24 @@ Readable.prototype.resume = function() {
 function resume(stream, state) {
   if (!state.resumeScheduled) {
     state.resumeScheduled = true;
-    process.nextTick(function() {
-      resume_(stream, state);
-    });
+    processNextTick(resume_, stream, state);
   }
 }
 
 function resume_(stream, state) {
+  if (!state.reading) {
+    debug('resume read 0');
+    stream.read(0);
+  }
+
   state.resumeScheduled = false;
+  state.awaitDrain = 0;
   stream.emit('resume');
   flow(stream);
-  if (state.flowing && !state.reading)
-    stream.read(0);
+  if (state.flowing && !state.reading) stream.read(0);
 }
 
-Readable.prototype.pause = function() {
+Readable.prototype.pause = function () {
   debug('call pause flowing=%j', this._readableState.flowing);
   if (false !== this._readableState.flowing) {
     debug('pause');
@@ -7352,38 +7783,33 @@ Readable.prototype.pause = function() {
 function flow(stream) {
   var state = stream._readableState;
   debug('flow', state.flowing);
-  if (state.flowing) {
-    do {
-      var chunk = stream.read();
-    } while (null !== chunk && state.flowing);
-  }
+  while (state.flowing && stream.read() !== null) {}
 }
 
 // wrap an old-style stream as the async data source.
 // This is *not* part of the readable stream interface.
 // It is an ugly unfortunate mess of history.
-Readable.prototype.wrap = function(stream) {
+Readable.prototype.wrap = function (stream) {
   var state = this._readableState;
   var paused = false;
 
   var self = this;
-  stream.on('end', function() {
+  stream.on('end', function () {
     debug('wrapped end');
     if (state.decoder && !state.ended) {
       var chunk = state.decoder.end();
-      if (chunk && chunk.length)
-        self.push(chunk);
+      if (chunk && chunk.length) self.push(chunk);
     }
 
     self.push(null);
   });
 
-  stream.on('data', function(chunk) {
+  stream.on('data', function (chunk) {
     debug('wrapped data');
-    if (state.decoder)
-      chunk = state.decoder.write(chunk);
-    if (!chunk || !state.objectMode && !chunk.length)
-      return;
+    if (state.decoder) chunk = state.decoder.write(chunk);
+
+    // don't skip over falsy values in objectMode
+    if (state.objectMode && (chunk === null || chunk === undefined)) return;else if (!state.objectMode && (!chunk || !chunk.length)) return;
 
     var ret = self.push(chunk);
     if (!ret) {
@@ -7395,22 +7821,23 @@ Readable.prototype.wrap = function(stream) {
   // proxy all the other methods.
   // important when wrapping filters and duplexes.
   for (var i in stream) {
-    if (util.isFunction(stream[i]) && util.isUndefined(this[i])) {
-      this[i] = function(method) { return function() {
-        return stream[method].apply(stream, arguments);
-      }}(i);
+    if (this[i] === undefined && typeof stream[i] === 'function') {
+      this[i] = function (method) {
+        return function () {
+          return stream[method].apply(stream, arguments);
+        };
+      }(i);
     }
   }
 
   // proxy certain important events.
-  var events = ['error', 'close', 'destroy', 'pause', 'resume'];
-  forEach(events, function(ev) {
-    stream.on(ev, self.emit.bind(self, ev));
-  });
+  for (var n = 0; n < kProxyEvents.length; n++) {
+    stream.on(kProxyEvents[n], self.emit.bind(self, kProxyEvents[n]));
+  }
 
   // when we try to consume some more bytes, simply unpause the
   // underlying stream.
-  self._read = function(n) {
+  self._read = function (n) {
     debug('wrapped _read', n);
     if (paused) {
       paused = false;
@@ -7421,74 +7848,106 @@ Readable.prototype.wrap = function(stream) {
   return self;
 };
 
-
-
 // exposed for testing purposes only.
 Readable._fromList = fromList;
 
 // Pluck off n bytes from an array of buffers.
 // Length is the combined lengths of all the buffers in the list.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
 function fromList(n, state) {
-  var list = state.buffer;
-  var length = state.length;
-  var stringMode = !!state.decoder;
-  var objectMode = !!state.objectMode;
+  // nothing buffered
+  if (state.length === 0) return null;
+
   var ret;
-
-  // nothing in the list, definitely empty.
-  if (list.length === 0)
-    return null;
-
-  if (length === 0)
-    ret = null;
-  else if (objectMode)
-    ret = list.shift();
-  else if (!n || n >= length) {
-    // read it all, truncate the array.
-    if (stringMode)
-      ret = list.join('');
-    else
-      ret = Buffer.concat(list, length);
-    list.length = 0;
+  if (state.objectMode) ret = state.buffer.shift();else if (!n || n >= state.length) {
+    // read it all, truncate the list
+    if (state.decoder) ret = state.buffer.join('');else if (state.buffer.length === 1) ret = state.buffer.head.data;else ret = state.buffer.concat(state.length);
+    state.buffer.clear();
   } else {
-    // read just some of it.
-    if (n < list[0].length) {
-      // just take a part of the first list item.
-      // slice is the same for buffers and strings.
-      var buf = list[0];
-      ret = buf.slice(0, n);
-      list[0] = buf.slice(n);
-    } else if (n === list[0].length) {
-      // first list is a perfect match
-      ret = list.shift();
-    } else {
-      // complex case.
-      // we have enough to cover it, but it spans past the first buffer.
-      if (stringMode)
-        ret = '';
-      else
-        ret = new Buffer(n);
-
-      var c = 0;
-      for (var i = 0, l = list.length; i < l && c < n; i++) {
-        var buf = list[0];
-        var cpy = Math.min(n - c, buf.length);
-
-        if (stringMode)
-          ret += buf.slice(0, cpy);
-        else
-          buf.copy(ret, c, 0, cpy);
-
-        if (cpy < buf.length)
-          list[0] = buf.slice(cpy);
-        else
-          list.shift();
-
-        c += cpy;
-      }
-    }
+    // read part of list
+    ret = fromListPartial(n, state.buffer, state.decoder);
   }
 
+  return ret;
+}
+
+// Extracts only enough buffered data to satisfy the amount requested.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function fromListPartial(n, list, hasStrings) {
+  var ret;
+  if (n < list.head.data.length) {
+    // slice is the same for buffers and strings
+    ret = list.head.data.slice(0, n);
+    list.head.data = list.head.data.slice(n);
+  } else if (n === list.head.data.length) {
+    // first chunk is a perfect match
+    ret = list.shift();
+  } else {
+    // result spans more than one buffer
+    ret = hasStrings ? copyFromBufferString(n, list) : copyFromBuffer(n, list);
+  }
+  return ret;
+}
+
+// Copies a specified amount of characters from the list of buffered data
+// chunks.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function copyFromBufferString(n, list) {
+  var p = list.head;
+  var c = 1;
+  var ret = p.data;
+  n -= ret.length;
+  while (p = p.next) {
+    var str = p.data;
+    var nb = n > str.length ? str.length : n;
+    if (nb === str.length) ret += str;else ret += str.slice(0, n);
+    n -= nb;
+    if (n === 0) {
+      if (nb === str.length) {
+        ++c;
+        if (p.next) list.head = p.next;else list.head = list.tail = null;
+      } else {
+        list.head = p;
+        p.data = str.slice(nb);
+      }
+      break;
+    }
+    ++c;
+  }
+  list.length -= c;
+  return ret;
+}
+
+// Copies a specified amount of bytes from the list of buffered data chunks.
+// This function is designed to be inlinable, so please take care when making
+// changes to the function body.
+function copyFromBuffer(n, list) {
+  var ret = Buffer.allocUnsafe(n);
+  var p = list.head;
+  var c = 1;
+  p.data.copy(ret);
+  n -= p.data.length;
+  while (p = p.next) {
+    var buf = p.data;
+    var nb = n > buf.length ? buf.length : n;
+    buf.copy(ret, ret.length - n, 0, nb);
+    n -= nb;
+    if (n === 0) {
+      if (nb === buf.length) {
+        ++c;
+        if (p.next) list.head = p.next;else list.head = list.tail = null;
+      } else {
+        list.head = p;
+        p.data = buf.slice(nb);
+      }
+      break;
+    }
+    ++c;
+  }
+  list.length -= c;
   return ret;
 }
 
@@ -7497,40 +7956,41 @@ function endReadable(stream) {
 
   // If we get here before consuming all the bytes, then that is a
   // bug in node.  Should never happen.
-  if (state.length > 0)
-    throw new Error('endReadable called on non-empty stream');
+  if (state.length > 0) throw new Error('"endReadable()" called on non-empty stream');
 
   if (!state.endEmitted) {
     state.ended = true;
-    process.nextTick(function() {
-      // Check that we didn't get one last unshift.
-      if (!state.endEmitted && state.length === 0) {
-        state.endEmitted = true;
-        stream.readable = false;
-        stream.emit('end');
-      }
-    });
+    processNextTick(endReadableNT, state, stream);
   }
 }
 
-function forEach (xs, f) {
+function endReadableNT(state, stream) {
+  // Check that we didn't get one last unshift.
+  if (!state.endEmitted && state.length === 0) {
+    state.endEmitted = true;
+    stream.readable = false;
+    stream.emit('end');
+  }
+}
+
+function forEach(xs, f) {
   for (var i = 0, l = xs.length; i < l; i++) {
     f(xs[i], i);
   }
 }
 
-function indexOf (xs, x) {
+function indexOf(xs, x) {
   for (var i = 0, l = xs.length; i < l; i++) {
     if (xs[i] === x) return i;
   }
   return -1;
 }
 
-
 /***/ }),
-/* 60 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -7551,7 +8011,6 @@ function indexOf (xs, x) {
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
@@ -7595,20 +8054,21 @@ function indexOf (xs, x) {
 // would be consumed, and then the rest would wait (un-transformed) until
 // the results of the previous transformed chunk were consumed.
 
+
+
 module.exports = Transform;
 
-var Duplex = __webpack_require__(13);
+var Duplex = __webpack_require__(14);
 
 /*<replacement>*/
-var util = __webpack_require__(14);
-util.inherits = __webpack_require__(15);
+var util = __webpack_require__(15);
+util.inherits = __webpack_require__(16);
 /*</replacement>*/
 
 util.inherits(Transform, Duplex);
 
-
-function TransformState(options, stream) {
-  this.afterTransform = function(er, data) {
+function TransformState(stream) {
+  this.afterTransform = function (er, data) {
     return afterTransform(stream, er, data);
   };
 
@@ -7616,6 +8076,7 @@ function TransformState(options, stream) {
   this.transforming = false;
   this.writecb = null;
   this.writechunk = null;
+  this.writeencoding = null;
 }
 
 function afterTransform(stream, er, data) {
@@ -7624,17 +8085,16 @@ function afterTransform(stream, er, data) {
 
   var cb = ts.writecb;
 
-  if (!cb)
-    return stream.emit('error', new Error('no writecb in Transform class'));
+  if (!cb) {
+    return stream.emit('error', new Error('write callback called multiple times'));
+  }
 
   ts.writechunk = null;
   ts.writecb = null;
 
-  if (!util.isNullOrUndefined(data))
-    stream.push(data);
+  if (data !== null && data !== undefined) stream.push(data);
 
-  if (cb)
-    cb(er);
+  cb(er);
 
   var rs = stream._readableState;
   rs.reading = false;
@@ -7643,16 +8103,13 @@ function afterTransform(stream, er, data) {
   }
 }
 
-
 function Transform(options) {
-  if (!(this instanceof Transform))
-    return new Transform(options);
+  if (!(this instanceof Transform)) return new Transform(options);
 
   Duplex.call(this, options);
 
-  this._transformState = new TransformState(options, this);
+  this._transformState = new TransformState(this);
 
-  // when the writable side finishes, then flush out anything remaining.
   var stream = this;
 
   // start out asking for a readable event once data is transformed.
@@ -7663,17 +8120,21 @@ function Transform(options) {
   // sync guard flag.
   this._readableState.sync = false;
 
-  this.once('prefinish', function() {
-    if (util.isFunction(this._flush))
-      this._flush(function(er) {
-        done(stream, er);
-      });
-    else
-      done(stream);
+  if (options) {
+    if (typeof options.transform === 'function') this._transform = options.transform;
+
+    if (typeof options.flush === 'function') this._flush = options.flush;
+  }
+
+  // When the writable side finishes, then flush out anything remaining.
+  this.once('prefinish', function () {
+    if (typeof this._flush === 'function') this._flush(function (er, data) {
+      done(stream, er, data);
+    });else done(stream);
   });
 }
 
-Transform.prototype.push = function(chunk, encoding) {
+Transform.prototype.push = function (chunk, encoding) {
   this._transformState.needTransform = false;
   return Duplex.prototype.push.call(this, chunk, encoding);
 };
@@ -7688,31 +8149,28 @@ Transform.prototype.push = function(chunk, encoding) {
 // Call `cb(err)` when you are done with this chunk.  If you pass
 // an error, then that'll put the hurt on the whole operation.  If you
 // never call cb(), then you'll never get another chunk.
-Transform.prototype._transform = function(chunk, encoding, cb) {
-  throw new Error('not implemented');
+Transform.prototype._transform = function (chunk, encoding, cb) {
+  throw new Error('_transform() is not implemented');
 };
 
-Transform.prototype._write = function(chunk, encoding, cb) {
+Transform.prototype._write = function (chunk, encoding, cb) {
   var ts = this._transformState;
   ts.writecb = cb;
   ts.writechunk = chunk;
   ts.writeencoding = encoding;
   if (!ts.transforming) {
     var rs = this._readableState;
-    if (ts.needTransform ||
-        rs.needReadable ||
-        rs.length < rs.highWaterMark)
-      this._read(rs.highWaterMark);
+    if (ts.needTransform || rs.needReadable || rs.length < rs.highWaterMark) this._read(rs.highWaterMark);
   }
 };
 
 // Doesn't matter what the args are here.
 // _transform does all the work.
 // That we got here means that the readable side wants more data.
-Transform.prototype._read = function(n) {
+Transform.prototype._read = function (n) {
   var ts = this._transformState;
 
-  if (!util.isNull(ts.writechunk) && ts.writecb && !ts.transforming) {
+  if (ts.writechunk !== null && ts.writecb && !ts.transforming) {
     ts.transforming = true;
     this._transform(ts.writechunk, ts.writeencoding, ts.afterTransform);
   } else {
@@ -7722,30 +8180,37 @@ Transform.prototype._read = function(n) {
   }
 };
 
+Transform.prototype._destroy = function (err, cb) {
+  var _this = this;
 
-function done(stream, er) {
-  if (er)
-    return stream.emit('error', er);
+  Duplex.prototype._destroy.call(this, err, function (err2) {
+    cb(err2);
+    _this.emit('close');
+  });
+};
+
+function done(stream, er, data) {
+  if (er) return stream.emit('error', er);
+
+  if (data !== null && data !== undefined) stream.push(data);
 
   // if there's nothing in the write buffer, then that means
   // that nothing more will ever be provided
   var ws = stream._writableState;
   var ts = stream._transformState;
 
-  if (ws.length)
-    throw new Error('calling transform done when ws.length != 0');
+  if (ws.length) throw new Error('Calling transform done when ws.length != 0');
 
-  if (ts.transforming)
-    throw new Error('calling transform done when still transforming');
+  if (ts.transforming) throw new Error('Calling transform done when still transforming');
 
   return stream.push(null);
 }
 
-
 /***/ }),
-/* 61 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -7768,55 +8233,106 @@ function done(stream, er) {
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // A bit simpler than readable streams.
-// Implement an async ._write(chunk, cb), and it'll handle all
+// Implement an async ._write(chunk, encoding, cb), and it'll handle all
 // the drain event emission and buffering.
+
+
+
+/*<replacement>*/
+
+var processNextTick = __webpack_require__(32);
+/*</replacement>*/
 
 module.exports = Writable;
 
-/*<replacement>*/
-var Buffer = __webpack_require__(32).Buffer;
-/*</replacement>*/
-
-Writable.WritableState = WritableState;
-
-
-/*<replacement>*/
-var util = __webpack_require__(14);
-util.inherits = __webpack_require__(15);
-/*</replacement>*/
-
-var Stream = __webpack_require__(8);
-
-util.inherits(Writable, Stream);
-
+/* <replacement> */
 function WriteReq(chunk, encoding, cb) {
   this.chunk = chunk;
   this.encoding = encoding;
   this.callback = cb;
+  this.next = null;
 }
 
+// It seems a linked list but it is not
+// there will be only 2 of these for each stream
+function CorkedRequest(state) {
+  var _this = this;
+
+  this.next = null;
+  this.entry = null;
+  this.finish = function () {
+    onCorkedFinish(_this, state);
+  };
+}
+/* </replacement> */
+
+/*<replacement>*/
+var asyncWrite = !process.browser && ['v0.10', 'v0.9.'].indexOf(process.version.slice(0, 5)) > -1 ? setImmediate : processNextTick;
+/*</replacement>*/
+
+/*<replacement>*/
+var Duplex;
+/*</replacement>*/
+
+Writable.WritableState = WritableState;
+
+/*<replacement>*/
+var util = __webpack_require__(15);
+util.inherits = __webpack_require__(16);
+/*</replacement>*/
+
+/*<replacement>*/
+var internalUtil = {
+  deprecate: __webpack_require__(270)
+};
+/*</replacement>*/
+
+/*<replacement>*/
+var Stream = __webpack_require__(69);
+/*</replacement>*/
+
+/*<replacement>*/
+var Buffer = __webpack_require__(7).Buffer;
+var OurUint8Array = global.Uint8Array || function () {};
+function _uint8ArrayToBuffer(chunk) {
+  return Buffer.from(chunk);
+}
+function _isUint8Array(obj) {
+  return Buffer.isBuffer(obj) || obj instanceof OurUint8Array;
+}
+/*</replacement>*/
+
+var destroyImpl = __webpack_require__(68);
+
+util.inherits(Writable, Stream);
+
+function nop() {}
+
 function WritableState(options, stream) {
-  var Duplex = __webpack_require__(13);
+  Duplex = Duplex || __webpack_require__(14);
 
   options = options || {};
-
-  // the point at which write() starts returning false
-  // Note: 0 is a valid value, means that we always return false if
-  // the entire buffer is not flushed immediately on write()
-  var hwm = options.highWaterMark;
-  var defaultHwm = options.objectMode ? 16 : 16 * 1024;
-  this.highWaterMark = (hwm || hwm === 0) ? hwm : defaultHwm;
 
   // object stream flag to indicate whether or not this stream
   // contains buffers or objects.
   this.objectMode = !!options.objectMode;
 
-  if (stream instanceof Duplex)
-    this.objectMode = this.objectMode || !!options.writableObjectMode;
+  if (stream instanceof Duplex) this.objectMode = this.objectMode || !!options.writableObjectMode;
+
+  // the point at which write() starts returning false
+  // Note: 0 is a valid value, means that we always return false if
+  // the entire buffer is not flushed immediately on write()
+  var hwm = options.highWaterMark;
+  var defaultHwm = this.objectMode ? 16 : 16 * 1024;
+  this.highWaterMark = hwm || hwm === 0 ? hwm : defaultHwm;
 
   // cast to ints.
-  this.highWaterMark = ~~this.highWaterMark;
+  this.highWaterMark = Math.floor(this.highWaterMark);
 
+  // if _final has been called
+  this.finalCalled = false;
+
+  // drain event flag.
   this.needDrain = false;
   // at the start of calling end()
   this.ending = false;
@@ -7824,6 +8340,9 @@ function WritableState(options, stream) {
   this.ended = false;
   // when 'finish' is emitted
   this.finished = false;
+
+  // has it been destroyed
+  this.destroyed = false;
 
   // should we decode strings into buffers before passing to _write?
   // this is here so that some node-core streams can optimize string
@@ -7859,7 +8378,7 @@ function WritableState(options, stream) {
   this.bufferProcessing = false;
 
   // the callback that's passed to _write(chunk,cb)
-  this.onwrite = function(er) {
+  this.onwrite = function (er) {
     onwrite(stream, er);
   };
 
@@ -7869,7 +8388,8 @@ function WritableState(options, stream) {
   // the amount that is being written when _write is called.
   this.writelen = 0;
 
-  this.buffer = [];
+  this.bufferedRequest = null;
+  this.lastBufferedRequest = null;
 
   // number of pending user-supplied write callbacks
   // this must be 0 before 'finish' can be emitted
@@ -7881,113 +8401,170 @@ function WritableState(options, stream) {
 
   // True if the error was already emitted and should not be thrown again
   this.errorEmitted = false;
+
+  // count buffered requests
+  this.bufferedRequestCount = 0;
+
+  // allocate the first CorkedRequest, there is always
+  // one allocated and free to use, and we maintain at most two
+  this.corkedRequestsFree = new CorkedRequest(this);
+}
+
+WritableState.prototype.getBuffer = function getBuffer() {
+  var current = this.bufferedRequest;
+  var out = [];
+  while (current) {
+    out.push(current);
+    current = current.next;
+  }
+  return out;
+};
+
+(function () {
+  try {
+    Object.defineProperty(WritableState.prototype, 'buffer', {
+      get: internalUtil.deprecate(function () {
+        return this.getBuffer();
+      }, '_writableState.buffer is deprecated. Use _writableState.getBuffer ' + 'instead.', 'DEP0003')
+    });
+  } catch (_) {}
+})();
+
+// Test _writableState for inheritance to account for Duplex streams,
+// whose prototype chain only points to Readable.
+var realHasInstance;
+if (typeof Symbol === 'function' && Symbol.hasInstance && typeof Function.prototype[Symbol.hasInstance] === 'function') {
+  realHasInstance = Function.prototype[Symbol.hasInstance];
+  Object.defineProperty(Writable, Symbol.hasInstance, {
+    value: function (object) {
+      if (realHasInstance.call(this, object)) return true;
+
+      return object && object._writableState instanceof WritableState;
+    }
+  });
+} else {
+  realHasInstance = function (object) {
+    return object instanceof this;
+  };
 }
 
 function Writable(options) {
-  var Duplex = __webpack_require__(13);
+  Duplex = Duplex || __webpack_require__(14);
 
-  // Writable ctor is applied to Duplexes, though they're not
-  // instanceof Writable, they're instanceof Readable.
-  if (!(this instanceof Writable) && !(this instanceof Duplex))
+  // Writable ctor is applied to Duplexes, too.
+  // `realHasInstance` is necessary because using plain `instanceof`
+  // would return false, as no `_writableState` property is attached.
+
+  // Trying to use the custom `instanceof` for Writable here will also break the
+  // Node.js LazyTransform implementation, which has a non-trivial getter for
+  // `_writableState` that would lead to infinite recursion.
+  if (!realHasInstance.call(Writable, this) && !(this instanceof Duplex)) {
     return new Writable(options);
+  }
 
   this._writableState = new WritableState(options, this);
 
   // legacy.
   this.writable = true;
 
+  if (options) {
+    if (typeof options.write === 'function') this._write = options.write;
+
+    if (typeof options.writev === 'function') this._writev = options.writev;
+
+    if (typeof options.destroy === 'function') this._destroy = options.destroy;
+
+    if (typeof options.final === 'function') this._final = options.final;
+  }
+
   Stream.call(this);
 }
 
 // Otherwise people can pipe Writable streams, which is just wrong.
-Writable.prototype.pipe = function() {
-  this.emit('error', new Error('Cannot pipe. Not readable.'));
+Writable.prototype.pipe = function () {
+  this.emit('error', new Error('Cannot pipe, not readable'));
 };
 
-
-function writeAfterEnd(stream, state, cb) {
+function writeAfterEnd(stream, cb) {
   var er = new Error('write after end');
   // TODO: defer error events consistently everywhere, not just the cb
   stream.emit('error', er);
-  process.nextTick(function() {
-    cb(er);
-  });
+  processNextTick(cb, er);
 }
 
-// If we get something that is not a buffer, string, null, or undefined,
-// and we're not in objectMode, then that's an error.
-// Otherwise stream chunks are all considered to be of length=1, and the
-// watermarks determine how many objects to keep in the buffer, rather than
-// how many bytes or characters.
+// Checks that a user-supplied chunk is valid, especially for the particular
+// mode the stream is in. Currently this means that `null` is never accepted
+// and undefined/non-string values are only allowed in object mode.
 function validChunk(stream, state, chunk, cb) {
   var valid = true;
-  if (!util.isBuffer(chunk) &&
-      !util.isString(chunk) &&
-      !util.isNullOrUndefined(chunk) &&
-      !state.objectMode) {
-    var er = new TypeError('Invalid non-string/buffer chunk');
+  var er = false;
+
+  if (chunk === null) {
+    er = new TypeError('May not write null values to stream');
+  } else if (typeof chunk !== 'string' && chunk !== undefined && !state.objectMode) {
+    er = new TypeError('Invalid non-string/buffer chunk');
+  }
+  if (er) {
     stream.emit('error', er);
-    process.nextTick(function() {
-      cb(er);
-    });
+    processNextTick(cb, er);
     valid = false;
   }
   return valid;
 }
 
-Writable.prototype.write = function(chunk, encoding, cb) {
+Writable.prototype.write = function (chunk, encoding, cb) {
   var state = this._writableState;
   var ret = false;
+  var isBuf = _isUint8Array(chunk) && !state.objectMode;
 
-  if (util.isFunction(encoding)) {
+  if (isBuf && !Buffer.isBuffer(chunk)) {
+    chunk = _uint8ArrayToBuffer(chunk);
+  }
+
+  if (typeof encoding === 'function') {
     cb = encoding;
     encoding = null;
   }
 
-  if (util.isBuffer(chunk))
-    encoding = 'buffer';
-  else if (!encoding)
-    encoding = state.defaultEncoding;
+  if (isBuf) encoding = 'buffer';else if (!encoding) encoding = state.defaultEncoding;
 
-  if (!util.isFunction(cb))
-    cb = function() {};
+  if (typeof cb !== 'function') cb = nop;
 
-  if (state.ended)
-    writeAfterEnd(this, state, cb);
-  else if (validChunk(this, state, chunk, cb)) {
+  if (state.ended) writeAfterEnd(this, cb);else if (isBuf || validChunk(this, state, chunk, cb)) {
     state.pendingcb++;
-    ret = writeOrBuffer(this, state, chunk, encoding, cb);
+    ret = writeOrBuffer(this, state, isBuf, chunk, encoding, cb);
   }
 
   return ret;
 };
 
-Writable.prototype.cork = function() {
+Writable.prototype.cork = function () {
   var state = this._writableState;
 
   state.corked++;
 };
 
-Writable.prototype.uncork = function() {
+Writable.prototype.uncork = function () {
   var state = this._writableState;
 
   if (state.corked) {
     state.corked--;
 
-    if (!state.writing &&
-        !state.corked &&
-        !state.finished &&
-        !state.bufferProcessing &&
-        state.buffer.length)
-      clearBuffer(this, state);
+    if (!state.writing && !state.corked && !state.finished && !state.bufferProcessing && state.bufferedRequest) clearBuffer(this, state);
   }
 };
 
+Writable.prototype.setDefaultEncoding = function setDefaultEncoding(encoding) {
+  // node::ParseEncoding() requires lower case.
+  if (typeof encoding === 'string') encoding = encoding.toLowerCase();
+  if (!(['hex', 'utf8', 'utf-8', 'ascii', 'binary', 'base64', 'ucs2', 'ucs-2', 'utf16le', 'utf-16le', 'raw'].indexOf((encoding + '').toLowerCase()) > -1)) throw new TypeError('Unknown encoding: ' + encoding);
+  this._writableState.defaultEncoding = encoding;
+  return this;
+};
+
 function decodeChunk(state, chunk, encoding) {
-  if (!state.objectMode &&
-      state.decodeStrings !== false &&
-      util.isString(chunk)) {
-    chunk = new Buffer(chunk, encoding);
+  if (!state.objectMode && state.decodeStrings !== false && typeof chunk === 'string') {
+    chunk = Buffer.from(chunk, encoding);
   }
   return chunk;
 }
@@ -7995,23 +8572,41 @@ function decodeChunk(state, chunk, encoding) {
 // if we're already writing something, then just put this
 // in the queue, and wait our turn.  Otherwise, call _write
 // If we return false, then we need a drain event, so set that flag.
-function writeOrBuffer(stream, state, chunk, encoding, cb) {
-  chunk = decodeChunk(state, chunk, encoding);
-  if (util.isBuffer(chunk))
-    encoding = 'buffer';
+function writeOrBuffer(stream, state, isBuf, chunk, encoding, cb) {
+  if (!isBuf) {
+    var newChunk = decodeChunk(state, chunk, encoding);
+    if (chunk !== newChunk) {
+      isBuf = true;
+      encoding = 'buffer';
+      chunk = newChunk;
+    }
+  }
   var len = state.objectMode ? 1 : chunk.length;
 
   state.length += len;
 
   var ret = state.length < state.highWaterMark;
   // we must ensure that previous needDrain will not be reset to false.
-  if (!ret)
-    state.needDrain = true;
+  if (!ret) state.needDrain = true;
 
-  if (state.writing || state.corked)
-    state.buffer.push(new WriteReq(chunk, encoding, cb));
-  else
+  if (state.writing || state.corked) {
+    var last = state.lastBufferedRequest;
+    state.lastBufferedRequest = {
+      chunk: chunk,
+      encoding: encoding,
+      isBuf: isBuf,
+      callback: cb,
+      next: null
+    };
+    if (last) {
+      last.next = state.lastBufferedRequest;
+    } else {
+      state.bufferedRequest = state.lastBufferedRequest;
+    }
+    state.bufferedRequestCount += 1;
+  } else {
     doWrite(stream, state, false, len, chunk, encoding, cb);
+  }
 
   return ret;
 }
@@ -8021,26 +8616,32 @@ function doWrite(stream, state, writev, len, chunk, encoding, cb) {
   state.writecb = cb;
   state.writing = true;
   state.sync = true;
-  if (writev)
-    stream._writev(chunk, state.onwrite);
-  else
-    stream._write(chunk, encoding, state.onwrite);
+  if (writev) stream._writev(chunk, state.onwrite);else stream._write(chunk, encoding, state.onwrite);
   state.sync = false;
 }
 
 function onwriteError(stream, state, sync, er, cb) {
-  if (sync)
-    process.nextTick(function() {
-      state.pendingcb--;
-      cb(er);
-    });
-  else {
-    state.pendingcb--;
-    cb(er);
-  }
+  --state.pendingcb;
 
-  stream._writableState.errorEmitted = true;
-  stream.emit('error', er);
+  if (sync) {
+    // defer the callback if we are being called synchronously
+    // to avoid piling up things on the stack
+    processNextTick(cb, er);
+    // this can emit finish, and it will always happen
+    // after error
+    processNextTick(finishMaybe, stream, state);
+    stream._writableState.errorEmitted = true;
+    stream.emit('error', er);
+  } else {
+    // the caller expect this to happen before if
+    // it is async
+    cb(er);
+    stream._writableState.errorEmitted = true;
+    stream.emit('error', er);
+    // this can emit finish, but finish must
+    // always follow error
+    finishMaybe(stream, state);
+  }
 }
 
 function onwriteStateUpdate(state) {
@@ -8057,23 +8658,18 @@ function onwrite(stream, er) {
 
   onwriteStateUpdate(state);
 
-  if (er)
-    onwriteError(stream, state, sync, er, cb);
-  else {
+  if (er) onwriteError(stream, state, sync, er, cb);else {
     // Check if we're actually ready to finish, but don't emit yet
-    var finished = needFinish(stream, state);
+    var finished = needFinish(state);
 
-    if (!finished &&
-        !state.corked &&
-        !state.bufferProcessing &&
-        state.buffer.length) {
+    if (!finished && !state.corked && !state.bufferProcessing && state.bufferedRequest) {
       clearBuffer(stream, state);
     }
 
     if (sync) {
-      process.nextTick(function() {
-        afterWrite(stream, state, finished, cb);
-      });
+      /*<replacement>*/
+      asyncWrite(afterWrite, stream, state, finished, cb);
+      /*</replacement>*/
     } else {
       afterWrite(stream, state, finished, cb);
     }
@@ -8081,8 +8677,7 @@ function onwrite(stream, er) {
 }
 
 function afterWrite(stream, state, finished, cb) {
-  if (!finished)
-    onwriteDrain(stream, state);
+  if (!finished) onwriteDrain(stream, state);
   state.pendingcb--;
   cb();
   finishMaybe(stream, state);
@@ -8098,80 +8693,86 @@ function onwriteDrain(stream, state) {
   }
 }
 
-
 // if there's something in the buffer waiting, then process it
 function clearBuffer(stream, state) {
   state.bufferProcessing = true;
+  var entry = state.bufferedRequest;
 
-  if (stream._writev && state.buffer.length > 1) {
+  if (stream._writev && entry && entry.next) {
     // Fast case, write everything using _writev()
-    var cbs = [];
-    for (var c = 0; c < state.buffer.length; c++)
-      cbs.push(state.buffer[c].callback);
+    var l = state.bufferedRequestCount;
+    var buffer = new Array(l);
+    var holder = state.corkedRequestsFree;
+    holder.entry = entry;
 
-    // count the one we are adding, as well.
-    // TODO(isaacs) clean this up
+    var count = 0;
+    var allBuffers = true;
+    while (entry) {
+      buffer[count] = entry;
+      if (!entry.isBuf) allBuffers = false;
+      entry = entry.next;
+      count += 1;
+    }
+    buffer.allBuffers = allBuffers;
+
+    doWrite(stream, state, true, state.length, buffer, '', holder.finish);
+
+    // doWrite is almost always async, defer these to save a bit of time
+    // as the hot path ends with doWrite
     state.pendingcb++;
-    doWrite(stream, state, true, state.length, state.buffer, '', function(err) {
-      for (var i = 0; i < cbs.length; i++) {
-        state.pendingcb--;
-        cbs[i](err);
-      }
-    });
-
-    // Clear buffer
-    state.buffer = [];
+    state.lastBufferedRequest = null;
+    if (holder.next) {
+      state.corkedRequestsFree = holder.next;
+      holder.next = null;
+    } else {
+      state.corkedRequestsFree = new CorkedRequest(state);
+    }
   } else {
     // Slow case, write chunks one-by-one
-    for (var c = 0; c < state.buffer.length; c++) {
-      var entry = state.buffer[c];
+    while (entry) {
       var chunk = entry.chunk;
       var encoding = entry.encoding;
       var cb = entry.callback;
       var len = state.objectMode ? 1 : chunk.length;
 
       doWrite(stream, state, false, len, chunk, encoding, cb);
-
+      entry = entry.next;
       // if we didn't call the onwrite immediately, then
       // it means that we need to wait until it does.
       // also, that means that the chunk and cb are currently
       // being processed, so move the buffer counter past them.
       if (state.writing) {
-        c++;
         break;
       }
     }
 
-    if (c < state.buffer.length)
-      state.buffer = state.buffer.slice(c);
-    else
-      state.buffer.length = 0;
+    if (entry === null) state.lastBufferedRequest = null;
   }
 
+  state.bufferedRequestCount = 0;
+  state.bufferedRequest = entry;
   state.bufferProcessing = false;
 }
 
-Writable.prototype._write = function(chunk, encoding, cb) {
-  cb(new Error('not implemented'));
-
+Writable.prototype._write = function (chunk, encoding, cb) {
+  cb(new Error('_write() is not implemented'));
 };
 
 Writable.prototype._writev = null;
 
-Writable.prototype.end = function(chunk, encoding, cb) {
+Writable.prototype.end = function (chunk, encoding, cb) {
   var state = this._writableState;
 
-  if (util.isFunction(chunk)) {
+  if (typeof chunk === 'function') {
     cb = chunk;
     chunk = null;
     encoding = null;
-  } else if (util.isFunction(encoding)) {
+  } else if (typeof encoding === 'function') {
     cb = encoding;
     encoding = null;
   }
 
-  if (!util.isNullOrUndefined(chunk))
-    this.write(chunk, encoding);
+  if (chunk !== null && chunk !== undefined) this.write(chunk, encoding);
 
   // .end() fully uncorks
   if (state.corked) {
@@ -8180,34 +8781,44 @@ Writable.prototype.end = function(chunk, encoding, cb) {
   }
 
   // ignore unnecessary end() calls.
-  if (!state.ending && !state.finished)
-    endWritable(this, state, cb);
+  if (!state.ending && !state.finished) endWritable(this, state, cb);
 };
 
-
-function needFinish(stream, state) {
-  return (state.ending &&
-          state.length === 0 &&
-          !state.finished &&
-          !state.writing);
+function needFinish(state) {
+  return state.ending && state.length === 0 && state.bufferedRequest === null && !state.finished && !state.writing;
 }
-
-function prefinish(stream, state) {
-  if (!state.prefinished) {
+function callFinal(stream, state) {
+  stream._final(function (err) {
+    state.pendingcb--;
+    if (err) {
+      stream.emit('error', err);
+    }
     state.prefinished = true;
     stream.emit('prefinish');
+    finishMaybe(stream, state);
+  });
+}
+function prefinish(stream, state) {
+  if (!state.prefinished && !state.finalCalled) {
+    if (typeof stream._final === 'function') {
+      state.pendingcb++;
+      state.finalCalled = true;
+      processNextTick(callFinal, stream, state);
+    } else {
+      state.prefinished = true;
+      stream.emit('prefinish');
+    }
   }
 }
 
 function finishMaybe(stream, state) {
-  var need = needFinish(stream, state);
+  var need = needFinish(state);
   if (need) {
+    prefinish(stream, state);
     if (state.pendingcb === 0) {
-      prefinish(stream, state);
       state.finished = true;
       stream.emit('finish');
-    } else
-      prefinish(stream, state);
+    }
   }
   return need;
 }
@@ -8216,23 +8827,427 @@ function endWritable(stream, state, cb) {
   state.ending = true;
   finishMaybe(stream, state);
   if (cb) {
-    if (state.finished)
-      process.nextTick(cb);
-    else
-      stream.once('finish', cb);
+    if (state.finished) processNextTick(cb);else stream.once('finish', cb);
   }
   state.ended = true;
+  stream.writable = false;
 }
+
+function onCorkedFinish(corkReq, state, err) {
+  var entry = corkReq.entry;
+  corkReq.entry = null;
+  while (entry) {
+    var cb = entry.callback;
+    state.pendingcb--;
+    cb(err);
+    entry = entry.next;
+  }
+  if (state.corkedRequestsFree) {
+    state.corkedRequestsFree.next = corkReq;
+  } else {
+    state.corkedRequestsFree = corkReq;
+  }
+}
+
+Object.defineProperty(Writable.prototype, 'destroyed', {
+  get: function () {
+    if (this._writableState === undefined) {
+      return false;
+    }
+    return this._writableState.destroyed;
+  },
+  set: function (value) {
+    // we ignore the value if the stream
+    // has not been initialized yet
+    if (!this._writableState) {
+      return;
+    }
+
+    // backward compatibility, the user is explicitly
+    // managing destroyed
+    this._writableState.destroyed = value;
+  }
+});
+
+Writable.prototype.destroy = destroyImpl.destroy;
+Writable.prototype._undestroy = destroyImpl.undestroy;
+Writable.prototype._destroy = function (err, cb) {
+  this.end();
+  cb(err);
+};
+
+/***/ }),
+/* 68 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/*<replacement>*/
+
+var processNextTick = __webpack_require__(32);
+/*</replacement>*/
+
+// undocumented cb() API, needed for core, not for public API
+function destroy(err, cb) {
+  var _this = this;
+
+  var readableDestroyed = this._readableState && this._readableState.destroyed;
+  var writableDestroyed = this._writableState && this._writableState.destroyed;
+
+  if (readableDestroyed || writableDestroyed) {
+    if (cb) {
+      cb(err);
+    } else if (err && (!this._writableState || !this._writableState.errorEmitted)) {
+      processNextTick(emitErrorNT, this, err);
+    }
+    return;
+  }
+
+  // we set destroyed to true before firing error callbacks in order
+  // to make it re-entrance safe in case destroy() is called within callbacks
+
+  if (this._readableState) {
+    this._readableState.destroyed = true;
+  }
+
+  // if this is a duplex stream mark the writable part as destroyed as well
+  if (this._writableState) {
+    this._writableState.destroyed = true;
+  }
+
+  this._destroy(err || null, function (err) {
+    if (!cb && err) {
+      processNextTick(emitErrorNT, _this, err);
+      if (_this._writableState) {
+        _this._writableState.errorEmitted = true;
+      }
+    } else if (cb) {
+      cb(err);
+    }
+  });
+}
+
+function undestroy() {
+  if (this._readableState) {
+    this._readableState.destroyed = false;
+    this._readableState.reading = false;
+    this._readableState.ended = false;
+    this._readableState.endEmitted = false;
+  }
+
+  if (this._writableState) {
+    this._writableState.destroyed = false;
+    this._writableState.ended = false;
+    this._writableState.ending = false;
+    this._writableState.finished = false;
+    this._writableState.errorEmitted = false;
+  }
+}
+
+function emitErrorNT(self, err) {
+  self.emit('error', err);
+}
+
+module.exports = {
+  destroy: destroy,
+  undestroy: undestroy
+};
+
+/***/ }),
+/* 69 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = __webpack_require__(11);
 
 
 /***/ }),
-/* 62 */
+/* 70 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var Buffer = __webpack_require__(7).Buffer;
+
+var isEncoding = Buffer.isEncoding || function (encoding) {
+  encoding = '' + encoding;
+  switch (encoding && encoding.toLowerCase()) {
+    case 'hex':case 'utf8':case 'utf-8':case 'ascii':case 'binary':case 'base64':case 'ucs2':case 'ucs-2':case 'utf16le':case 'utf-16le':case 'raw':
+      return true;
+    default:
+      return false;
+  }
+};
+
+function _normalizeEncoding(enc) {
+  if (!enc) return 'utf8';
+  var retried;
+  while (true) {
+    switch (enc) {
+      case 'utf8':
+      case 'utf-8':
+        return 'utf8';
+      case 'ucs2':
+      case 'ucs-2':
+      case 'utf16le':
+      case 'utf-16le':
+        return 'utf16le';
+      case 'latin1':
+      case 'binary':
+        return 'latin1';
+      case 'base64':
+      case 'ascii':
+      case 'hex':
+        return enc;
+      default:
+        if (retried) return; // undefined
+        enc = ('' + enc).toLowerCase();
+        retried = true;
+    }
+  }
+};
+
+// Do not cache `Buffer.isEncoding` when checking encoding names as some
+// modules monkey-patch it to support additional encodings
+function normalizeEncoding(enc) {
+  var nenc = _normalizeEncoding(enc);
+  if (typeof nenc !== 'string' && (Buffer.isEncoding === isEncoding || !isEncoding(enc))) throw new Error('Unknown encoding: ' + enc);
+  return nenc || enc;
+}
+
+// StringDecoder provides an interface for efficiently splitting a series of
+// buffers into a series of JS strings without breaking apart multi-byte
+// characters.
+exports.StringDecoder = StringDecoder;
+function StringDecoder(encoding) {
+  this.encoding = normalizeEncoding(encoding);
+  var nb;
+  switch (this.encoding) {
+    case 'utf16le':
+      this.text = utf16Text;
+      this.end = utf16End;
+      nb = 4;
+      break;
+    case 'utf8':
+      this.fillLast = utf8FillLast;
+      nb = 4;
+      break;
+    case 'base64':
+      this.text = base64Text;
+      this.end = base64End;
+      nb = 3;
+      break;
+    default:
+      this.write = simpleWrite;
+      this.end = simpleEnd;
+      return;
+  }
+  this.lastNeed = 0;
+  this.lastTotal = 0;
+  this.lastChar = Buffer.allocUnsafe(nb);
+}
+
+StringDecoder.prototype.write = function (buf) {
+  if (buf.length === 0) return '';
+  var r;
+  var i;
+  if (this.lastNeed) {
+    r = this.fillLast(buf);
+    if (r === undefined) return '';
+    i = this.lastNeed;
+    this.lastNeed = 0;
+  } else {
+    i = 0;
+  }
+  if (i < buf.length) return r ? r + this.text(buf, i) : this.text(buf, i);
+  return r || '';
+};
+
+StringDecoder.prototype.end = utf8End;
+
+// Returns only complete characters in a Buffer
+StringDecoder.prototype.text = utf8Text;
+
+// Attempts to complete a partial non-UTF-8 character using bytes from a Buffer
+StringDecoder.prototype.fillLast = function (buf) {
+  if (this.lastNeed <= buf.length) {
+    buf.copy(this.lastChar, this.lastTotal - this.lastNeed, 0, this.lastNeed);
+    return this.lastChar.toString(this.encoding, 0, this.lastTotal);
+  }
+  buf.copy(this.lastChar, this.lastTotal - this.lastNeed, 0, buf.length);
+  this.lastNeed -= buf.length;
+};
+
+// Checks the type of a UTF-8 byte, whether it's ASCII, a leading byte, or a
+// continuation byte.
+function utf8CheckByte(byte) {
+  if (byte <= 0x7F) return 0;else if (byte >> 5 === 0x06) return 2;else if (byte >> 4 === 0x0E) return 3;else if (byte >> 3 === 0x1E) return 4;
+  return -1;
+}
+
+// Checks at most 3 bytes at the end of a Buffer in order to detect an
+// incomplete multi-byte UTF-8 character. The total number of bytes (2, 3, or 4)
+// needed to complete the UTF-8 character (if applicable) are returned.
+function utf8CheckIncomplete(self, buf, i) {
+  var j = buf.length - 1;
+  if (j < i) return 0;
+  var nb = utf8CheckByte(buf[j]);
+  if (nb >= 0) {
+    if (nb > 0) self.lastNeed = nb - 1;
+    return nb;
+  }
+  if (--j < i) return 0;
+  nb = utf8CheckByte(buf[j]);
+  if (nb >= 0) {
+    if (nb > 0) self.lastNeed = nb - 2;
+    return nb;
+  }
+  if (--j < i) return 0;
+  nb = utf8CheckByte(buf[j]);
+  if (nb >= 0) {
+    if (nb > 0) {
+      if (nb === 2) nb = 0;else self.lastNeed = nb - 3;
+    }
+    return nb;
+  }
+  return 0;
+}
+
+// Validates as many continuation bytes for a multi-byte UTF-8 character as
+// needed or are available. If we see a non-continuation byte where we expect
+// one, we "replace" the validated continuation bytes we've seen so far with
+// UTF-8 replacement characters ('\ufffd'), to match v8's UTF-8 decoding
+// behavior. The continuation byte check is included three times in the case
+// where all of the continuation bytes for a character exist in the same buffer.
+// It is also done this way as a slight performance increase instead of using a
+// loop.
+function utf8CheckExtraBytes(self, buf, p) {
+  if ((buf[0] & 0xC0) !== 0x80) {
+    self.lastNeed = 0;
+    return '\ufffd'.repeat(p);
+  }
+  if (self.lastNeed > 1 && buf.length > 1) {
+    if ((buf[1] & 0xC0) !== 0x80) {
+      self.lastNeed = 1;
+      return '\ufffd'.repeat(p + 1);
+    }
+    if (self.lastNeed > 2 && buf.length > 2) {
+      if ((buf[2] & 0xC0) !== 0x80) {
+        self.lastNeed = 2;
+        return '\ufffd'.repeat(p + 2);
+      }
+    }
+  }
+}
+
+// Attempts to complete a multi-byte UTF-8 character using bytes from a Buffer.
+function utf8FillLast(buf) {
+  var p = this.lastTotal - this.lastNeed;
+  var r = utf8CheckExtraBytes(this, buf, p);
+  if (r !== undefined) return r;
+  if (this.lastNeed <= buf.length) {
+    buf.copy(this.lastChar, p, 0, this.lastNeed);
+    return this.lastChar.toString(this.encoding, 0, this.lastTotal);
+  }
+  buf.copy(this.lastChar, p, 0, buf.length);
+  this.lastNeed -= buf.length;
+}
+
+// Returns all complete UTF-8 characters in a Buffer. If the Buffer ended on a
+// partial character, the character's bytes are buffered until the required
+// number of bytes are available.
+function utf8Text(buf, i) {
+  var total = utf8CheckIncomplete(this, buf, i);
+  if (!this.lastNeed) return buf.toString('utf8', i);
+  this.lastTotal = total;
+  var end = buf.length - (total - this.lastNeed);
+  buf.copy(this.lastChar, 0, end);
+  return buf.toString('utf8', i, end);
+}
+
+// For UTF-8, a replacement character for each buffered byte of a (partial)
+// character needs to be added to the output.
+function utf8End(buf) {
+  var r = buf && buf.length ? this.write(buf) : '';
+  if (this.lastNeed) return r + '\ufffd'.repeat(this.lastTotal - this.lastNeed);
+  return r;
+}
+
+// UTF-16LE typically needs two bytes per character, but even if we have an even
+// number of bytes available, we need to check if we end on a leading/high
+// surrogate. In that case, we need to wait for the next two bytes in order to
+// decode the last character properly.
+function utf16Text(buf, i) {
+  if ((buf.length - i) % 2 === 0) {
+    var r = buf.toString('utf16le', i);
+    if (r) {
+      var c = r.charCodeAt(r.length - 1);
+      if (c >= 0xD800 && c <= 0xDBFF) {
+        this.lastNeed = 2;
+        this.lastTotal = 4;
+        this.lastChar[0] = buf[buf.length - 2];
+        this.lastChar[1] = buf[buf.length - 1];
+        return r.slice(0, -1);
+      }
+    }
+    return r;
+  }
+  this.lastNeed = 1;
+  this.lastTotal = 2;
+  this.lastChar[0] = buf[buf.length - 1];
+  return buf.toString('utf16le', i, buf.length - 1);
+}
+
+// For UTF-16LE we do not explicitly append special replacement characters if we
+// end on a partial character, we simply let v8 handle that.
+function utf16End(buf) {
+  var r = buf && buf.length ? this.write(buf) : '';
+  if (this.lastNeed) {
+    var end = this.lastTotal - this.lastNeed;
+    return r + this.lastChar.toString('utf16le', 0, end);
+  }
+  return r;
+}
+
+function base64Text(buf, i) {
+  var n = (buf.length - i) % 3;
+  if (n === 0) return buf.toString('base64', i);
+  this.lastNeed = 3 - n;
+  this.lastTotal = 3;
+  if (n === 1) {
+    this.lastChar[0] = buf[buf.length - 1];
+  } else {
+    this.lastChar[0] = buf[buf.length - 2];
+    this.lastChar[1] = buf[buf.length - 1];
+  }
+  return buf.toString('base64', i, buf.length - n);
+}
+
+function base64End(buf) {
+  var r = buf && buf.length ? this.write(buf) : '';
+  if (this.lastNeed) return r + this.lastChar.toString('base64', 0, 3 - this.lastNeed);
+  return r;
+}
+
+// Pass bytes on through for single-byte encodings (e.g. ascii, latin1, hex)
+function simpleWrite(buf) {
+  return buf.toString(this.encoding);
+}
+
+function simpleEnd(buf) {
+  return buf && buf.length ? this.write(buf) : '';
+}
+
+/***/ }),
+/* 71 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var EOL = __webpack_require__(4).EOL;
+var utils = __webpack_require__(72);
 
 var parsingErrorCode = {
     unclosedMLC: 0, // Unclosed multi-line comment.
@@ -8244,10 +9259,10 @@ var parsingErrorCode = {
 Object.freeze(parsingErrorCode);
 
 var errorMessages = [
-    {name: "unclosedMLC", message: "Unclosed multi-line comment."},
-    {name: "unclosedText", message: "Unclosed text block."},
-    {name: "unclosedQI", message: "Unclosed quoted identifier."},
-    {name: "multiLineQI", message: "Multi-line quoted identifiers are not supported."}
+    {name: 'unclosedMLC', message: 'Unclosed multi-line comment.'},
+    {name: 'unclosedText', message: 'Unclosed text block.'},
+    {name: 'unclosedQI', message: 'Unclosed quoted identifier.'},
+    {name: 'multiLineQI', message: 'Multi-line quoted identifiers are not supported.'}
 ];
 
 function SQLParsingError(code, position) {
@@ -8257,7 +9272,7 @@ function SQLParsingError(code, position) {
     this.code = code; // one of parsingErrorCode values;
     this.error = errorMessages[code].message;
     this.position = position; // Error position in the text: {line, column}
-    this.message = "Error parsing SQL at {line:" + position.line + ",col:" + position.column + "}: " + this.error;
+    this.message = 'Error parsing SQL at {line:' + position.line + ',col:' + position.column + '}: ' + this.error;
 }
 
 SQLParsingError.prototype = Object.create(Error.prototype, {
@@ -8270,20 +9285,16 @@ SQLParsingError.prototype = Object.create(Error.prototype, {
 
 SQLParsingError.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap = messageGap(level + 1);
+    var gap = utils.messageGap(level + 1);
     var lines = [
         'SQLParsingError {',
         gap + 'code: parsingErrorCode.' + errorMessages[this.code].name,
         gap + 'error: "' + this.error + '"',
-        gap + 'position: {line: ' + this.position.line + ", col: " + this.position.column + '}',
-        messageGap(level) + '}'
+        gap + 'position: {line: ' + this.position.line + ', col: ' + this.position.column + '}',
+        utils.messageGap(level) + '}'
     ];
     return lines.join(EOL);
 };
-
-function messageGap(level) {
-    return Array(1 + level * 4).join(' ');
-}
 
 SQLParsingError.prototype.inspect = function () {
     return this.toString();
@@ -8296,7 +9307,70 @@ module.exports = {
 
 
 /***/ }),
-/* 63 */
+/* 72 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var os = __webpack_require__(4);
+
+//////////////////////////////////////
+// Returns the End-Of-Line from text.
+function getEOL(text) {
+    var idx = 0, unix = 0, windows = 0;
+    while (idx < text.length) {
+        idx = text.indexOf('\n', idx);
+        if (idx === -1) {
+            break;
+        }
+        if (idx > 0 && text[idx - 1] === '\r') {
+            windows++;
+        } else {
+            unix++;
+        }
+        idx++;
+    }
+    if (unix === windows) {
+        return os.EOL;
+    }
+    return unix > windows ? '\n' : '\r\n';
+}
+
+///////////////////////////////////////////////////////
+// Returns {line, column} of an index within the text.
+function getIndexPos(text, index, eol) {
+    var lineIdx = 0, colIdx = index, pos = 0;
+    do {
+        pos = text.indexOf(eol, pos);
+        if (pos === -1 || index < pos + eol.length) {
+            break;
+        }
+        lineIdx++;
+        pos += eol.length;
+        colIdx = index - pos;
+    } while (pos < index);
+    return {
+        line: lineIdx + 1,
+        column: colIdx + 1
+    };
+}
+
+///////////////////////////////////////////
+// Returns a space gap for console output.
+function messageGap(level) {
+    return Array(1 + level * 4).join(' ');
+}
+
+module.exports = {
+    getEOL: getEOL,
+    getIndexPos: getIndexPos,
+    messageGap: messageGap
+};
+
+
+/***/ }),
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8312,47 +9386,67 @@ module.exports = {
  *  - construct a new promise with a callback function
  *  - resolve a promise with some result data
  *  - reject a promise with a reason
+ *  - resolve an array of promises
  *
  * The type is available from the library's root: `pgp.PromiseAdapter`.
  *
- * @param {function} create
+ * @param {object} api
+ * Promise API configuration object.
+ *
+ * Passing in anything other than an object will throw {@link external:TypeError TypeError} = `Adapter requires an api configuration object.`
+ *
+ * @param {function} api.create
  * A function that takes a callback parameter and returns a new promise object.
  * The callback parameter is expected to be `function(resolve, reject)`.
  *
- * Passing in anything other than a function will throw `Adapter requires a function to create a promise.`
+ * Passing in anything other than a function will throw {@link external:TypeError TypeError} = `Function 'create' must be specified.`
  *
- * @param {function} resolve
+ * @param {function} api.resolve
  * A function that takes an optional data parameter and resolves a promise with it.
  *
- * Passing in anything other than a function will throw `Adapter requires a function to resolve a promise.`
+ * Passing in anything other than a function will throw {@link external:TypeError TypeError} = `Function 'resolve' must be specified.`
  *
- * @param {function} reject
+ * @param {function} api.reject
  * A function that takes an optional error parameter and rejects a promise with it.
  *
- * Passing in anything other than a function will throw `Adapter requires a function to reject a promise.`
+ * Passing in anything other than a function will throw {@link external:TypeError TypeError} = `Function 'reject' must be specified.`
+ *
+ * @param {function} api.all
+ * A function that resolves an array of promises.
+ *
+ * Passing in anything other than a function will throw {@link external:TypeError TypeError} = `Function 'all' must be specified.`
  *
  * @returns {PromiseAdapter}
  */
-function PromiseAdapter(create, resolve, reject) {
+function PromiseAdapter(api) {
 
     if (!(this instanceof PromiseAdapter)) {
-        return new PromiseAdapter(create, resolve, reject);
+        return new PromiseAdapter(api);
     }
 
-    this.create = create;
-    this.resolve = resolve;
-    this.reject = reject;
-
-    if (typeof create !== 'function') {
-        throw new TypeError('Adapter requires a function to create a promise.');
+    if (!api || typeof api !== 'object') {
+        throw new TypeError('Adapter requires an api configuration object.');
     }
 
-    if (typeof resolve !== 'function') {
-        throw new TypeError('Adapter requires a function to resolve a promise.');
+    this.create = api.create;
+    this.resolve = api.resolve;
+    this.reject = api.reject;
+    this.all = api.all;
+
+    if (typeof this.create !== 'function') {
+        throw new TypeError('Function \'create\' must be specified.');
     }
 
-    if (typeof reject !== 'function') {
-        throw new TypeError('Adapter requires a function to reject a promise.');
+    if (typeof this.resolve !== 'function') {
+        throw new TypeError('Function \'resolve\' must be specified.');
+    }
+
+    if (typeof this.reject !== 'function') {
+        throw new TypeError('Function \'reject\' must be specified.');
+    }
+
+    if (typeof this.all !== 'function') {
+        throw new TypeError('Function \'all\' must be specified.');
     }
 }
 
@@ -8360,16 +9454,17 @@ module.exports = PromiseAdapter;
 
 
 /***/ }),
-/* 64 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    formatting: __webpack_require__(5)
+    formatting: __webpack_require__(5),
+    patterns: __webpack_require__(39)
 };
 
 /**
@@ -8438,14 +9533,14 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')({
+ * const pgp = require('pg-promise')({
  *     capSQL: true // if you want all generated SQL capitalized
  * });
  *
- * var Column = pgp.helpers.Column;
+ * const Column = pgp.helpers.Column;
  *
  * // creating a column from just a name:
- * var col1 = new Column('colName');
+ * const col1 = new Column('colName');
  * console.log(col1);
  * //=>
  * // Column {
@@ -8453,7 +9548,7 @@ var $npm = {
  * // }
  *
  * // creating a column from a name + modifier:
- * var col2 = new Column('colName:csv');
+ * const col2 = new Column('colName:csv');
  * console.log(col2);
  * //=>
  * // Column {
@@ -8462,7 +9557,7 @@ var $npm = {
  * // }
  *
  * // creating a column from a configurator:
- * var col3 = new Column({
+ * const col3 = new Column({
  *     name: 'colName', // required
  *     prop: 'propName', // optional
  *     mod: '^', // optional
@@ -8485,7 +9580,7 @@ function Column(col) {
     }
 
     if (typeof col === 'string') {
-        var info = parseColumn(col);
+        const info = parseColumn(col);
         this.name = info.name;
         if ('mod' in info) {
             this.mod = info.mod;
@@ -8495,16 +9590,16 @@ function Column(col) {
         }
     } else {
         if (col && typeof col === 'object' && 'name' in col) {
-            if (!$npm.utils.isText(col.name)) {
+            if (!npm.utils.isText(col.name)) {
                 throw new TypeError('Invalid \'name\' value: ' + JSON.stringify(col.name) + '. A non-empty string was expected.');
             }
-            if ($npm.utils.isNull(col.prop) && !isValidVariable(col.name)) {
+            if (npm.utils.isNull(col.prop) && !isValidVariable(col.name)) {
                 throw new TypeError('Invalid \'name\' syntax: ' + JSON.stringify(col.name) + '. A valid variable name was expected.');
             }
             this.name = col.name; // column name + property name (if 'prop' isn't specified)
 
-            if (!$npm.utils.isNull(col.prop)) {
-                if (!$npm.utils.isText(col.prop)) {
+            if (!npm.utils.isNull(col.prop)) {
+                if (!npm.utils.isText(col.prop)) {
                     throw new TypeError('Invalid \'prop\' value: ' + JSON.stringify(col.prop) + '. A non-empty string was expected.');
                 }
                 if (!isValidVariable(col.prop)) {
@@ -8515,13 +9610,13 @@ function Column(col) {
                     this.prop = col.prop;
                 }
             }
-            if (!$npm.utils.isNull(col.mod)) {
+            if (!npm.utils.isNull(col.mod)) {
                 if (typeof col.mod !== 'string' || !isValidMod(col.mod)) {
                     throw new TypeError('Invalid \'mod\' value: ' + JSON.stringify(col.mod) + '.');
                 }
                 this.mod = col.mod; // optional format modifier;
             }
-            if (!$npm.utils.isNull(col.cast)) {
+            if (!npm.utils.isNull(col.cast)) {
                 this.cast = parseCast(col.cast); // optional SQL type casting
             }
             if ('cnd' in col) {
@@ -8541,23 +9636,44 @@ function Column(col) {
         }
     }
 
-    var variable = '${' + (this.prop || this.name) + (this.mod || '') + '}',
+    const variable = '${' + (this.prop || this.name) + (this.mod || '') + '}',
         castText = this.cast ? ('::' + this.cast) : '',
-        escapedName = $npm.formatting.as.alias(this.name);
+        escapedName = npm.formatting.as.alias(this.name);
 
+    /**
+     * @name helpers.Column#variable
+     * @type string
+     * @readonly
+     * @description
+     * Full-syntax formatting variable for use in query templates.
+     */
     Object.defineProperty(this, 'variable', {
-        enumerable: false,
-        value: variable
+        value: variable,
+        enumerable: true
     });
 
+    /**
+     * @name helpers.Column#castText
+     * @type string
+     * @readonly
+     * @description
+     * Full-syntax sql type casting, if there is any, or else an empty string.
+     */
     Object.defineProperty(this, 'castText', {
-        enumerable: false,
-        value: castText
+        value: castText,
+        enumerable: true
     });
 
+    /**
+     * @name helpers.Column#escapedName
+     * @type string
+     * @readonly
+     * @description
+     * Escaped name of the column.
+     */
     Object.defineProperty(this, 'escapedName', {
-        enumerable: false,
-        value: escapedName
+        value: escapedName,
+        enumerable: true
     });
 
     Object.freeze(this);
@@ -8565,7 +9681,7 @@ function Column(col) {
 
 function parseCast(name) {
     if (typeof name === 'string') {
-        var s = name.replace(/^[:\s]*|\s*$/g, '');
+        const s = name.replace(/^[:\s]*|\s*$/g, '');
         if (s) {
             return s;
         }
@@ -8574,14 +9690,14 @@ function parseCast(name) {
 }
 
 function parseColumn(name) {
-    var m = name.match(/\??[a-zA-Z0-9\$_]+(\^|~|#|:raw|:alias|:name|:json|:csv|:value)?/);
+    const m = name.match(npm.patterns.validColumn);
     if (m && m[0] === name) {
-        var res = {};
+        const res = {};
         if (name[0] === '?') {
             res.cnd = true;
             name = name.substr(1);
         }
-        var mod = name.match(/\^|~|#|:raw|:alias|:name|:json|:csv|:value/);
+        const mod = name.match(npm.patterns.hasValidModifier);
         if (mod) {
             res.name = name.substr(0, mod.index);
             res.mod = mod[0];
@@ -8594,12 +9710,11 @@ function parseColumn(name) {
 }
 
 function isValidMod(mod) {
-    var values = ['^', '~', '#', ':raw', ':alias', ':name', ':json', ':csv', ':value'];
-    return values.indexOf(mod) !== -1;
+    return npm.patterns.validModifiers.indexOf(mod) !== -1;
 }
 
 function isValidVariable(name) {
-    var m = name.match(/^[0-9]+|[a-zA-Z0-9\$_]+/);
+    const m = name.match(npm.patterns.validVariable);
     return !!m && m[0] === name;
 }
 
@@ -8617,8 +9732,8 @@ function isValidVariable(name) {
  */
 Column.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
-        gap1 = $npm.utils.messageGap(level + 1),
+    const gap0 = npm.utils.messageGap(level),
+        gap1 = npm.utils.messageGap(level + 1),
         lines = [
             gap0 + 'Column {',
             gap1 + 'name: ' + JSON.stringify(this.name)
@@ -8645,7 +9760,7 @@ Column.prototype.toString = function (level) {
         lines.push(gap1 + 'skip: [Function]');
     }
     lines.push(gap0 + '}');
-    return lines.join($npm.os.EOL);
+    return lines.join(npm.os.EOL);
 };
 
 Column.prototype.inspect = function () {
@@ -8768,7 +9883,7 @@ module.exports = Column;
 
 
 /***/ }),
-/* 65 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -8785,29 +9900,29 @@ if (nodeHighVer < 4) {
     throw new Error('Minimum Node.js version required by pg-promise is 4.x');
 }
 
-module.exports = __webpack_require__(224);
+module.exports = __webpack_require__(236);
 
 
 /***/ }),
-/* 66 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     utils: __webpack_require__(2),
-    special: __webpack_require__(67),
-    QueryFile: __webpack_require__(19),
+    special: __webpack_require__(77),
+    QueryFile: __webpack_require__(20),
     formatting: __webpack_require__(5),
-    result: __webpack_require__(38),
-    errors: __webpack_require__(27),
-    events: __webpack_require__(17),
-    stream: __webpack_require__(226),
-    types: __webpack_require__(69)
+    result: __webpack_require__(40),
+    errors: __webpack_require__(28),
+    events: __webpack_require__(18),
+    stream: __webpack_require__(238),
+    types: __webpack_require__(79)
 };
 
-var QueryResultError = $npm.errors.QueryResultError,
+const QueryResultError = $npm.errors.QueryResultError,
     InternalError = $npm.utils.InternalError,
     ExternalQuery = $npm.types.ExternalQuery,
     PreparedStatement = $npm.types.PreparedStatement,
@@ -8815,13 +9930,14 @@ var QueryResultError = $npm.errors.QueryResultError,
     SpecialQuery = $npm.special.SpecialQuery,
     qrec = $npm.errors.queryResultErrorCode;
 
-var badMask = $npm.result.one | $npm.result.many; // the combination isn't supported;
+const badMask = $npm.result.one | $npm.result.many; // the combination isn't supported;
 
 //////////////////////////////
 // Generic query method;
 function $query(ctx, query, values, qrm, config) {
 
-    var isResult, $p = config.promise;
+    let isResult;
+    const $p = config.promise;
 
     if (qrm instanceof SpecialQuery) {
         if (qrm.isStream) {
@@ -8830,10 +9946,11 @@ function $query(ctx, query, values, qrm, config) {
         isResult = qrm.isResult;
     }
 
-    var error, isFunc,
-        opt = ctx.options,
+    const opt = ctx.options,
+        capSQL = opt.capSQL;
+
+    let error, isFunc,
         pgFormatting = opt.pgFormatting,
-        capSQL = opt.capSQL,
         params = pgFormatting ? values : undefined;
 
     if (!query) {
@@ -8879,7 +9996,7 @@ function $query(ctx, query, values, qrm, config) {
             error = new TypeError(isFunc ? 'Invalid function name.' : 'Invalid query format.');
         }
         if (query instanceof ExternalQuery) {
-            var qp = query.parse();
+            const qp = query.parse();
             if (qp instanceof Error) {
                 error = qp;
             } else {
@@ -8902,17 +10019,19 @@ function $query(ctx, query, values, qrm, config) {
         try {
             // use 'pg-promise' implementation of values formatting;
             if (isFunc) {
+                params = undefined;
                 query = $npm.formatting.formatFunction(query, values, capSQL);
             } else {
                 query = $npm.formatting.formatQuery(query, values);
             }
         } catch (e) {
             if (isFunc) {
-                var prefix = capSQL ? 'SELECT * FROM' : 'select * from';
+                const prefix = capSQL ? 'SELECT * FROM' : 'select * from';
                 query = prefix + ' ' + query + '(...)';
+            } else {
+                params = values;
             }
             error = e instanceof Error ? e : new $npm.utils.InternalError(e);
-            params = values;
         }
     }
 
@@ -8925,10 +10044,10 @@ function $query(ctx, query, values, qrm, config) {
         if (notifyReject()) {
             return;
         }
-        var start = Date.now();
+        const start = Date.now();
         try {
             ctx.db.client.query(query, params, (err, result) => {
-                var data;
+                let data;
                 if (!err) {
                     $npm.utils.addReadProp(result, 'duration', Date.now() - start);
                     $npm.utils.addReadProp(result.rows, 'duration', result.duration, true);
@@ -8944,7 +10063,7 @@ function $query(ctx, query, values, qrm, config) {
                         data = result; // raw object requested (Result type);
                     } else {
                         data = result.rows;
-                        var len = data.length;
+                        const len = data.length;
                         if (len) {
                             if (len > 1 && qrm & $npm.result.one) {
                                 // one row was expected, but returned multiple;
@@ -8986,7 +10105,7 @@ function $query(ctx, query, values, qrm, config) {
         }
 
         function getContext() {
-            var client;
+            let client;
             if (ctx.db) {
                 client = ctx.db.client;
             } else {
@@ -9004,7 +10123,7 @@ function $query(ctx, query, values, qrm, config) {
         notifyReject();
 
         function notifyReject() {
-            var context = getContext();
+            const context = getContext();
             if (error) {
                 if (error instanceof InternalError) {
                     error = error.error;
@@ -9025,7 +10144,7 @@ module.exports = config => {
 
 
 /***/ }),
-/* 67 */
+/* 77 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9033,12 +10152,14 @@ module.exports = config => {
 
 /////////////////////////////
 // Special Query type;
-function SpecialQuery(type) {
-    this.isStream = type === 'stream';
-    this.isResult = type === 'result';
+class SpecialQuery {
+    constructor(type) {
+        this.isStream = type === 'stream';
+        this.isResult = type === 'result';
+    }
 }
 
-var cache = {
+const cache = {
     resultQuery: new SpecialQuery('result'),
     streamQuery: new SpecialQuery('stream')
 };
@@ -9050,7 +10171,7 @@ module.exports = {
 
 
 /***/ }),
-/* 68 */
+/* 78 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9066,7 +10187,7 @@ module.exports = {
  *
  * @see $[Transaction Isolation]
  */
-var isolationLevel = {
+const isolationLevel = {
     /** Isolation level not specified. */
     none: 0,
 
@@ -9123,11 +10244,11 @@ Object.freeze(isolationLevel);
  *
  * @example
  *
- * var TransactionMode = pgp.txMode.TransactionMode;
- * var isolationLevel = pgp.txMode.isolationLevel;
+ * const TransactionMode = pgp.txMode.TransactionMode;
+ * const isolationLevel = pgp.txMode.isolationLevel;
  *
  * // Create a reusable transaction mode (serializable + read-only + deferrable):
- * var tmSRD = new TransactionMode({
+ * const tmSRD = new TransactionMode({
  *     tiLevel: isolationLevel.serializable,
  *     readOnly: true,
  *     deferrable: true
@@ -9161,12 +10282,12 @@ function TransactionMode(tiLevel, readOnly, deferrable) {
         tiLevel = tiLevel.tiLevel;
     }
 
-    var level, accessMode, deferrableMode, capBegin, begin = 'begin';
+    let level, accessMode, deferrableMode, capBegin, begin = 'begin';
 
     tiLevel = (tiLevel > 0) ? parseInt(tiLevel) : 0;
 
     if (tiLevel > 0 && tiLevel < 4) {
-        var values = ['serializable', 'repeatable read', 'read committed'];
+        const values = ['serializable', 'repeatable read', 'read committed'];
         level = 'isolation level ' + values[tiLevel - 1];
     }
 
@@ -9236,16 +10357,16 @@ Object.freeze(module.exports);
 
 
 /***/ }),
-/* 69 */
+/* 79 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     utils: __webpack_require__(2),
-    PS: __webpack_require__(229),
-    PQ: __webpack_require__(228)
+    PS: __webpack_require__(241),
+    PQ: __webpack_require__(240)
 };
 
 // istanbul ignore next;
@@ -9267,7 +10388,7 @@ module.exports = {
 
 
 /***/ }),
-/* 70 */
+/* 80 */
 /***/ (function(module, exports) {
 
 function webpackEmptyContext(req) {
@@ -9276,136 +10397,16 @@ function webpackEmptyContext(req) {
 webpackEmptyContext.keys = function() { return []; };
 webpackEmptyContext.resolve = webpackEmptyContext;
 module.exports = webpackEmptyContext;
-webpackEmptyContext.id = 70;
+webpackEmptyContext.id = 80;
 
 /***/ }),
-/* 71 */
+/* 81 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"_args": [
-		[
-			{
-				"raw": "pg-promise@^5.6.0",
-				"scope": null,
-				"escapedName": "pg-promise",
-				"name": "pg-promise",
-				"rawSpec": "^5.6.0",
-				"spec": ">=5.6.0 <6.0.0",
-				"type": "range"
-			},
-			"/home/neil/DevGit/ZenGate"
-		]
-	],
-	"_from": "pg-promise@>=5.6.0 <6.0.0",
-	"_id": "pg-promise@5.9.0",
-	"_inCache": true,
-	"_location": "/pg-promise",
-	"_nodeVersion": "8.0.0",
-	"_npmOperationalInternal": {
-		"host": "s3://npm-registry-packages",
-		"tmp": "tmp/pg-promise-5.9.0.tgz_1496625457462_0.8413828643970191"
-	},
-	"_npmUser": {
-		"name": "vitaly.tomilov",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"_npmVersion": "5.0.0",
-	"_phantomChildren": {},
-	"_requested": {
-		"raw": "pg-promise@^5.6.0",
-		"scope": null,
-		"escapedName": "pg-promise",
-		"name": "pg-promise",
-		"rawSpec": "^5.6.0",
-		"spec": ">=5.6.0 <6.0.0",
-		"type": "range"
-	},
-	"_requiredBy": [
-		"/"
-	],
-	"_resolved": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.0.tgz",
-	"_shasum": "bd635150fbad6e1fa55f96bc6321c79a29b20054",
-	"_shrinkwrap": null,
-	"_spec": "pg-promise@^5.6.0",
-	"_where": "/home/neil/DevGit/ZenGate",
-	"author": {
-		"name": "Vitaly Tomilov",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"bugs": {
-		"url": "https://github.com/vitaly-t/pg-promise/issues",
-		"email": "vitaly.tomilov@gmail.com"
-	},
-	"dependencies": {
-		"manakin": "0.4",
-		"pg": "5.1",
-		"pg-minify": "0.4",
-		"spex": "1.2"
-	},
-	"description": "Promises interface for PostgreSQL",
-	"devDependencies": {
-		"@types/node": "7.0",
-		"JSONStream": "1.3",
-		"bluebird": "3.5",
-		"coveralls": "2.11",
-		"eslint": "3.19",
-		"istanbul": "0.4",
-		"jasmine-node": "1.14",
-		"jsdoc": "3.4",
-		"pg-query-stream": "1.x",
-		"typescript": "2.3"
-	},
-	"directories": {},
-	"dist": {
-		"integrity": "sha512-9H6XhXX+6M7bQHUiQLhhQaG642272KY6Pekoj0VkOifxSVfW+kidGBZAPGGg22anPZLAknyn65+WoIGzU/LKEQ==",
-		"shasum": "bd635150fbad6e1fa55f96bc6321c79a29b20054",
-		"tarball": "https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.0.tgz"
-	},
-	"engines": {
-		"node": ">=4.0",
-		"npm": ">=2.15"
-	},
-	"files": [
-		"lib",
-		"typescript"
-	],
-	"gitHead": "5dafe6eb34e0d0a6b9850e40e34676cb56657699",
-	"homepage": "https://github.com/vitaly-t/pg-promise",
-	"keywords": [
-		"pg",
-		"promise",
-		"postgres"
-	],
-	"license": "MIT",
-	"main": "lib/index.js",
-	"maintainers": [
-		{
-			"name": "vitaly.tomilov",
-			"email": "vitaly.tomilov@gmail.com"
-		}
-	],
-	"name": "pg-promise",
-	"optionalDependencies": {},
-	"readme": "ERROR: No README data found!",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/vitaly-t/pg-promise.git"
-	},
-	"scripts": {
-		"coverage": "istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test",
-		"doc": "jsdoc -c ./jsdoc/jsDoc.json ./jsdoc/README.md",
-		"lint": "eslint ./lib",
-		"test": "jasmine-node test",
-		"test-native": "jasmine-node test --config PG_NATIVE true",
-		"travis": "npm run lint && istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
-	},
-	"typings": "typescript/pg-promise.d.ts",
-	"version": "5.9.0"
-};
+module.exports = {"_args":[[{"raw":"pg-promise@^5.6.0","scope":null,"escapedName":"pg-promise","name":"pg-promise","rawSpec":"^5.6.0","spec":">=5.6.0 <6.0.0","type":"range"},"/home/neil/DevGit/ZenGate"]],"_from":"pg-promise@>=5.6.0 <6.0.0","_id":"pg-promise@5.9.7","_inCache":true,"_location":"/pg-promise","_nodeVersion":"8.1.2","_npmOperationalInternal":{"host":"s3://npm-registry-packages","tmp":"tmp/pg-promise-5.9.7.tgz_1498406013893_0.5330613448750228"},"_npmUser":{"name":"vitaly.tomilov","email":"vitaly.tomilov@gmail.com"},"_npmVersion":"5.0.3","_phantomChildren":{},"_requested":{"raw":"pg-promise@^5.6.0","scope":null,"escapedName":"pg-promise","name":"pg-promise","rawSpec":"^5.6.0","spec":">=5.6.0 <6.0.0","type":"range"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.7.tgz","_shasum":"4c78f58061cf04d6afa86baacf0bdd0cf8281c8e","_shrinkwrap":null,"_spec":"pg-promise@^5.6.0","_where":"/home/neil/DevGit/ZenGate","author":{"name":"Vitaly Tomilov","email":"vitaly.tomilov@gmail.com"},"bugs":{"url":"https://github.com/vitaly-t/pg-promise/issues","email":"vitaly.tomilov@gmail.com"},"dependencies":{"manakin":"^0.4.7","pg":"^5.1.0","pg-minify":"0.4","spex":"1.2"},"description":"Promises interface for PostgreSQL","devDependencies":{"@types/node":"7.0","JSONStream":"1.3","bluebird":"3.5","coveralls":"2.11","eslint":"^4.1.0","istanbul":"0.4","jasmine-node":"1.14","jsdoc":"3.4","pg-query-stream":"1.x","typescript":"2.3"},"directories":{},"dist":{"integrity":"sha512-Hp53E6qdjxyuNepIpr7ONbsKZ2GYfi+HbuW4VNMfWcCSZPlE/A9DieYc82AJaz2f9eHcmByeU7TiQTmsBu3hGA==","shasum":"4c78f58061cf04d6afa86baacf0bdd0cf8281c8e","tarball":"https://registry.npmjs.org/pg-promise/-/pg-promise-5.9.7.tgz"},"engines":{"node":">=4.0","npm":">=2.15"},"files":["lib","typescript"],"gitHead":"2a205c345442038daf8fcf61e37b392108fad2d1","homepage":"https://github.com/vitaly-t/pg-promise","keywords":["pg","promise","postgres"],"license":"MIT","main":"lib/index.js","maintainers":[{"name":"vitaly.tomilov","email":"vitaly.tomilov@gmail.com"}],"name":"pg-promise","optionalDependencies":{},"readme":"ERROR: No README data found!","repository":{"type":"git","url":"git+https://github.com/vitaly-t/pg-promise.git"},"scripts":{"coverage":"istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test","doc":"jsdoc -c ./jsdoc/jsDoc.json ./jsdoc/README.md","lint":"eslint ./lib ./test/*.js ./test/db","test":"jasmine-node test","test-native":"jasmine-node test --config PG_NATIVE true","travis":"npm run lint && istanbul cover ./node_modules/jasmine-node/bin/jasmine-node test --captureExceptions && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"},"typings":"typescript/pg-promise.d.ts","version":"5.9.7"}
 
 /***/ }),
-/* 72 */
+/* 82 */
 /***/ (function(module, exports) {
 
 function ArrayParser(source, converter) {
@@ -9508,114 +10509,15 @@ module.exports = {
 
 
 /***/ }),
-/* 73 */
+/* 83 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var url = __webpack_require__(41);
-var dns = __webpack_require__(262);
-
-var defaults = __webpack_require__(21);
-
-var val = function(key, config, envVar) {
-  if (envVar === undefined) {
-    envVar = process.env[ 'PG' + key.toUpperCase() ];
-  } else if (envVar === false) {
-    // do nothing ... use false
-  } else {
-    envVar = process.env[ envVar ];
-  }
-
-  return config[key] ||
-    envVar ||
-    defaults[key];
-};
-
-//parses a connection string
-var parse = __webpack_require__(206).parse;
-
-var useSsl = function() {
-  switch(process.env.PGSSLMODE) {
-  case "disable":
-    return false;
-  case "prefer":
-  case "require":
-  case "verify-ca":
-  case "verify-full":
-    return true;
-  }
-  return defaults.ssl;
-};
-
-var ConnectionParameters = function(config) {
-  //if a string is passed, it is a raw connection string so we parse it into a config
-  config = typeof config == 'string' ? parse(config) : (config || {});
-  //if the config has a connectionString defined, parse IT into the config we use
-  //this will override other default values with what is stored in connectionString
-  if(config.connectionString) {
-    config = parse(config.connectionString);
-  }
-  this.user = val('user', config);
-  this.database = val('database', config);
-  this.port = parseInt(val('port', config), 10);
-  this.host = val('host', config);
-  this.password = val('password', config);
-  this.binary = val('binary', config);
-  this.ssl = config.ssl || useSsl();
-  this.client_encoding = val("client_encoding", config);
-  //a domain socket begins with '/'
-  this.isDomainSocket = (!(this.host||'').indexOf('/'));
-
-  this.application_name = val('application_name', config, 'PGAPPNAME');
-  this.fallback_application_name = val('fallback_application_name', config, false);
-};
-
-var add = function(params, config, paramName) {
-  var value = config[paramName];
-  if(value) {
-    params.push(paramName+"='"+value+"'");
-  }
-};
-
-ConnectionParameters.prototype.getLibpqConnectionString = function(cb) {
-  var params = [];
-  add(params, this, 'user');
-  add(params, this, 'password');
-  add(params, this, 'port');
-  add(params, this, 'application_name');
-  add(params, this, 'fallback_application_name');
-
-  if(this.database) {
-    params.push("dbname='" + this.database + "'");
-  }
-  if(this.host) {
-    params.push("host=" + this.host);
-  }
-  if(this.isDomainSocket) {
-    return cb(null, params.join(' '));
-  }
-  if(this.client_encoding) {
-    params.push("client_encoding='" + this.client_encoding + "'");
-  }
-  dns.lookup(this.host, function(err, address) {
-    if(err) return cb(err, null);
-    params.push("hostaddr=" + address);
-    return cb(null, params.join(' '));
-  });
-};
-
-module.exports = ConnectionParameters;
-
-
-/***/ }),
-/* 74 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var net = __webpack_require__(83);
+var net = __webpack_require__(91);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
 
-var Writer = __webpack_require__(125);
-var Reader = __webpack_require__(205);
+var Writer = __webpack_require__(133);
+var Reader = __webpack_require__(216);
 
 var TEXT_MODE = 0;
 var BINARY_MODE = 1;
@@ -9687,7 +10589,7 @@ Connection.prototype.connect = function(port, host) {
     if(responseCode != 'S') {
       return self.emit('error', new Error('The server does not support SSL connections'));
     }
-    var tls = __webpack_require__(84);
+    var tls = __webpack_require__(92);
     self.stream = tls.connect({
       socket: self.stream,
       servername: host,
@@ -10252,22 +11154,134 @@ module.exports = Connection;
 
 
 /***/ }),
-/* 75 */
+/* 84 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Native = __webpack_require__(208);
-var TypeOverrides = __webpack_require__(76);
-var semver = __webpack_require__(245);
-var pkg = __webpack_require__(240);
-var assert = __webpack_require__(31);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var ConnectionParameters = __webpack_require__(73);
+var Client = __webpack_require__(245);
+var defaults =  __webpack_require__(31);
+var Connection = __webpack_require__(83);
+var ConnectionParameters = __webpack_require__(41);
+var Pool = __webpack_require__(222);
+
+var PG = function(clientConstructor) {
+  EventEmitter.call(this);
+  this.defaults = defaults;
+  this.Client = clientConstructor;
+  this.Query = this.Client.Query;
+  this.Pool = Pool;
+  this.pools = [];
+  this.Connection = Connection;
+  this.types = __webpack_require__(21);
+};
+
+util.inherits(PG, EventEmitter);
+
+PG.prototype.end = function() {
+  var self = this;
+  var keys = Object.keys(this.pools);
+  var count = keys.length;
+  if(count === 0) {
+    self.emit('end');
+  } else {
+    keys.forEach(function(key) {
+      var pool = self.pools[key];
+      delete self.pools[key];
+      pool.pool.drain(function() {
+        pool.pool.destroyAllNow(function() {
+          count--;
+          if(count === 0) {
+            self.emit('end');
+          }
+        });
+      });
+    });
+  }
+};
+
+PG.prototype.connect = function(config, callback) {
+  if(typeof config == "function") {
+    callback = config;
+    config = null;
+  }
+  var poolName = JSON.stringify(config || {});
+  if (typeof config == 'string') {
+    config = new ConnectionParameters(config);
+  }
+
+  config = config || {};
+
+  //for backwards compatibility
+  config.max = config.max || config.poolSize || defaults.poolSize;
+  config.idleTimeoutMillis = config.idleTimeoutMillis || config.poolIdleTimeout || defaults.poolIdleTimeout;
+  config.log = config.log || config.poolLog || defaults.poolLog;
+
+  this.pools[poolName] = this.pools[poolName] || new Pool(config, this.Client);
+  var pool = this.pools[poolName];
+  pool.connect(callback);
+  if(!pool.listeners('error').length) {
+    //propagate errors up to pg object
+    pool.on('error', function(e) {
+      this.emit('error', e, e.client);
+    }.bind(this));
+  }
+};
+
+// cancel the query runned by the given client
+PG.prototype.cancel = function(config, client, query) {
+  if(client.native) {
+    return client.cancel(query);
+  }
+  var c = config;
+  //allow for no config to be passed
+  if(typeof c === 'function') {
+    c = defaults;
+  }
+  var cancellingClient = new this.Client(c);
+  cancellingClient.cancel(client, query);
+};
+
+if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
+  module.exports = new PG(__webpack_require__(85));
+} else {
+  module.exports = new PG(Client);
+
+  //lazy require native module...the native module may not have installed
+  module.exports.__defineGetter__("native", function() {
+    delete module.exports.native;
+    var native = null;
+    try {
+      native = new PG(__webpack_require__(85));
+    } catch (err) {
+      if (err.code !== 'MODULE_NOT_FOUND') {
+        throw err;
+      }
+      console.error(err.message);
+    }
+    module.exports.native = native;
+    return native;
+  });
+}
+
+
+/***/ }),
+/* 85 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Native = __webpack_require__(219);
+var TypeOverrides = __webpack_require__(86);
+var semver = __webpack_require__(256);
+var pkg = __webpack_require__(250);
+var assert = __webpack_require__(34);
+var EventEmitter = __webpack_require__(3).EventEmitter;
+var util = __webpack_require__(0);
+var ConnectionParameters = __webpack_require__(41);
 
 var msg = 'Version >= ' + pkg.minNativeVersion + ' of pg-native required.';
 assert(semver.gte(Native.version, pkg.minNativeVersion), msg);
 
-var NativeQuery = __webpack_require__(235);
+var NativeQuery = __webpack_require__(246);
 
 var Client = module.exports = function(config) {
   EventEmitter.call(this);
@@ -10451,10 +11465,10 @@ Client.prototype.getTypeParser = function(oid, format) {
 
 
 /***/ }),
-/* 76 */
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var types = __webpack_require__(20);
+var types = __webpack_require__(21);
 
 function TypeOverrides(userTypes) {
   this._types = userTypes || types;
@@ -10487,12 +11501,12 @@ module.exports = TypeOverrides;
 
 
 /***/ }),
-/* 77 */
+/* 87 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Promise = __webpack_require__(33),
-    mysql = __webpack_require__(24),
-    promiseCallback = __webpack_require__(78).promiseCallback;
+var Promise = __webpack_require__(47),
+    mysql = __webpack_require__(25),
+    promiseCallback = __webpack_require__(43).promiseCallback;
 
 /**
 * Constructor
@@ -10612,35 +11626,7 @@ module.exports = connection;
 
 
 /***/ }),
-/* 78 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Promise = __webpack_require__(33);
-
-var promiseCallback = function(functionName, params) {
-  var self = this;
-  params = Array.prototype.slice.call(params, 0);
-  return new Promise(function(resolve, reject) {
-    params.push(function(err) {
-      var args = Array.prototype.slice.call(arguments, 1);
-      if (err) {
-        return reject(err);
-      }
-
-      return resolve.apply(this, args);
-    });
-
-    self[functionName].apply(self, params);
-  });
-};
-
-module.exports = {
-  promiseCallback: promiseCallback,
-};
-
-
-/***/ }),
-/* 79 */
+/* 88 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10649,7 +11635,7 @@ module.exports = {
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(30)
+    utils: __webpack_require__(33)
 };
 
 /**
@@ -10812,7 +11798,7 @@ module.exports = BatchError;
 
 
 /***/ }),
-/* 80 */
+/* 89 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10821,16 +11807,16 @@ module.exports = BatchError;
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(30)
+    utils: __webpack_require__(33)
 };
 
 var errorReasons = {
-    0: "Page with index %d rejected.",
-    1: "Source %s returned a rejection at index %d.",
-    2: "Source %s threw an error at index %d.",
-    3: "Destination %s returned a rejection at index %d.",
-    4: "Destination %s threw an error at index %d.",
-    5: "Source %s returned a non-array value at index %d."
+    0: 'Page with index %d rejected.',
+    1: 'Source %s returned a rejection at index %d.',
+    2: 'Source %s threw an error at index %d.',
+    3: 'Destination %s returned a rejection at index %d.',
+    4: 'Destination %s threw an error at index %d.',
+    5: 'Source %s returned a non-array value at index %d.'
 };
 
 /**
@@ -10900,7 +11886,7 @@ function PageError(e, code, cbName, duration) {
     }
 
     if (code) {
-        cbName = cbName ? ("'" + cbName + "'") : '<anonymous>';
+        cbName = cbName ? ('\'' + cbName + '\'') : '<anonymous>';
         this.reason = $npm.u.format(errorReasons[code], cbName, e.index);
     } else {
         this.reason = $npm.u.format(errorReasons[code], e.index);
@@ -10952,7 +11938,7 @@ module.exports = PageError;
 
 
 /***/ }),
-/* 81 */
+/* 90 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10961,14 +11947,14 @@ module.exports = PageError;
 var $npm = {
     u: __webpack_require__(0),
     os: __webpack_require__(4),
-    utils: __webpack_require__(30)
+    utils: __webpack_require__(33)
 };
 
 var errorReasons = {
-    0: "Source %s returned a rejection at index %d.",
-    1: "Source %s threw an error at index %d.",
-    2: "Destination %s returned a rejection at index %d.",
-    3: "Destination %s threw an error at index %d."
+    0: 'Source %s returned a rejection at index %d.',
+    1: 'Source %s threw an error at index %d.',
+    2: 'Destination %s returned a rejection at index %d.',
+    3: 'Destination %s threw an error at index %d.'
 };
 
 /**
@@ -11033,7 +12019,7 @@ function SequenceError(e, code, cbName, duration) {
         this.dest = e.dest;
     }
 
-    cbName = cbName ? ("'" + cbName + "'") : '<anonymous>';
+    cbName = cbName ? ('\'' + cbName + '\'') : '<anonymous>';
     this.reason = $npm.u.format(errorReasons[code], cbName, e.index);
 
     Error.captureStackTrace(this, SequenceError);
@@ -11081,246 +12067,19 @@ module.exports = SequenceError;
 
 
 /***/ }),
-/* 82 */
-/***/ (function(module, exports, __webpack_require__) {
-
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-var Buffer = __webpack_require__(32).Buffer;
-
-var isBufferEncoding = Buffer.isEncoding
-  || function(encoding) {
-       switch (encoding && encoding.toLowerCase()) {
-         case 'hex': case 'utf8': case 'utf-8': case 'ascii': case 'binary': case 'base64': case 'ucs2': case 'ucs-2': case 'utf16le': case 'utf-16le': case 'raw': return true;
-         default: return false;
-       }
-     }
-
-
-function assertEncoding(encoding) {
-  if (encoding && !isBufferEncoding(encoding)) {
-    throw new Error('Unknown encoding: ' + encoding);
-  }
-}
-
-// StringDecoder provides an interface for efficiently splitting a series of
-// buffers into a series of JS strings without breaking apart multi-byte
-// characters. CESU-8 is handled as part of the UTF-8 encoding.
-//
-// @TODO Handling all encodings inside a single object makes it very difficult
-// to reason about this code, so it should be split up in the future.
-// @TODO There should be a utf8-strict encoding that rejects invalid UTF-8 code
-// points as used by CESU-8.
-var StringDecoder = exports.StringDecoder = function(encoding) {
-  this.encoding = (encoding || 'utf8').toLowerCase().replace(/[-_]/, '');
-  assertEncoding(encoding);
-  switch (this.encoding) {
-    case 'utf8':
-      // CESU-8 represents each of Surrogate Pair by 3-bytes
-      this.surrogateSize = 3;
-      break;
-    case 'ucs2':
-    case 'utf16le':
-      // UTF-16 represents each of Surrogate Pair by 2-bytes
-      this.surrogateSize = 2;
-      this.detectIncompleteChar = utf16DetectIncompleteChar;
-      break;
-    case 'base64':
-      // Base-64 stores 3 bytes in 4 chars, and pads the remainder.
-      this.surrogateSize = 3;
-      this.detectIncompleteChar = base64DetectIncompleteChar;
-      break;
-    default:
-      this.write = passThroughWrite;
-      return;
-  }
-
-  // Enough space to store all bytes of a single character. UTF-8 needs 4
-  // bytes, but CESU-8 may require up to 6 (3 bytes per surrogate).
-  this.charBuffer = new Buffer(6);
-  // Number of bytes received for the current incomplete multi-byte character.
-  this.charReceived = 0;
-  // Number of bytes expected for the current incomplete multi-byte character.
-  this.charLength = 0;
-};
-
-
-// write decodes the given buffer and returns it as JS string that is
-// guaranteed to not contain any partial multi-byte characters. Any partial
-// character found at the end of the buffer is buffered up, and will be
-// returned when calling write again with the remaining bytes.
-//
-// Note: Converting a Buffer containing an orphan surrogate to a String
-// currently works, but converting a String to a Buffer (via `new Buffer`, or
-// Buffer#write) will replace incomplete surrogates with the unicode
-// replacement character. See https://codereview.chromium.org/121173009/ .
-StringDecoder.prototype.write = function(buffer) {
-  var charStr = '';
-  // if our last write ended with an incomplete multibyte character
-  while (this.charLength) {
-    // determine how many remaining bytes this buffer has to offer for this char
-    var available = (buffer.length >= this.charLength - this.charReceived) ?
-        this.charLength - this.charReceived :
-        buffer.length;
-
-    // add the new bytes to the char buffer
-    buffer.copy(this.charBuffer, this.charReceived, 0, available);
-    this.charReceived += available;
-
-    if (this.charReceived < this.charLength) {
-      // still not enough chars in this buffer? wait for more ...
-      return '';
-    }
-
-    // remove bytes belonging to the current character from the buffer
-    buffer = buffer.slice(available, buffer.length);
-
-    // get the character that was split
-    charStr = this.charBuffer.slice(0, this.charLength).toString(this.encoding);
-
-    // CESU-8: lead surrogate (D800-DBFF) is also the incomplete character
-    var charCode = charStr.charCodeAt(charStr.length - 1);
-    if (charCode >= 0xD800 && charCode <= 0xDBFF) {
-      this.charLength += this.surrogateSize;
-      charStr = '';
-      continue;
-    }
-    this.charReceived = this.charLength = 0;
-
-    // if there are no more bytes in this buffer, just emit our char
-    if (buffer.length === 0) {
-      return charStr;
-    }
-    break;
-  }
-
-  // determine and set charLength / charReceived
-  this.detectIncompleteChar(buffer);
-
-  var end = buffer.length;
-  if (this.charLength) {
-    // buffer the incomplete character bytes we got
-    buffer.copy(this.charBuffer, 0, buffer.length - this.charReceived, end);
-    end -= this.charReceived;
-  }
-
-  charStr += buffer.toString(this.encoding, 0, end);
-
-  var end = charStr.length - 1;
-  var charCode = charStr.charCodeAt(end);
-  // CESU-8: lead surrogate (D800-DBFF) is also the incomplete character
-  if (charCode >= 0xD800 && charCode <= 0xDBFF) {
-    var size = this.surrogateSize;
-    this.charLength += size;
-    this.charReceived += size;
-    this.charBuffer.copy(this.charBuffer, size, 0, size);
-    buffer.copy(this.charBuffer, 0, 0, size);
-    return charStr.substring(0, end);
-  }
-
-  // or just emit the charStr
-  return charStr;
-};
-
-// detectIncompleteChar determines if there is an incomplete UTF-8 character at
-// the end of the given buffer. If so, it sets this.charLength to the byte
-// length that character, and sets this.charReceived to the number of bytes
-// that are available for this character.
-StringDecoder.prototype.detectIncompleteChar = function(buffer) {
-  // determine how many bytes we have to check at the end of this buffer
-  var i = (buffer.length >= 3) ? 3 : buffer.length;
-
-  // Figure out if one of the last i bytes of our buffer announces an
-  // incomplete char.
-  for (; i > 0; i--) {
-    var c = buffer[buffer.length - i];
-
-    // See http://en.wikipedia.org/wiki/UTF-8#Description
-
-    // 110XXXXX
-    if (i == 1 && c >> 5 == 0x06) {
-      this.charLength = 2;
-      break;
-    }
-
-    // 1110XXXX
-    if (i <= 2 && c >> 4 == 0x0E) {
-      this.charLength = 3;
-      break;
-    }
-
-    // 11110XXX
-    if (i <= 3 && c >> 3 == 0x1E) {
-      this.charLength = 4;
-      break;
-    }
-  }
-  this.charReceived = i;
-};
-
-StringDecoder.prototype.end = function(buffer) {
-  var res = '';
-  if (buffer && buffer.length)
-    res = this.write(buffer);
-
-  if (this.charReceived) {
-    var cr = this.charReceived;
-    var buf = this.charBuffer;
-    var enc = this.encoding;
-    res += buf.slice(0, cr).toString(enc);
-  }
-
-  return res;
-};
-
-function passThroughWrite(buffer) {
-  return buffer.toString(this.encoding);
-}
-
-function utf16DetectIncompleteChar(buffer) {
-  this.charReceived = buffer.length % 2;
-  this.charLength = this.charReceived ? 2 : 0;
-}
-
-function base64DetectIncompleteChar(buffer) {
-  this.charReceived = buffer.length % 3;
-  this.charLength = this.charReceived ? 3 : 0;
-}
-
-
-/***/ }),
-/* 83 */
+/* 91 */
 /***/ (function(module, exports) {
 
 module.exports = require("net");
 
 /***/ }),
-/* 84 */
+/* 92 */
 /***/ (function(module, exports) {
 
 module.exports = require("tls");
 
 /***/ }),
-/* 85 */
+/* 93 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -11342,8 +12101,8 @@ module.exports = require("tls");
 Object.defineProperty(exports, "__esModule", { value: true });
 class configService {
     constructor(_clArgs) {
-        this.cf = __webpack_require__(260);
-        this._fs = __webpack_require__(6);
+        this.cf = __webpack_require__(272);
+        this._fs = __webpack_require__(8);
         try {
             this._webtargetcomment = this._fs.readFileSync('../settings/Comments/WebTarget.js', 'utf8');
             this._ns = _clArgs["namespace"] == null ? 'Application' : _clArgs["namespace"];
@@ -11424,12 +12183,14 @@ class configService {
       * -----------------------------------------------------------------------------
       * Date?        Whom?           Notes
       * 07 Jun 2017  NRSmith         Added default to null (PHP7, not isset)
+      * 07 Nov 2017  NRSmith         Changed to Zend filter for empty strings
       * _____________________________________________________________________________
       */
     createExchangeArray(_fields) {
         let _varList = "";
         for (var field of _fields) {
-            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
+            // _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
+            _varList += `\t\t $this->${field} = $_fltIntNULL->filter($data[defs::${field.toUpperCase()}]); \n`;
         }
         return _varList;
     }
@@ -11457,14 +12218,14 @@ exports.configService = configService;
 
 
 /***/ }),
-/* 86 */
+/* 94 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const db_1 = __webpack_require__(88);
-const replace_1 = __webpack_require__(92);
+const db_1 = __webpack_require__(96);
+const replace_1 = __webpack_require__(100);
 /**
  * -----------------------------------------------------------------------------
  * Name         : Cycle
@@ -11552,7 +12313,7 @@ class Cycle {
      */
     setupOutput() {
         try {
-            let _mkdirp = __webpack_require__(165);
+            let _mkdirp = __webpack_require__(171);
             let _folder = `${this._confService.getOutputfolder()}${this._confService.getAlias()}/Definitions`;
             _mkdirp.sync(_folder);
         }
@@ -11650,7 +12411,7 @@ exports.Cycle = Cycle;
 
 
 /***/ }),
-/* 87 */
+/* 95 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -11658,12 +12419,11 @@ exports.Cycle = Cycle;
  */
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
-var spawn = __webpack_require__(261).spawn;
-var readlink = __webpack_require__(160).readlinkSync;
-var path = __webpack_require__(7);
+var spawn = __webpack_require__(274).spawn;
+var path = __webpack_require__(6);
 var dirname = path.dirname;
 var basename = path.basename;
-var fs = __webpack_require__(6);
+var fs = __webpack_require__(8);
 
 /**
  * Expose the root command.
@@ -11957,8 +12717,8 @@ Command.prototype.action = function(fn) {
   };
   var parent = this.parent || this;
   var name = parent === this ? '*' : this._name;
-  parent.on(name, listener);
-  if (this._alias) parent.on(this._alias, listener);
+  parent.on('command:' + name, listener);
+  if (this._alias) parent.on('command:' + this._alias, listener);
   return this;
 };
 
@@ -12005,8 +12765,8 @@ Command.prototype.action = function(fn) {
  *
  * @param {String} flags
  * @param {String} description
- * @param {Function|Mixed} fn or default
- * @param {Mixed} defaultValue
+ * @param {Function|*} [fn] or default
+ * @param {*} [defaultValue]
  * @return {Command} for chaining
  * @api public
  */
@@ -12045,7 +12805,7 @@ Command.prototype.option = function(flags, description, fn, defaultValue) {
 
   // when it's passed assign the value
   // and conditionally invoke the callback
-  this.on(oname, function(val) {
+  this.on('option:' + oname, function(val) {
     // coercion
     if (null !== val && fn) val = fn(val, undefined === self[name]
       ? defaultValue
@@ -12114,11 +12874,24 @@ Command.prototype.parse = function(argv) {
 
   // executable sub-commands
   var name = result.args[0];
+
+  var aliasCommand = null;
+  // check alias of sub commands
+  if (name) {
+    aliasCommand = this.commands.filter(function(command) {
+      return command.alias() === name;
+    })[0];
+  }
+
   if (this._execs[name] && typeof this._execs[name] != "function") {
+    return this.executeSubCommand(argv, args, parsed.unknown);
+  } else if (aliasCommand) {
+    // is alias of a subCommand
+    args[0] = aliasCommand._name;
     return this.executeSubCommand(argv, args, parsed.unknown);
   } else if (this.defaultExecutable) {
     // use the default subcommand
-    args.unshift(name = this.defaultExecutable);
+    args.unshift(this.defaultExecutable);
     return this.executeSubCommand(argv, args, parsed.unknown);
   }
 
@@ -12155,7 +12928,7 @@ Command.prototype.executeSubCommand = function(argv, args, unknown) {
   // In case of globally installed, get the base dir where executable
   //  subcommand file should be located at
   var baseDir
-    , link = readlink(f);
+    , link = fs.lstatSync(f).isSymbolicLink() ? fs.readlinkSync(f) : f;
 
   // when symbolink is relative path
   if (link !== f && link.charAt(0) !== '/') {
@@ -12180,7 +12953,7 @@ Command.prototype.executeSubCommand = function(argv, args, unknown) {
   var proc;
   if (process.platform !== 'win32') {
     if (isExplicitJS) {
-      args.unshift(localBin);
+      args.unshift(bin);
       // add executable arguments to spawn
       args = (process.execArgv || []).concat(args);
 
@@ -12189,10 +12962,18 @@ Command.prototype.executeSubCommand = function(argv, args, unknown) {
       proc = spawn(bin, args, { stdio: 'inherit', customFds: [0, 1, 2] });
     }
   } else {
-    args.unshift(localBin);
+    args.unshift(bin);
     proc = spawn(process.execPath, args, { stdio: 'inherit'});
   }
 
+  var signals = ['SIGUSR1', 'SIGUSR2', 'SIGTERM', 'SIGINT', 'SIGHUP'];
+  signals.forEach(function(signal) {
+    process.on(signal, function(){
+      if ((proc.killed === false) && (proc.exitCode === null)){
+        proc.kill(signal);
+      }
+    });
+  });
   proc.on('close', process.exit.bind(process));
   proc.on('error', function(err) {
     if (err.code == "ENOENT") {
@@ -12266,10 +13047,10 @@ Command.prototype.parseArgs = function(args, unknown) {
 
   if (args.length) {
     name = args[0];
-    if (this.listeners(name).length) {
-      this.emit(args.shift(), args, unknown);
+    if (this.listeners('command:' + name).length) {
+      this.emit('command:' + args.shift(), args, unknown);
     } else {
-      this.emit('*', args);
+      this.emit('command:*', args);
     }
   } else {
     outputHelpIfNecessary(this, unknown);
@@ -12323,13 +13104,13 @@ Command.prototype.parseOptions = function(argv) {
     arg = argv[i];
 
     // literal args after --
-    if ('--' == arg) {
-      literal = true;
+    if (literal) {
+      args.push(arg);
       continue;
     }
 
-    if (literal) {
-      args.push(arg);
+    if ('--' == arg) {
+      literal = true;
       continue;
     }
 
@@ -12342,7 +13123,7 @@ Command.prototype.parseOptions = function(argv) {
       if (option.required) {
         arg = argv[++i];
         if (null == arg) return this.optionMissingArgument(option);
-        this.emit(option.name(), arg);
+        this.emit('option:' + option.name(), arg);
       // optional arg
       } else if (option.optional) {
         arg = argv[i+1];
@@ -12351,10 +13132,10 @@ Command.prototype.parseOptions = function(argv) {
         } else {
           ++i;
         }
-        this.emit(option.name(), arg);
+        this.emit('option:' + option.name(), arg);
       // bool
       } else {
-        this.emit(option.name());
+        this.emit('option:' + option.name());
       }
       continue;
     }
@@ -12465,7 +13246,7 @@ Command.prototype.variadicArgNotLast = function(name) {
  * which will print the version number when passed.
  *
  * @param {String} str
- * @param {String} flags
+ * @param {String} [flags]
  * @return {Command} for chaining
  * @api public
  */
@@ -12475,7 +13256,7 @@ Command.prototype.version = function(str, flags) {
   this._version = str;
   flags = flags || '-V, --version';
   this.option(flags, 'output the version number');
-  this.on('version', function() {
+  this.on('option:version', function() {
     process.stdout.write(str + '\n');
     process.exit(0);
   });
@@ -12505,8 +13286,14 @@ Command.prototype.description = function(str) {
  */
 
 Command.prototype.alias = function(alias) {
-  if (0 == arguments.length) return this._alias;
-  this._alias = alias;
+  var command = this;
+  if(this.commands.length !== 0) {
+    command = this.commands[this.commands.length - 1]
+  }
+
+  if (arguments.length === 0) return command._alias;
+
+  command._alias = alias;
   return this;
 };
 
@@ -12534,15 +13321,17 @@ Command.prototype.usage = function(str) {
 };
 
 /**
- * Get the name of the command
+ * Get or set the name of the command
  *
- * @param {String} name
+ * @param {String} str
  * @return {String|Command}
  * @api public
  */
 
-Command.prototype.name = function() {
-  return this._name;
+Command.prototype.name = function(str) {
+  if (0 === arguments.length) return this._name;
+  this._name = str;
+  return this;
 };
 
 /**
@@ -12568,12 +13357,11 @@ Command.prototype.largestOptionLength = function() {
 Command.prototype.optionHelp = function() {
   var width = this.largestOptionLength();
 
-  // Prepend the help information
-  return [pad('-h, --help', width) + '  ' + 'output usage information']
-      .concat(this.options.map(function(option) {
-        return pad(option.flags, width) + '  ' + option.description;
-      }))
-      .join('\n');
+  // Append the help information
+  return this.options.map(function(option) {
+      return pad(option.flags, width) + '  ' + option.description;
+    }).concat([pad('-h, --help', width) + '  ' + 'output usage information'])
+    .join('\n');
 };
 
 /**
@@ -12598,7 +13386,7 @@ Command.prototype.commandHelp = function() {
         + (cmd._alias ? '|' + cmd._alias : '')
         + (cmd.options.length ? ' [options]' : '')
         + ' ' + args
-      , cmd.description()
+      , cmd._description
     ];
   });
 
@@ -12649,17 +13437,17 @@ Command.prototype.helpInformation = function() {
   if (commandHelp) cmds = [commandHelp];
 
   var options = [
-    '  Options:'
+    ''
+    , '  Options:'
     , ''
     , '' + this.optionHelp().replace(/^/gm, '    ')
-    , ''
     , ''
   ];
 
   return usage
-    .concat(cmds)
     .concat(desc)
     .concat(options)
+    .concat(cmds)
     .join('\n');
 };
 
@@ -12766,7 +13554,7 @@ function exists(file) {
 
 
 /***/ }),
-/* 88 */
+/* 96 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12783,8 +13571,8 @@ function exists(file) {
  * _____________________________________________________________________________
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-const connPgSQL_1 = __webpack_require__(90);
-const connMysql_1 = __webpack_require__(89);
+const connPgSQL_1 = __webpack_require__(98);
+const connMysql_1 = __webpack_require__(97);
 class db {
     constructor(_configService) {
         this._configService = _configService;
@@ -12822,7 +13610,7 @@ exports.db = db;
 
 
 /***/ }),
-/* 89 */
+/* 97 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12833,7 +13621,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 class connMysql {
     constructor(_cs) {
         this._cs = _cs;
-        this._mysql = __webpack_require__(243);
+        this._mysql = __webpack_require__(253);
         this._columns = [];
         try {
             this.configure();
@@ -12925,7 +13713,7 @@ exports.connMysql = connMysql;
 
 
 /***/ }),
-/* 90 */
+/* 98 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12934,7 +13722,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 class connPgSQL {
     constructor(_cs) {
         this._cs = _cs;
-        this._pgp = __webpack_require__(65)({});
+        this._pgp = __webpack_require__(75)({});
         try {
             this.configure();
         }
@@ -13031,15 +13819,15 @@ exports.connPgSQL = connPgSQL;
 
 
 /***/ }),
-/* 91 */
+/* 99 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const configService_1 = __webpack_require__(85);
-const cycle_1 = __webpack_require__(86);
-var program = __webpack_require__(87);
+const configService_1 = __webpack_require__(93);
+const cycle_1 = __webpack_require__(94);
+var program = __webpack_require__(95);
 program
     .option('-c, --connection <Connection>', 'The connection specified in the dbconfig.json file.')
     .option('-t, --tablename <Table Name>', 'Name of the table or view to model')
@@ -13052,7 +13840,7 @@ let c = new cycle_1.Cycle(new configService_1.configService(program));
 
 
 /***/ }),
-/* 92 */
+/* 100 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13085,8 +13873,8 @@ class Replace {
         this._filename = _filename;
         this._outputfilename = _outputfilename;
         this._data = _data;
-        this._fs = __webpack_require__(6);
-        this._template = __webpack_require__(152);
+        this._fs = __webpack_require__(8);
+        this._template = __webpack_require__(159);
         try {
         }
         catch (err) {
@@ -13106,7 +13894,7 @@ class Replace {
      */
     createFile() {
         try {
-            let compile = __webpack_require__(48), resolveToString = __webpack_require__(49);
+            let compile = __webpack_require__(54), resolveToString = __webpack_require__(55);
             this._file = this._fs.readFileSync(this._filename, 'utf8');
             let _compiled = compile(this._file);
             let _contents = (resolveToString(_compiled, this._data));
@@ -13139,19 +13927,19 @@ exports.Replace = Replace;
 
 
 /***/ }),
-/* 93 */
+/* 101 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/MikeMcl/bignumber.js/LICENCE */
+var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v4.0.4 https://github.com/MikeMcl/bignumber.js/LICENCE */
 
 ;(function (globalObj) {
     'use strict';
 
     /*
-      bignumber.js v3.1.2
+      bignumber.js v4.0.4
       A JavaScript library for arbitrary-precision arithmetic.
       https://github.com/MikeMcl/bignumber.js
-      Copyright (c) 2016 Michael Mclaughlin <M8ch88l@gmail.com>
+      Copyright (c) 2017 Michael Mclaughlin <M8ch88l@gmail.com>
       MIT Expat Licence
     */
 
@@ -13182,7 +13970,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
     /*
      * Create and return a BigNumber constructor.
      */
-    function constructorFactory(configObj) {
+    function constructorFactory(config) {
         var div, parseNumeric,
 
             // id tracks the caller function, so its name can be included in error messages.
@@ -13638,14 +14426,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
 
 
         /*
-         * Return true if value v is a BigNumber instance, otherwise return false.
-         *
-         * v {any} A value that may or may not be a BigNumber instance.
-         */
-        BigNumber.isBigNumber = isBigNumber;
-
-
-        /*
          * Return a new BigNumber whose value is the maximum of the arguments.
          *
          * arguments {number|string|BigNumber}
@@ -13787,7 +14567,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                 } else {
 
                     // Remove leading elements which are zero and adjust exponent accordingly.
-                    for ( e = -1 ; c[0] === 0; c.shift(), e -= LOG_BASE);
+                    for ( e = -1 ; c[0] === 0; c.splice(0, 1), e -= LOG_BASE);
 
                     // Count the digits of the first element of c to determine leading zeros, and...
                     for ( i = 1, v = c[0]; v >= 10; v /= 10, i++);
@@ -13880,7 +14660,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
 
                         if ( !d ) {
                             ++e;
-                            xc.unshift(1);
+                            xc = [1].concat(xc);
                         }
                     }
                 }
@@ -13918,7 +14698,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                     x[i] = temp % base;
                 }
 
-                if (carry) x.unshift(carry);
+                if (carry) x = [carry].concat(x);
 
                 return x;
             }
@@ -13952,7 +14732,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                 }
 
                 // Remove leading zeros.
-                for ( ; !a[0] && a.length > 1; a.shift() );
+                for ( ; !a[0] && a.length > 1; a.splice(0, 1) );
             }
 
             // x: dividend, y: divisor.
@@ -14021,7 +14801,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                     // Add zeros to make remainder as long as divisor.
                     for ( ; remL < yL; rem[remL++] = 0 );
                     yz = yc.slice();
-                    yz.unshift(0);
+                    yz = [0].concat(yz);
                     yc0 = yc[0];
                     if ( yc[1] >= base / 2 ) yc0++;
                     // Not necessary, but to prevent trial digit n > base, when using base 3.
@@ -14092,7 +14872,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                                 prodL = prod.length;
                             }
 
-                            if ( prodL < remL ) prod.unshift(0);
+                            if ( prodL < remL ) prod = [0].concat(prod);
 
                             // Subtract product from remainder.
                             subtract( rem, prod, remL, base );
@@ -14133,7 +14913,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
                     more = rem[0] != null;
 
                     // Leading zero?
-                    if ( !qc[0] ) qc.shift();
+                    if ( !qc[0] ) qc.splice(0, 1);
                 }
 
                 if ( base == BASE ) {
@@ -14843,7 +15623,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
             }
 
             // Remove leading zeros and adjust exponent accordingly.
-            for ( ; xc[0] == 0; xc.shift(), --ye );
+            for ( ; xc[0] == 0; xc.splice(0, 1), --ye );
 
             // Zero?
             if ( !xc[0] ) {
@@ -15011,7 +15791,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
             }
 
             if (a) {
-                xc.unshift(a);
+                xc = [a].concat(xc);
                 ++ye;
             }
 
@@ -15300,7 +16080,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
             if (c) {
                 ++e;
             } else {
-                zc.shift();
+                zc.splice(0, 1);
             }
 
             return normalise( y, zc, e );
@@ -15701,7 +16481,9 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
         };
 
 
-        if ( configObj != null ) BigNumber.config(configObj);
+        P.isBigNumber = true;
+
+        if ( config != null ) BigNumber.config(config);
 
         return BigNumber;
     }
@@ -15792,11 +16574,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
     }
 
 
-    function isBigNumber(v) {
-      return !!( v && v.constructor && v.constructor.isBigNumber === isBigNumber );
-    }
-
-
     /*
      * Convert string of baseIn to an array of numbers of baseOut.
      * Eg. convertBase('255', 10, 16) returns [15, 15].
@@ -15870,7 +16647,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
 
 
     BigNumber = constructorFactory();
-    BigNumber.default = BigNumber.BigNumber = BigNumber;
+    BigNumber['default'] = BigNumber.BigNumber = BigNumber;
 
 
     // AMD.
@@ -15891,7 +16668,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
 
 
 /***/ }),
-/* 94 */
+/* 102 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(__filename) {
@@ -15899,8 +16676,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/*! bignumber.js v3.1.2 https://github.com/Mik
  * Module dependencies.
  */
 
-var fs = __webpack_require__(6)
-  , path = __webpack_require__(7)
+var fs = __webpack_require__(8)
+  , path = __webpack_require__(6)
   , join = path.join
   , dirname = path.dirname
   , exists = fs.existsSync || path.existsSync
@@ -16064,7 +16841,7 @@ exports.getRoot = function getRoot (file) {
 /* WEBPACK VAR INJECTION */}.call(exports, "/index.js"))
 
 /***/ }),
-/* 95 */
+/* 103 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16092,15 +16869,15 @@ Promise.prototype.any = function () {
 
 
 /***/ }),
-/* 96 */
+/* 104 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 var firstLineError;
 try {throw new Error(); } catch (e) {firstLineError = e;}
-var schedule = __webpack_require__(118);
-var Queue = __webpack_require__(115);
+var schedule = __webpack_require__(126);
+var Queue = __webpack_require__(123);
 var util = __webpack_require__(1);
 
 function Async() {
@@ -16260,7 +17037,7 @@ module.exports.firstLineError = firstLineError;
 
 
 /***/ }),
-/* 97 */
+/* 105 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16334,7 +17111,7 @@ Promise.bind = function (thisArg, value) {
 
 
 /***/ }),
-/* 98 */
+/* 106 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16464,7 +17241,7 @@ Promise.prototype.get = function (propertyName) {
 
 
 /***/ }),
-/* 99 */
+/* 107 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16600,7 +17377,7 @@ Promise.prototype._resultCancelled = function() {
 
 
 /***/ }),
-/* 100 */
+/* 108 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16676,7 +17453,7 @@ return Context;
 
 
 /***/ }),
-/* 101 */
+/* 109 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16720,7 +17497,10 @@ Promise.prototype.suppressUnhandledRejections = function() {
 Promise.prototype._ensurePossibleRejectionHandled = function () {
     if ((this._bitField & 524288) !== 0) return;
     this._setRejectionIsUnhandled();
-    async.invokeLater(this._notifyUnhandledRejection, this, undefined);
+    var self = this;
+    setTimeout(function() {
+        self._notifyUnhandledRejection();
+    }, 1);
 };
 
 Promise.prototype._notifyUnhandledRejectionIsHandled = function () {
@@ -17599,7 +18379,7 @@ return {
 
 
 /***/ }),
-/* 102 */
+/* 110 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17652,7 +18432,7 @@ Promise.prototype.catchReturn = function (value) {
 
 
 /***/ }),
-/* 103 */
+/* 111 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17689,7 +18469,7 @@ Promise.mapSeries = PromiseMapSeries;
 
 
 /***/ }),
-/* 104 */
+/* 112 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17708,7 +18488,7 @@ Promise.filter = function (promises, fn, options) {
 
 
 /***/ }),
-/* 105 */
+/* 113 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -17717,7 +18497,7 @@ module.exports = function(Promise, tryConvertToPromise, NEXT_FILTER) {
 var util = __webpack_require__(1);
 var CancellationError = Promise.CancellationError;
 var errorObj = util.errorObj;
-var catchFilter = __webpack_require__(43)(NEXT_FILTER);
+var catchFilter = __webpack_require__(48)(NEXT_FILTER);
 
 function PassThroughHandlerContext(promise, type, handler) {
     this.promise = promise;
@@ -17861,7 +18641,7 @@ return PassThroughHandlerContext;
 
 
 /***/ }),
-/* 106 */
+/* 114 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18091,7 +18871,7 @@ Promise.spawn = function (generatorFunction) {
 
 
 /***/ }),
-/* 107 */
+/* 115 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18266,7 +19046,7 @@ Promise.join = function () {
 
 
 /***/ }),
-/* 108 */
+/* 116 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18441,7 +19221,7 @@ Promise.map = function (promises, fn, options, _filter) {
 
 
 /***/ }),
-/* 109 */
+/* 117 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18503,7 +19283,7 @@ Promise.prototype._resolveFromSyncValue = function (value) {
 
 
 /***/ }),
-/* 110 */
+/* 118 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18568,7 +19348,7 @@ Promise.prototype.asCallback = Promise.prototype.nodeify = function (nodeback,
 
 
 /***/ }),
-/* 111 */
+/* 119 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18601,8 +19381,8 @@ if (util.isNode) {
 }
 util.notEnumerableProp(Promise, "_getDomain", getDomain);
 
-var es5 = __webpack_require__(12);
-var Async = __webpack_require__(96);
+var es5 = __webpack_require__(13);
+var Async = __webpack_require__(104);
 var async = new Async();
 es5.defineProperty(Promise, "_async", {value: async});
 var errors = __webpack_require__(9);
@@ -18616,19 +19396,19 @@ Promise.AggregateError = errors.AggregateError;
 var INTERNAL = function(){};
 var APPLY = {};
 var NEXT_FILTER = {};
-var tryConvertToPromise = __webpack_require__(122)(Promise, INTERNAL);
+var tryConvertToPromise = __webpack_require__(130)(Promise, INTERNAL);
 var PromiseArray =
-    __webpack_require__(112)(Promise, INTERNAL,
+    __webpack_require__(120)(Promise, INTERNAL,
                                tryConvertToPromise, apiRejection, Proxyable);
-var Context = __webpack_require__(100)(Promise);
+var Context = __webpack_require__(108)(Promise);
  /*jshint unused:false*/
 var createContext = Context.create;
-var debug = __webpack_require__(101)(Promise, Context);
+var debug = __webpack_require__(109)(Promise, Context);
 var CapturedTrace = debug.CapturedTrace;
 var PassThroughHandlerContext =
-    __webpack_require__(105)(Promise, tryConvertToPromise, NEXT_FILTER);
-var catchFilter = __webpack_require__(43)(NEXT_FILTER);
-var nodebackForPromise = __webpack_require__(44);
+    __webpack_require__(113)(Promise, tryConvertToPromise, NEXT_FILTER);
+var catchFilter = __webpack_require__(48)(NEXT_FILTER);
+var nodebackForPromise = __webpack_require__(49);
 var errorObj = util.errorObj;
 var tryCatch = util.tryCatch;
 function check(self, executor) {
@@ -19298,31 +20078,31 @@ util.notEnumerableProp(Promise,
                        "_makeSelfResolutionError",
                        makeSelfResolutionError);
 
-__webpack_require__(109)(Promise, INTERNAL, tryConvertToPromise, apiRejection,
+__webpack_require__(117)(Promise, INTERNAL, tryConvertToPromise, apiRejection,
     debug);
-__webpack_require__(97)(Promise, INTERNAL, tryConvertToPromise, debug);
-__webpack_require__(99)(Promise, PromiseArray, apiRejection, debug);
-__webpack_require__(102)(Promise);
-__webpack_require__(121)(Promise);
-__webpack_require__(107)(
+__webpack_require__(105)(Promise, INTERNAL, tryConvertToPromise, debug);
+__webpack_require__(107)(Promise, PromiseArray, apiRejection, debug);
+__webpack_require__(110)(Promise);
+__webpack_require__(129)(Promise);
+__webpack_require__(115)(
     Promise, PromiseArray, tryConvertToPromise, INTERNAL, async, getDomain);
 Promise.Promise = Promise;
-Promise.version = "3.5.0";
-__webpack_require__(108)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
-__webpack_require__(98)(Promise);
-__webpack_require__(124)(Promise, apiRejection, tryConvertToPromise, createContext, INTERNAL, debug);
-__webpack_require__(123)(Promise, INTERNAL, debug);
-__webpack_require__(106)(Promise, apiRejection, INTERNAL, tryConvertToPromise, Proxyable, debug);
-__webpack_require__(110)(Promise);
-__webpack_require__(113)(Promise, INTERNAL);
-__webpack_require__(114)(Promise, PromiseArray, tryConvertToPromise, apiRejection);
-__webpack_require__(116)(Promise, INTERNAL, tryConvertToPromise, apiRejection);
-__webpack_require__(117)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
-__webpack_require__(119)(Promise, PromiseArray, debug);
-__webpack_require__(120)(Promise, PromiseArray, apiRejection);
-__webpack_require__(104)(Promise, INTERNAL);
-__webpack_require__(103)(Promise, INTERNAL);
-__webpack_require__(95)(Promise);
+Promise.version = "3.5.1";
+__webpack_require__(116)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
+__webpack_require__(106)(Promise);
+__webpack_require__(132)(Promise, apiRejection, tryConvertToPromise, createContext, INTERNAL, debug);
+__webpack_require__(131)(Promise, INTERNAL, debug);
+__webpack_require__(114)(Promise, apiRejection, INTERNAL, tryConvertToPromise, Proxyable, debug);
+__webpack_require__(118)(Promise);
+__webpack_require__(121)(Promise, INTERNAL);
+__webpack_require__(122)(Promise, PromiseArray, tryConvertToPromise, apiRejection);
+__webpack_require__(124)(Promise, INTERNAL, tryConvertToPromise, apiRejection);
+__webpack_require__(125)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
+__webpack_require__(127)(Promise, PromiseArray, debug);
+__webpack_require__(128)(Promise, PromiseArray, apiRejection);
+__webpack_require__(112)(Promise, INTERNAL);
+__webpack_require__(111)(Promise, INTERNAL);
+__webpack_require__(103)(Promise);
                                                          
     util.toFastProperties(Promise);                                          
     util.toFastProperties(Promise.prototype);                                
@@ -19350,7 +20130,7 @@ __webpack_require__(95)(Promise);
 
 
 /***/ }),
-/* 112 */
+/* 120 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19542,7 +20322,7 @@ return PromiseArray;
 
 
 /***/ }),
-/* 113 */
+/* 121 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19550,7 +20330,7 @@ return PromiseArray;
 module.exports = function(Promise, INTERNAL) {
 var THIS = {};
 var util = __webpack_require__(1);
-var nodebackForPromise = __webpack_require__(44);
+var nodebackForPromise = __webpack_require__(49);
 var withAppended = util.withAppended;
 var maybeWrapAsError = util.maybeWrapAsError;
 var canEvaluate = util.canEvaluate;
@@ -19863,7 +20643,7 @@ Promise.promisifyAll = function (target, options) {
 
 
 /***/ }),
-/* 114 */
+/* 122 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -19872,7 +20652,7 @@ module.exports = function(
     Promise, PromiseArray, tryConvertToPromise, apiRejection) {
 var util = __webpack_require__(1);
 var isObject = util.isObject;
-var es5 = __webpack_require__(12);
+var es5 = __webpack_require__(13);
 var Es6Map;
 if (typeof Map === "function") Es6Map = Map;
 
@@ -19988,7 +20768,7 @@ Promise.props = function (promises) {
 
 
 /***/ }),
-/* 115 */
+/* 123 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20068,7 +20848,7 @@ module.exports = Queue;
 
 
 /***/ }),
-/* 116 */
+/* 124 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20124,7 +20904,7 @@ Promise.prototype.race = function () {
 
 
 /***/ }),
-/* 117 */
+/* 125 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20303,7 +21083,7 @@ function gotValue(value) {
 
 
 /***/ }),
-/* 118 */
+/* 126 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20371,7 +21151,7 @@ module.exports = schedule;
 
 
 /***/ }),
-/* 119 */
+/* 127 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20421,7 +21201,7 @@ Promise.prototype.settle = function () {
 
 
 /***/ }),
-/* 120 */
+/* 128 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20576,7 +21356,7 @@ Promise._SomePromiseArray = SomePromiseArray;
 
 
 /***/ }),
-/* 121 */
+/* 129 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20686,7 +21466,7 @@ Promise.PromiseInspection = PromiseInspection;
 
 
 /***/ }),
-/* 122 */
+/* 130 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20779,7 +21559,7 @@ return tryConvertToPromise;
 
 
 /***/ }),
-/* 123 */
+/* 131 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -20879,7 +21659,7 @@ Promise.prototype.timeout = function (ms, message) {
 
 
 /***/ }),
-/* 124 */
+/* 132 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21112,7 +21892,7 @@ module.exports = function (Promise, apiRejection, tryConvertToPromise,
 
 
 /***/ }),
-/* 125 */
+/* 133 */
 /***/ (function(module, exports) {
 
 //binary data writer tuned for creating
@@ -21247,7 +22027,7 @@ Writer.prototype.flush = function(code) {
 
 
 /***/ }),
-/* 126 */
+/* 134 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21255,180 +22035,186 @@ Writer.prototype.flush = function(code) {
 
 module.exports = function () {
 	var from = Array.from, arr, result;
-	if (typeof from !== 'function') return false;
-	arr = ['raz', 'dwa'];
+	if (typeof from !== "function") return false;
+	arr = ["raz", "dwa"];
 	result = from(arr);
-	return Boolean(result && (result !== arr) && (result[1] === 'dwa'));
+	return Boolean(result && (result !== arr) && (result[1] === "dwa"));
 };
 
 
 /***/ }),
-/* 127 */
+/* 135 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var iteratorSymbol = __webpack_require__(147).iterator
-  , isArguments    = __webpack_require__(128)
-  , isFunction     = __webpack_require__(129)
-  , toPosInt       = __webpack_require__(135)
-  , callable       = __webpack_require__(47)
-  , validValue     = __webpack_require__(23)
-  , isString       = __webpack_require__(146)
-
-  , isArray = Array.isArray, call = Function.prototype.call
-  , desc = { configurable: true, enumerable: true, writable: true, value: null }
+var iteratorSymbol = __webpack_require__(154).iterator
+  , isArguments    = __webpack_require__(136)
+  , isFunction     = __webpack_require__(137)
+  , toPosInt       = __webpack_require__(142)
+  , callable       = __webpack_require__(53)
+  , validValue     = __webpack_require__(24)
+  , isValue        = __webpack_require__(22)
+  , isString       = __webpack_require__(153)
+  , isArray        = Array.isArray
+  , call           = Function.prototype.call
+  , desc           = { configurable: true, enumerable: true, writable: true, value: null }
   , defineProperty = Object.defineProperty;
 
-module.exports = function (arrayLike/*, mapFn, thisArg*/) {
-	var mapFn = arguments[1], thisArg = arguments[2], Constructor, i, j, arr, l, code, iterator
-	  , result, getIterator, value;
+// eslint-disable-next-line complexity
+module.exports = function (arrayLike /*, mapFn, thisArg*/) {
+	var mapFn = arguments[1]
+	  , thisArg = arguments[2]
+	  , Context
+	  , i
+	  , j
+	  , arr
+	  , length
+	  , code
+	  , iterator
+	  , result
+	  , getIterator
+	  , value;
 
 	arrayLike = Object(validValue(arrayLike));
 
-	if (mapFn != null) callable(mapFn);
-	if (!this || (this === Array) || !isFunction(this)) {
+	if (isValue(mapFn)) callable(mapFn);
+	if (!this || this === Array || !isFunction(this)) {
 		// Result: Plain array
 		if (!mapFn) {
 			if (isArguments(arrayLike)) {
 				// Source: Arguments
-				l = arrayLike.length;
-				if (l !== 1) return Array.apply(null, arrayLike);
+				length = arrayLike.length;
+				if (length !== 1) return Array.apply(null, arrayLike);
 				arr = new Array(1);
 				arr[0] = arrayLike[0];
 				return arr;
 			}
 			if (isArray(arrayLike)) {
 				// Source: Array
-				arr = new Array(l = arrayLike.length);
-				for (i = 0; i < l; ++i) arr[i] = arrayLike[i];
+				arr = new Array(length = arrayLike.length);
+				for (i = 0; i < length; ++i) arr[i] = arrayLike[i];
 				return arr;
 			}
 		}
 		arr = [];
 	} else {
 		// Result: Non plain array
-		Constructor = this;
+		Context = this;
 	}
 
 	if (!isArray(arrayLike)) {
 		if ((getIterator = arrayLike[iteratorSymbol]) !== undefined) {
 			// Source: Iterator
 			iterator = callable(getIterator).call(arrayLike);
-			if (Constructor) arr = new Constructor();
+			if (Context) arr = new Context();
 			result = iterator.next();
 			i = 0;
 			while (!result.done) {
 				value = mapFn ? call.call(mapFn, thisArg, result.value, i) : result.value;
-				if (!Constructor) {
-					arr[i] = value;
-				} else {
+				if (Context) {
 					desc.value = value;
 					defineProperty(arr, i, desc);
+				} else {
+					arr[i] = value;
 				}
 				result = iterator.next();
 				++i;
 			}
-			l = i;
+			length = i;
 		} else if (isString(arrayLike)) {
 			// Source: String
-			l = arrayLike.length;
-			if (Constructor) arr = new Constructor();
-			for (i = 0, j = 0; i < l; ++i) {
+			length = arrayLike.length;
+			if (Context) arr = new Context();
+			for (i = 0, j = 0; i < length; ++i) {
 				value = arrayLike[i];
-				if ((i + 1) < l) {
+				if (i + 1 < length) {
 					code = value.charCodeAt(0);
-					if ((code >= 0xD800) && (code <= 0xDBFF)) value += arrayLike[++i];
+					// eslint-disable-next-line max-depth
+					if (code >= 0xd800 && code <= 0xdbff) value += arrayLike[++i];
 				}
 				value = mapFn ? call.call(mapFn, thisArg, value, j) : value;
-				if (!Constructor) {
-					arr[j] = value;
-				} else {
+				if (Context) {
 					desc.value = value;
 					defineProperty(arr, j, desc);
+				} else {
+					arr[j] = value;
 				}
 				++j;
 			}
-			l = j;
+			length = j;
 		}
 	}
-	if (l === undefined) {
+	if (length === undefined) {
 		// Source: array or array-like
-		l = toPosInt(arrayLike.length);
-		if (Constructor) arr = new Constructor(l);
-		for (i = 0; i < l; ++i) {
+		length = toPosInt(arrayLike.length);
+		if (Context) arr = new Context(length);
+		for (i = 0; i < length; ++i) {
 			value = mapFn ? call.call(mapFn, thisArg, arrayLike[i], i) : arrayLike[i];
-			if (!Constructor) {
-				arr[i] = value;
-			} else {
+			if (Context) {
 				desc.value = value;
 				defineProperty(arr, i, desc);
+			} else {
+				arr[i] = value;
 			}
 		}
 	}
-	if (Constructor) {
+	if (Context) {
 		desc.value = null;
-		arr.length = l;
+		arr.length = length;
 	}
 	return arr;
 };
 
 
 /***/ }),
-/* 128 */
+/* 136 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var toString = Object.prototype.toString
+var objToString = Object.prototype.toString
+  , id = objToString.call(
+	(function () {
+		return arguments;
+	})()
+);
 
-  , id = toString.call((function () { return arguments; }()));
-
-module.exports = function (x) { return (toString.call(x) === id); };
-
-
-/***/ }),
-/* 129 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var toString = Object.prototype.toString
-
-  , id = toString.call(__webpack_require__(130));
-
-module.exports = function (f) {
-	return (typeof f === "function") && (toString.call(f) === id);
+module.exports = function (value) {
+	return objToString.call(value) === id;
 };
 
 
 /***/ }),
-/* 130 */
+/* 137 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = function () {};
+var objToString = Object.prototype.toString, id = objToString.call(__webpack_require__(51));
+
+module.exports = function (value) {
+	return typeof value === "function" && objToString.call(value) === id;
+};
 
 
 /***/ }),
-/* 131 */
+/* 138 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(132)()
+module.exports = __webpack_require__(139)()
 	? Math.sign
-	: __webpack_require__(133);
+	: __webpack_require__(140);
 
 
 /***/ }),
-/* 132 */
+/* 139 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21436,13 +22222,13 @@ module.exports = __webpack_require__(132)()
 
 module.exports = function () {
 	var sign = Math.sign;
-	if (typeof sign !== 'function') return false;
-	return ((sign(10) === 1) && (sign(-20) === -1));
+	if (typeof sign !== "function") return false;
+	return (sign(10) === 1) && (sign(-20) === -1);
 };
 
 
 /***/ }),
-/* 133 */
+/* 140 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21451,18 +22237,18 @@ module.exports = function () {
 module.exports = function (value) {
 	value = Number(value);
 	if (isNaN(value) || (value === 0)) return value;
-	return (value > 0) ? 1 : -1;
+	return value > 0 ? 1 : -1;
 };
 
 
 /***/ }),
-/* 134 */
+/* 141 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var sign = __webpack_require__(131)
+var sign = __webpack_require__(138)
 
   , abs = Math.abs, floor = Math.floor;
 
@@ -21475,126 +22261,18 @@ module.exports = function (value) {
 
 
 /***/ }),
-/* 135 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var toInteger = __webpack_require__(134)
-
-  , max = Math.max;
-
-module.exports = function (value) { return max(0, toInteger(value)); };
-
-
-/***/ }),
-/* 136 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = __webpack_require__(137)()
-	? Object.assign
-	: __webpack_require__(138);
-
-
-/***/ }),
-/* 137 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = function () {
-	var assign = Object.assign, obj;
-	if (typeof assign !== 'function') return false;
-	obj = { foo: 'raz' };
-	assign(obj, { bar: 'dwa' }, { trzy: 'trzy' });
-	return (obj.foo + obj.bar + obj.trzy) === 'razdwatrzy';
-};
-
-
-/***/ }),
-/* 138 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var keys  = __webpack_require__(140)
-  , value = __webpack_require__(23)
-
-  , max = Math.max;
-
-module.exports = function (dest, src/*, …srcn*/) {
-	var error, i, l = max(arguments.length, 2), assign;
-	dest = Object(value(dest));
-	assign = function (key) {
-		try { dest[key] = src[key]; } catch (e) {
-			if (!error) error = e;
-		}
-	};
-	for (i = 1; i < l; ++i) {
-		src = arguments[i];
-		keys(src).forEach(assign);
-	}
-	if (error !== undefined) throw error;
-	return dest;
-};
-
-
-/***/ }),
-/* 139 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-// Deprecated
-
-
-
-module.exports = function (obj) { return typeof obj === 'function'; };
-
-
-/***/ }),
-/* 140 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = __webpack_require__(141)()
-	? Object.keys
-	: __webpack_require__(142);
-
-
-/***/ }),
-/* 141 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-module.exports = function () {
-	try {
-		Object.keys('primitive');
-		return true;
-	} catch (e) { return false; }
-};
-
-
-/***/ }),
 /* 142 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var keys = Object.keys;
+var toInteger = __webpack_require__(141)
 
-module.exports = function (object) {
-	return keys(object == null ? object : Object(object));
+  , max = Math.max;
+
+module.exports = function (value) {
+ return max(0, toInteger(value));
 };
 
 
@@ -21606,7 +22284,7 @@ module.exports = function (object) {
 
 
 module.exports = __webpack_require__(144)()
-	? String.prototype.contains
+	? Object.assign
 	: __webpack_require__(145);
 
 
@@ -21617,16 +22295,133 @@ module.exports = __webpack_require__(144)()
 "use strict";
 
 
-var str = 'razdwatrzy';
-
 module.exports = function () {
-	if (typeof str.contains !== 'function') return false;
-	return ((str.contains('dwa') === true) && (str.contains('foo') === false));
+	var assign = Object.assign, obj;
+	if (typeof assign !== "function") return false;
+	obj = { foo: "raz" };
+	assign(obj, { bar: "dwa" }, { trzy: "trzy" });
+	return (obj.foo + obj.bar + obj.trzy) === "razdwatrzy";
 };
 
 
 /***/ }),
 /* 145 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var keys  = __webpack_require__(147)
+  , value = __webpack_require__(24)
+  , max   = Math.max;
+
+module.exports = function (dest, src /*, …srcn*/) {
+	var error, i, length = max(arguments.length, 2), assign;
+	dest = Object(value(dest));
+	assign = function (key) {
+		try {
+			dest[key] = src[key];
+		} catch (e) {
+			if (!error) error = e;
+		}
+	};
+	for (i = 1; i < length; ++i) {
+		src = arguments[i];
+		keys(src).forEach(assign);
+	}
+	if (error !== undefined) throw error;
+	return dest;
+};
+
+
+/***/ }),
+/* 146 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+// Deprecated
+
+
+
+module.exports = function (obj) {
+ return typeof obj === "function";
+};
+
+
+/***/ }),
+/* 147 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = __webpack_require__(148)()
+	? Object.keys
+	: __webpack_require__(149);
+
+
+/***/ }),
+/* 148 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = function () {
+	try {
+		Object.keys("primitive");
+		return true;
+	} catch (e) {
+ return false;
+}
+};
+
+
+/***/ }),
+/* 149 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isValue = __webpack_require__(22);
+
+var keys = Object.keys;
+
+module.exports = function (object) {
+	return keys(isValue(object) ? Object(object) : object);
+};
+
+
+/***/ }),
+/* 150 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = __webpack_require__(151)()
+	? String.prototype.contains
+	: __webpack_require__(152);
+
+
+/***/ }),
+/* 151 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var str = "razdwatrzy";
+
+module.exports = function () {
+	if (typeof str.contains !== "function") return false;
+	return (str.contains("dwa") === true) && (str.contains("foo") === false);
+};
+
+
+/***/ }),
+/* 152 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21640,34 +22435,37 @@ module.exports = function (searchString/*, position*/) {
 
 
 /***/ }),
-/* 146 */
+/* 153 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var toString = Object.prototype.toString
+var objToString = Object.prototype.toString, id = objToString.call("");
 
-  , id = toString.call('');
-
-module.exports = function (x) {
-	return (typeof x === 'string') || (x && (typeof x === 'object') &&
-		((x instanceof String) || (toString.call(x) === id))) || false;
+module.exports = function (value) {
+	return (
+		typeof value === "string" ||
+		(value &&
+			typeof value === "object" &&
+			(value instanceof String || objToString.call(value) === id)) ||
+		false
+	);
 };
 
 
 /***/ }),
-/* 147 */
+/* 154 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-module.exports = __webpack_require__(148)() ? Symbol : __webpack_require__(150);
+module.exports = __webpack_require__(155)() ? Symbol : __webpack_require__(157);
 
 
 /***/ }),
-/* 148 */
+/* 155 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21691,7 +22489,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 149 */
+/* 156 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21707,7 +22505,7 @@ module.exports = function (x) {
 
 
 /***/ }),
-/* 150 */
+/* 157 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21715,8 +22513,8 @@ module.exports = function (x) {
 
 
 
-var d              = __webpack_require__(45)
-  , validateSymbol = __webpack_require__(151)
+var d              = __webpack_require__(50)
+  , validateSymbol = __webpack_require__(158)
 
   , create = Object.create, defineProperties = Object.defineProperties
   , defineProperty = Object.defineProperty, objPrototype = Object.prototype
@@ -21832,13 +22630,13 @@ defineProperty(HiddenSymbol.prototype, SymbolPolyfill.toPrimitive,
 
 
 /***/ }),
-/* 151 */
+/* 158 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var isSymbol = __webpack_require__(149);
+var isSymbol = __webpack_require__(156);
 
 module.exports = function (value) {
 	if (!isSymbol(value)) throw new TypeError(value + " is not a symbol");
@@ -21847,14 +22645,14 @@ module.exports = function (value) {
 
 
 /***/ }),
-/* 152 */
+/* 159 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var compile = __webpack_require__(48)
-  , resolve = __webpack_require__(49);
+var compile = __webpack_require__(54)
+  , resolve = __webpack_require__(55);
 
 module.exports = function (template, context/*, options*/) {
 	return resolve(compile(template), context, arguments[2]);
@@ -21862,7 +22660,7 @@ module.exports = function (template, context/*, options*/) {
 
 
 /***/ }),
-/* 153 */
+/* 160 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -21879,15 +22677,15 @@ module.exports = function (literals/*, …substitutions*/) {
 
 
 /***/ }),
-/* 154 */
+/* 161 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var value          = __webpack_require__(23)
-  , normalize      = __webpack_require__(46)
-  , isVarNameValid = __webpack_require__(156)
+var value          = __webpack_require__(24)
+  , normalize      = __webpack_require__(52)
+  , isVarNameValid = __webpack_require__(163)
 
   , map = Array.prototype.map, keys = Object.keys
   , stringify = JSON.stringify;
@@ -21921,19 +22719,19 @@ module.exports = function (data, context/*, options*/) {
 
 
 /***/ }),
-/* 155 */
+/* 162 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(34)
-  , primitiveSet = __webpack_require__(22)
-  , value        = __webpack_require__(23)
-  , callable     = __webpack_require__(47)
-  , d            = __webpack_require__(45)
-  , eolSet       = __webpack_require__(50)
-  , wsSet        = __webpack_require__(158)
+var from         = __webpack_require__(35)
+  , primitiveSet = __webpack_require__(23)
+  , value        = __webpack_require__(24)
+  , callable     = __webpack_require__(53)
+  , d            = __webpack_require__(50)
+  , eolSet       = __webpack_require__(56)
+  , wsSet        = __webpack_require__(165)
 
   , hasOwnProperty = Object.prototype.hasOwnProperty
   , preRegExpSet = primitiveSet.apply(null, from(';{=([,<>+-*/%&|^!~?:}'))
@@ -22158,7 +22956,7 @@ Object.defineProperties(exports, {
 
 
 /***/ }),
-/* 156 */
+/* 163 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -22170,14 +22968,14 @@ module.exports = RegExp.prototype.test.bind(/^(?!(?:do|if|in|for|let|new|try|var
 
 
 /***/ }),
-/* 157 */
+/* 164 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var from         = __webpack_require__(34)
-  , primitiveSet = __webpack_require__(22);
+var from         = __webpack_require__(35)
+  , primitiveSet = __webpack_require__(23);
 
 module.exports = primitiveSet.apply(null, from(' \f\t\v​\u00a0\u1680​\u180e' +
 	'\u2000​\u2001\u2002​\u2003\u2004​\u2005\u2006​\u2007\u2008​\u2009\u200a' +
@@ -22185,22 +22983,22 @@ module.exports = primitiveSet.apply(null, from(' \f\t\v​\u00a0\u1680​\u180e'
 
 
 /***/ }),
-/* 158 */
+/* 165 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var primitiveSet = __webpack_require__(22)
-  , eol          = __webpack_require__(50)
-  , inline       = __webpack_require__(157);
+var primitiveSet = __webpack_require__(23)
+  , eol          = __webpack_require__(56)
+  , inline       = __webpack_require__(164);
 
 module.exports = primitiveSet.apply(null,
 	Object.keys(eol).concat(Object.keys(inline)));
 
 
 /***/ }),
-/* 159 */
+/* 166 */
 /***/ (function(module, exports) {
 
 /**
@@ -22589,6 +23387,9 @@ Pool.prototype.acquire = function acquire (callback, priority) {
   if (this._draining) {
     throw new Error('pool is draining and cannot accept work')
   }
+  if (process.domain) {
+    callback = process.domain.bind(callback)
+  }
   this._waitingClients.enqueue(callback, priority)
   this._dispense()
   return (this._count < this._factory.max)
@@ -22771,25 +23572,7 @@ exports.Pool = Pool
 
 
 /***/ }),
-/* 160 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var fs = __webpack_require__(6)
-  , lstat = fs.lstatSync;
-
-exports.readlinkSync = function (p) {
-  if (lstat(p).isSymbolicLink()) {
-    return fs.readlinkSync(p);
-  } else {
-    return p;
-  }
-};
-
-
-
-
-/***/ }),
-/* 161 */
+/* 167 */
 /***/ (function(module, exports) {
 
 if (typeof Object.create === 'function') {
@@ -22818,29 +23601,48 @@ if (typeof Object.create === 'function') {
 
 
 /***/ }),
-/* 162 */
+/* 168 */
 /***/ (function(module, exports) {
 
-module.exports = Array.isArray || function (arr) {
-  return Object.prototype.toString.call(arr) == '[object Array]';
-};
+module.exports = function (string) {
+  return ('' + string).replace(/["'\\\n\r\u2028\u2029]/g, function (character) {
+    // Escape all characters not included in SingleStringCharacters and
+    // DoubleStringCharacters on
+    // http://www.ecma-international.org/ecma-262/5.1/#sec-7.8.4
+    switch (character) {
+      case '"':
+      case "'":
+      case '\\':
+        return '\\' + character
+      // Four possible LineTerminator characters need to be escaped:
+      case '\n':
+        return '\\n'
+      case '\r':
+        return '\\r'
+      case '\u2028':
+        return '\\u2028'
+      case '\u2029':
+        return '\\u2029'
+    }
+  })
+}
 
 
 /***/ }),
-/* 163 */
+/* 169 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(94)('addon.node').PQ;
+/* WEBPACK VAR INJECTION */(function(module, __dirname) {var PQ = module.exports = __webpack_require__(102)('addon.node').PQ;
 
 //print out the include dir
 //if you want to include this in a binding.gyp file
 if(!module.parent) {
-  var path = __webpack_require__(7);
+  var path = __webpack_require__(6);
   console.log(path.normalize(__dirname + '/src'));
 }
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
-var assert = __webpack_require__(31);
+var assert = __webpack_require__(34);
 
 for(var key in EventEmitter.prototype) {
   PQ.prototype[key] = EventEmitter.prototype[key];
@@ -23190,10 +23992,10 @@ PQ.prototype.cancel = function() {
   return this.$cancel();
 };
 
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(259)(module), "/"))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(271)(module), "/"))
 
 /***/ }),
-/* 164 */
+/* 170 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -23214,7 +24016,7 @@ var $def = {
 
 function colorize(value, color, isMsg) {
     value = isMsg && typeof value === 'string' ? value : util.inspect(value);
-    return "\x1b[" + color + 'm' + value + "\x1b[0m";
+    return '\x1b[' + color + 'm' + value + '\x1b[0m';
 }
 
 function format(stream, values, color) {
@@ -23339,7 +24141,7 @@ function Writer(noLock) {
         Object.freeze(this);
     }
 
-    function addProperties(name, color) {
+    function addProperties(name) {
 
         // brightness for the predefined color:
         Object.defineProperty(self[name], 'bright', {
@@ -23366,11 +24168,11 @@ module.exports = Writer;
 
 
 /***/ }),
-/* 165 */
+/* 171 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var path = __webpack_require__(7);
-var fs = __webpack_require__(6);
+var path = __webpack_require__(6);
+var fs = __webpack_require__(8);
 var _0777 = parseInt('0777', 8);
 
 module.exports = mkdirP.mkdirp = mkdirP.mkdirP = mkdirP;
@@ -23470,13 +24272,13 @@ mkdirP.sync = function sync (p, opts, made) {
 
 
 /***/ }),
-/* 166 */
+/* 172 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Pool          = __webpack_require__(51);
-var PoolConfig    = __webpack_require__(52);
-var PoolNamespace = __webpack_require__(168);
-var PoolSelector  = __webpack_require__(53);
+var Pool          = __webpack_require__(57);
+var PoolConfig    = __webpack_require__(58);
+var PoolNamespace = __webpack_require__(174);
+var PoolSelector  = __webpack_require__(59);
 var Util          = __webpack_require__(0);
 var EventEmitter  = __webpack_require__(3).EventEmitter;
 
@@ -23764,11 +24566,11 @@ function _noop() {}
 
 
 /***/ }),
-/* 167 */
+/* 173 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits   = __webpack_require__(0).inherits;
-var Connection = __webpack_require__(25);
+var Connection = __webpack_require__(26);
 var Events     = __webpack_require__(3);
 
 module.exports = PoolConnection;
@@ -23808,11 +24610,12 @@ PoolConnection.prototype.release = function release() {
 PoolConnection.prototype._realEnd = Connection.prototype.end;
 
 PoolConnection.prototype.end = function () {
-  console.warn( 'Calling conn.end() to release a pooled connection is '
-              + 'deprecated. In next version calling conn.end() will be '
-              + 'restored to default conn.end() behavior. Use '
-              + 'conn.release() instead.'
-              );
+  console.warn(
+    'Calling conn.end() to release a pooled connection is ' +
+    'deprecated. In next version calling conn.end() will be ' +
+    'restored to default conn.end() behavior. Use ' +
+    'conn.release() instead.'
+  );
   this.release();
 };
 
@@ -23834,11 +24637,11 @@ PoolConnection.prototype._removeFromPool = function _removeFromPool() {
 
 
 /***/ }),
-/* 168 */
+/* 174 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Connection   = __webpack_require__(25);
-var PoolSelector = __webpack_require__(53);
+var Connection   = __webpack_require__(26);
+var PoolSelector = __webpack_require__(59);
 
 module.exports = PoolNamespace;
 
@@ -23976,7 +24779,7 @@ PoolNamespace.prototype._getClusterNode = function _getClusterNode() {
 
 
 /***/ }),
-/* 169 */
+/* 175 */
 /***/ (function(module, exports) {
 
 
@@ -24007,7 +24810,7 @@ BufferList.prototype.push = function push(buf) {
 
 
 /***/ }),
-/* 170 */
+/* 176 */
 /***/ (function(module, exports) {
 
 module.exports = PacketHeader;
@@ -24018,8 +24821,8 @@ function PacketHeader(length, number) {
 
 
 /***/ }),
-/* 171 */
-/***/ (function(module, exports) {
+/* 177 */
+/***/ (function(module, exports, __webpack_require__) {
 
 var BIT_16            = Math.pow(2, 16);
 var BIT_24            = Math.pow(2, 24);
@@ -24028,6 +24831,7 @@ var BUFFER_ALLOC_SIZE = Math.pow(2, 8);
 // Don't panic: Good enough to represent byte values up to 8192 TB
 var IEEE_754_BINARY_64_PRECISION = Math.pow(2, 53);
 var MAX_PACKET_LENGTH            = Math.pow(2, 24) - 1;
+var Buffer                       = __webpack_require__(7).Buffer;
 
 module.exports = PacketWriter;
 function PacketWriter() {
@@ -24037,7 +24841,7 @@ function PacketWriter() {
 
 PacketWriter.prototype.toBuffer = function toBuffer(parser) {
   if (!this._buffer) {
-    this._buffer = new Buffer(0);
+    this._buffer = Buffer.alloc(0);
     this._offset = 0;
   }
 
@@ -24045,7 +24849,7 @@ PacketWriter.prototype.toBuffer = function toBuffer(parser) {
   var length  = this._offset;
   var packets = Math.floor(length / MAX_PACKET_LENGTH) + 1;
 
-  this._buffer = new Buffer(length + packets * 4);
+  this._buffer = Buffer.allocUnsafe(length + packets * 4);
   this._offset = 0;
 
   for (var packet = 0; packet < packets; packet++) {
@@ -24215,7 +25019,7 @@ PacketWriter.prototype.writeLengthCodedString = function(value) {
 
 PacketWriter.prototype._allocate = function _allocate(bytes) {
   if (!this._buffer) {
-    this._buffer = new Buffer(Math.max(BUFFER_ALLOC_SIZE, bytes));
+    this._buffer = Buffer.alloc(Math.max(BUFFER_ALLOC_SIZE, bytes));
     this._offset = 0;
     return;
   }
@@ -24228,27 +25032,28 @@ PacketWriter.prototype._allocate = function _allocate(bytes) {
   var newSize   = this._buffer.length + Math.max(BUFFER_ALLOC_SIZE, bytes);
   var oldBuffer = this._buffer;
 
-  this._buffer = new Buffer(newSize);
+  this._buffer = Buffer.alloc(newSize);
   oldBuffer.copy(this._buffer);
 };
 
 
 /***/ }),
-/* 172 */
+/* 178 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var MAX_PACKET_LENGTH = Math.pow(2, 24) - 1;
 var MUL_32BIT         = Math.pow(2, 32);
-var PacketHeader      = __webpack_require__(170);
-var BigNumber         = __webpack_require__(93);
-var BufferList        = __webpack_require__(169);
+var PacketHeader      = __webpack_require__(176);
+var BigNumber         = __webpack_require__(101);
+var Buffer            = __webpack_require__(7).Buffer;
+var BufferList        = __webpack_require__(175);
 
 module.exports = Parser;
 function Parser(options) {
   options = options || {};
 
   this._supportBigNumbers = options.config && options.config.supportBigNumbers;
-  this._buffer            = new Buffer(0);
+  this._buffer            = Buffer.alloc(0);
   this._nextBuffers       = new BufferList();
   this._longPacketBuffers = new BufferList();
   this._offset            = 0;
@@ -24358,7 +25163,7 @@ Parser.prototype.append = function append(chunk) {
 
   if (sliceLength !== 0) {
     // Create a new Buffer
-    buffer = new Buffer(sliceLength + length);
+    buffer = Buffer.allocUnsafe(sliceLength + length);
     offset = 0;
 
     // Copy data slice
@@ -24370,7 +25175,7 @@ Parser.prototype.append = function append(chunk) {
     }
   } else if (chunks.length > 1) {
     // Create a new Buffer
-    buffer = new Buffer(length);
+    buffer = Buffer.allocUnsafe(length);
     offset = 0;
 
     // Copy chunks
@@ -24547,13 +25352,18 @@ Parser.prototype._nullByteOffset = function() {
   return offset;
 };
 
+Parser.prototype.parsePacketTerminatedBuffer = function parsePacketTerminatedBuffer() {
+  var length = this._packetEnd - this._offset;
+  return this.parseBuffer(length);
+};
+
 Parser.prototype.parsePacketTerminatedString = function() {
   var length = this._packetEnd - this._offset;
   return this.parseString(length);
 };
 
 Parser.prototype.parseBuffer = function(length) {
-  var response = new Buffer(length);
+  var response = Buffer.alloc(length);
   this._buffer.copy(response, 0, this._offset, this._offset + length);
 
   this._offset += length;
@@ -24581,7 +25391,7 @@ Parser.prototype.parseGeometryValue = function() {
     var result = null;
     var byteOrder = buffer.readUInt8(offset); offset += 1;
     var wkbType = byteOrder ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset); offset += 4;
-    switch(wkbType) {
+    switch (wkbType) {
       case 1: // WKBPoint
         var x = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
         var y = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
@@ -24590,7 +25400,7 @@ Parser.prototype.parseGeometryValue = function() {
       case 2: // WKBLineString
         var numPoints = byteOrder ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset); offset += 4;
         result = [];
-        for(var i = numPoints; i > 0; i--) {
+        for (var i = numPoints; i > 0; i--) {
           var x = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
           var y = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
           result.push({x: x, y: y});
@@ -24599,10 +25409,10 @@ Parser.prototype.parseGeometryValue = function() {
       case 3: // WKBPolygon
         var numRings = byteOrder ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset); offset += 4;
         result = [];
-        for(var i = numRings; i > 0; i--) {
+        for (var i = numRings; i > 0; i--) {
           var numPoints = byteOrder ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset); offset += 4;
           var line = [];
-          for(var j = numPoints; j > 0; j--) {
+          for (var j = numPoints; j > 0; j--) {
             var x = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
             var y = byteOrder ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset); offset += 8;
             line.push({x: x, y: y});
@@ -24616,7 +25426,7 @@ Parser.prototype.parseGeometryValue = function() {
       case 7: // WKBGeometryCollection
         var num = byteOrder ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset); offset += 4;
         var result = [];
-        for(var i = num; i > 0; i--) {
+        for (var i = num; i > 0; i--) {
           result.push(parseGeometry());
         }
         break;
@@ -24684,7 +25494,7 @@ Parser.prototype._combineLongPacketBuffers = function _combineLongPacketBuffers(
 
   // Create buffer
   var buf    = null;
-  var buffer = new Buffer(remainingBytes + this._longPacketBuffers.size);
+  var buffer = Buffer.allocUnsafe(remainingBytes + this._longPacketBuffers.size);
   var offset = 0;
 
   // Copy long buffers
@@ -24710,16 +25520,16 @@ Parser.prototype._advanceToNextPacket = function() {
 
 
 /***/ }),
-/* 173 */
+/* 179 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Parser       = __webpack_require__(172);
-var Sequences    = __webpack_require__(202);
+var Parser       = __webpack_require__(178);
+var Sequences    = __webpack_require__(210);
 var Packets      = __webpack_require__(10);
-var Timers       = __webpack_require__(264);
-var Stream       = __webpack_require__(8).Stream;
+var Timers       = __webpack_require__(277);
+var Stream       = __webpack_require__(11).Stream;
 var Util         = __webpack_require__(0);
-var PacketWriter = __webpack_require__(171);
+var PacketWriter = __webpack_require__(177);
 
 module.exports = Protocol;
 Util.inherits(Protocol, Stream);
@@ -24736,7 +25546,7 @@ function Protocol(options) {
   this._callback                      = null;
   this._fatalError                    = null;
   this._quitSequence                  = null;
-  this._handshakeSequence             = null;
+  this._handshake                     = false;
   this._handshaked                    = false;
   this._ended                         = false;
   this._destroyed                     = false;
@@ -24764,7 +25574,11 @@ Protocol.prototype.handshake = function handshake(options, callback) {
   options = options || {};
   options.config = this._config;
 
-  return this._handshakeSequence = this._enqueue(new Sequences.Handshake(options, callback));
+  var sequence = this._enqueue(new Sequences.Handshake(options, callback));
+
+  this._handshake = true;
+
+  return sequence;
 };
 
 Protocol.prototype.query = function query(options, callback) {
@@ -24810,7 +25624,7 @@ Protocol.prototype.quit = function quit(options, callback) {
 };
 
 Protocol.prototype.end = function() {
-  if(this._ended) {
+  if (this._ended) {
     return;
   }
   this._ended = true;
@@ -24907,24 +25721,19 @@ Protocol.prototype._enqueue = function(sequence) {
 Protocol.prototype._validateEnqueue = function _validateEnqueue(sequence) {
   var err;
   var prefix = 'Cannot enqueue ' + sequence.constructor.name;
-  var prefixBefore = prefix + ' before ';
-  var prefixAfter = prefix + ' after ';
 
   if (this._fatalError) {
-    err      = new Error(prefixAfter + 'fatal error.');
+    err      = new Error(prefix + ' after fatal error.');
     err.code = 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR';
   } else if (this._quitSequence) {
-    err      = new Error(prefixAfter + 'invoking quit.');
+    err      = new Error(prefix + ' after invoking quit.');
     err.code = 'PROTOCOL_ENQUEUE_AFTER_QUIT';
   } else if (this._destroyed) {
-    err      = new Error(prefixAfter + 'being destroyed.');
+    err      = new Error(prefix + ' after being destroyed.');
     err.code = 'PROTOCOL_ENQUEUE_AFTER_DESTROY';
-  } else if (this._handshakeSequence && sequence.constructor === Sequences.Handshake) {
-    err      = new Error(prefixAfter + 'already enqueuing a Handshake.');
+  } else if ((this._handshake || this._handshaked) && sequence.constructor === Sequences.Handshake) {
+    err      = new Error(prefix + ' after already enqueuing a Handshake.');
     err.code = 'PROTOCOL_ENQUEUE_HANDSHAKE_TWICE';
-  } else if (!this._handshakeSequence && sequence.constructor === Sequences.ChangeUser) {
-    err      = new Error(prefixBefore + 'a Handshake.');
-    err.code = 'PROTOCOL_ENQUEUE_BEFORE_HANDSHAKE';
   } else {
     return true;
   }
@@ -25146,7 +25955,7 @@ Protocol.prototype.destroy = function() {
   this._parser.pause();
 
   if (this._connection.state !== 'disconnected') {
-    if(!this._ended) {
+    if (!this._ended) {
       this.end();
     }
   }
@@ -25171,7 +25980,7 @@ Protocol.prototype._debugPacket = function(incoming, packet) {
 
 
 /***/ }),
-/* 174 */
+/* 180 */
 /***/ (function(module, exports) {
 
 module.exports = ResultSet;
@@ -25184,13 +25993,13 @@ function ResultSet(resultSetHeaderPacket) {
 
 
 /***/ }),
-/* 175 */
+/* 181 */
 /***/ (function(module, exports) {
 
 /**
  * MySQL error constants
  *
- * Extracted from version 5.7.17
+ * Extracted from version 5.7.19
  *
  * !! Generated by generate-error-constants.js, do not modify by hand !!
  */
@@ -26194,201 +27003,205 @@ exports.ER_AES_INVALID_IV                                                       
 exports.ER_PLUGIN_CANNOT_BE_UNINSTALLED                                                  = 1883;
 exports.ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP                        = 1884;
 exports.ER_SLAVE_HAS_MORE_GTIDS_THAN_MASTER                                              = 1885;
-exports.ER_FILE_CORRUPT                                                                  = 1886;
-exports.ER_ERROR_ON_MASTER                                                               = 1887;
-exports.ER_INCONSISTENT_ERROR                                                            = 1888;
-exports.ER_STORAGE_ENGINE_NOT_LOADED                                                     = 1889;
-exports.ER_GET_STACKED_DA_WITHOUT_ACTIVE_HANDLER                                         = 1890;
-exports.ER_WARN_LEGACY_SYNTAX_CONVERTED                                                  = 1891;
-exports.ER_BINLOG_UNSAFE_FULLTEXT_PLUGIN                                                 = 1892;
-exports.ER_CANNOT_DISCARD_TEMPORARY_TABLE                                                = 1893;
-exports.ER_FK_DEPTH_EXCEEDED                                                             = 1894;
-exports.ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE_V2                                       = 1895;
-exports.ER_WARN_TRIGGER_DOESNT_HAVE_CREATED                                              = 1896;
-exports.ER_REFERENCED_TRG_DOES_NOT_EXIST                                                 = 1897;
-exports.ER_EXPLAIN_NOT_SUPPORTED                                                         = 1898;
-exports.ER_INVALID_FIELD_SIZE                                                            = 1899;
-exports.ER_MISSING_HA_CREATE_OPTION                                                      = 1900;
-exports.ER_ENGINE_OUT_OF_MEMORY                                                          = 1901;
-exports.ER_PASSWORD_EXPIRE_ANONYMOUS_USER                                                = 1902;
-exports.ER_SLAVE_SQL_THREAD_MUST_STOP                                                    = 1903;
-exports.ER_NO_FT_MATERIALIZED_SUBQUERY                                                   = 1904;
-exports.ER_INNODB_UNDO_LOG_FULL                                                          = 1905;
-exports.ER_INVALID_ARGUMENT_FOR_LOGARITHM                                                = 1906;
-exports.ER_SLAVE_CHANNEL_IO_THREAD_MUST_STOP                                             = 1907;
-exports.ER_WARN_OPEN_TEMP_TABLES_MUST_BE_ZERO                                            = 1908;
-exports.ER_WARN_ONLY_MASTER_LOG_FILE_NO_POS                                              = 1909;
-exports.ER_QUERY_TIMEOUT                                                                 = 1910;
-exports.ER_NON_RO_SELECT_DISABLE_TIMER                                                   = 1911;
-exports.ER_DUP_LIST_ENTRY                                                                = 1912;
-exports.ER_SQL_MODE_NO_EFFECT                                                            = 1913;
-exports.ER_AGGREGATE_ORDER_FOR_UNION                                                     = 1914;
-exports.ER_AGGREGATE_ORDER_NON_AGG_QUERY                                                 = 1915;
-exports.ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR                                       = 1916;
-exports.ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER                                      = 1917;
-exports.ER_SERVER_OFFLINE_MODE                                                           = 1918;
-exports.ER_GIS_DIFFERENT_SRIDS                                                           = 1919;
-exports.ER_GIS_UNSUPPORTED_ARGUMENT                                                      = 1920;
-exports.ER_GIS_UNKNOWN_ERROR                                                             = 1921;
-exports.ER_GIS_UNKNOWN_EXCEPTION                                                         = 1922;
-exports.ER_GIS_INVALID_DATA                                                              = 1923;
-exports.ER_BOOST_GEOMETRY_EMPTY_INPUT_EXCEPTION                                          = 1924;
-exports.ER_BOOST_GEOMETRY_CENTROID_EXCEPTION                                             = 1925;
-exports.ER_BOOST_GEOMETRY_OVERLAY_INVALID_INPUT_EXCEPTION                                = 1926;
-exports.ER_BOOST_GEOMETRY_TURN_INFO_EXCEPTION                                            = 1927;
-exports.ER_BOOST_GEOMETRY_SELF_INTERSECTION_POINT_EXCEPTION                              = 1928;
-exports.ER_BOOST_GEOMETRY_UNKNOWN_EXCEPTION                                              = 1929;
-exports.ER_STD_BAD_ALLOC_ERROR                                                           = 1930;
-exports.ER_STD_DOMAIN_ERROR                                                              = 1931;
-exports.ER_STD_LENGTH_ERROR                                                              = 1932;
-exports.ER_STD_INVALID_ARGUMENT                                                          = 1933;
-exports.ER_STD_OUT_OF_RANGE_ERROR                                                        = 1934;
-exports.ER_STD_OVERFLOW_ERROR                                                            = 1935;
-exports.ER_STD_RANGE_ERROR                                                               = 1936;
-exports.ER_STD_UNDERFLOW_ERROR                                                           = 1937;
-exports.ER_STD_LOGIC_ERROR                                                               = 1938;
-exports.ER_STD_RUNTIME_ERROR                                                             = 1939;
-exports.ER_STD_UNKNOWN_EXCEPTION                                                         = 1940;
-exports.ER_GIS_DATA_WRONG_ENDIANESS                                                      = 1941;
-exports.ER_CHANGE_MASTER_PASSWORD_LENGTH                                                 = 1942;
-exports.ER_USER_LOCK_WRONG_NAME                                                          = 1943;
-exports.ER_USER_LOCK_DEADLOCK                                                            = 1944;
-exports.ER_REPLACE_INACCESSIBLE_ROWS                                                     = 1945;
-exports.ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_GIS                                      = 1946;
-exports.ER_ILLEGAL_USER_VAR                                                              = 1947;
-exports.ER_GTID_MODE_OFF                                                                 = 1948;
-exports.ER_UNSUPPORTED_BY_REPLICATION_THREAD                                             = 1949;
-exports.ER_INCORRECT_TYPE                                                                = 1950;
-exports.ER_FIELD_IN_ORDER_NOT_SELECT                                                     = 1951;
-exports.ER_AGGREGATE_IN_ORDER_NOT_SELECT                                                 = 1952;
-exports.ER_INVALID_RPL_WILD_TABLE_FILTER_PATTERN                                         = 1953;
-exports.ER_NET_OK_PACKET_TOO_LARGE                                                       = 1954;
-exports.ER_INVALID_JSON_DATA                                                             = 1955;
-exports.ER_INVALID_GEOJSON_MISSING_MEMBER                                                = 1956;
-exports.ER_INVALID_GEOJSON_WRONG_TYPE                                                    = 1957;
-exports.ER_INVALID_GEOJSON_UNSPECIFIED                                                   = 1958;
-exports.ER_DIMENSION_UNSUPPORTED                                                         = 1959;
-exports.ER_SLAVE_CHANNEL_DOES_NOT_EXIST                                                  = 1960;
-exports.ER_SLAVE_MULTIPLE_CHANNELS_HOST_PORT                                             = 1961;
-exports.ER_SLAVE_CHANNEL_NAME_INVALID_OR_TOO_LONG                                        = 1962;
-exports.ER_SLAVE_NEW_CHANNEL_WRONG_REPOSITORY                                            = 1963;
-exports.ER_SLAVE_CHANNEL_DELETE                                                          = 1964;
-exports.ER_SLAVE_MULTIPLE_CHANNELS_CMD                                                   = 1965;
-exports.ER_SLAVE_MAX_CHANNELS_EXCEEDED                                                   = 1966;
-exports.ER_SLAVE_CHANNEL_MUST_STOP                                                       = 1967;
-exports.ER_SLAVE_CHANNEL_NOT_RUNNING                                                     = 1968;
-exports.ER_SLAVE_CHANNEL_WAS_RUNNING                                                     = 1969;
-exports.ER_SLAVE_CHANNEL_WAS_NOT_RUNNING                                                 = 1970;
-exports.ER_SLAVE_CHANNEL_SQL_THREAD_MUST_STOP                                            = 1971;
-exports.ER_SLAVE_CHANNEL_SQL_SKIP_COUNTER                                                = 1972;
-exports.ER_WRONG_FIELD_WITH_GROUP_V2                                                     = 1973;
-exports.ER_MIX_OF_GROUP_FUNC_AND_FIELDS_V2                                               = 1974;
-exports.ER_WARN_DEPRECATED_SYSVAR_UPDATE                                                 = 1975;
-exports.ER_WARN_DEPRECATED_SQLMODE                                                       = 1976;
-exports.ER_CANNOT_LOG_PARTIAL_DROP_DATABASE_WITH_GTID                                    = 1977;
-exports.ER_GROUP_REPLICATION_CONFIGURATION                                               = 1978;
-exports.ER_GROUP_REPLICATION_RUNNING                                                     = 1979;
-exports.ER_GROUP_REPLICATION_APPLIER_INIT_ERROR                                          = 1980;
-exports.ER_GROUP_REPLICATION_STOP_APPLIER_THREAD_TIMEOUT                                 = 1981;
-exports.ER_GROUP_REPLICATION_COMMUNICATION_LAYER_SESSION_ERROR                           = 1982;
-exports.ER_GROUP_REPLICATION_COMMUNICATION_LAYER_JOIN_ERROR                              = 1983;
-exports.ER_BEFORE_DML_VALIDATION_ERROR                                                   = 1984;
-exports.ER_PREVENTS_VARIABLE_WITHOUT_RBR                                                 = 1985;
-exports.ER_RUN_HOOK_ERROR                                                                = 1986;
-exports.ER_TRANSACTION_ROLLBACK_DURING_COMMIT                                            = 1987;
-exports.ER_GENERATED_COLUMN_FUNCTION_IS_NOT_ALLOWED                                      = 1988;
-exports.ER_UNSUPPORTED_ALTER_INPLACE_ON_VIRTUAL_COLUMN                                   = 1989;
-exports.ER_WRONG_FK_OPTION_FOR_GENERATED_COLUMN                                          = 1990;
-exports.ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN                                        = 1991;
-exports.ER_UNSUPPORTED_ACTION_ON_GENERATED_COLUMN                                        = 1992;
-exports.ER_GENERATED_COLUMN_NON_PRIOR                                                    = 1993;
-exports.ER_DEPENDENT_BY_GENERATED_COLUMN                                                 = 1994;
-exports.ER_GENERATED_COLUMN_REF_AUTO_INC                                                 = 1995;
-exports.ER_FEATURE_NOT_AVAILABLE                                                         = 1996;
-exports.ER_CANT_SET_GTID_MODE                                                            = 1997;
-exports.ER_CANT_USE_AUTO_POSITION_WITH_GTID_MODE_OFF                                     = 1998;
-exports.ER_CANT_REPLICATE_ANONYMOUS_WITH_AUTO_POSITION                                   = 1999;
-exports.ER_CANT_REPLICATE_ANONYMOUS_WITH_GTID_MODE_ON                                    = 2000;
-exports.ER_CANT_REPLICATE_GTID_WITH_GTID_MODE_OFF                                        = 2001;
-exports.ER_CANT_SET_ENFORCE_GTID_CONSISTENCY_ON_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS = 2002;
-exports.ER_SET_ENFORCE_GTID_CONSISTENCY_WARN_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS    = 2003;
-exports.ER_ACCOUNT_HAS_BEEN_LOCKED                                                       = 2004;
-exports.ER_WRONG_TABLESPACE_NAME                                                         = 2005;
-exports.ER_TABLESPACE_IS_NOT_EMPTY                                                       = 2006;
-exports.ER_WRONG_FILE_NAME                                                               = 2007;
-exports.ER_BOOST_GEOMETRY_INCONSISTENT_TURNS_EXCEPTION                                   = 2008;
-exports.ER_WARN_OPTIMIZER_HINT_SYNTAX_ERROR                                              = 2009;
-exports.ER_WARN_BAD_MAX_EXECUTION_TIME                                                   = 2010;
-exports.ER_WARN_UNSUPPORTED_MAX_EXECUTION_TIME                                           = 2011;
-exports.ER_WARN_CONFLICTING_HINT                                                         = 2012;
-exports.ER_WARN_UNKNOWN_QB_NAME                                                          = 2013;
-exports.ER_UNRESOLVED_HINT_NAME                                                          = 2014;
-exports.ER_WARN_ON_MODIFYING_GTID_EXECUTED_TABLE                                         = 2015;
-exports.ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED                                      = 2016;
-exports.ER_LOCKING_SERVICE_WRONG_NAME                                                    = 2017;
-exports.ER_LOCKING_SERVICE_DEADLOCK                                                      = 2018;
-exports.ER_LOCKING_SERVICE_TIMEOUT                                                       = 2019;
-exports.ER_GIS_MAX_POINTS_IN_GEOMETRY_OVERFLOWED                                         = 2020;
-exports.ER_SQL_MODE_MERGED                                                               = 2021;
-exports.ER_VTOKEN_PLUGIN_TOKEN_MISMATCH                                                  = 2022;
-exports.ER_VTOKEN_PLUGIN_TOKEN_NOT_FOUND                                                 = 2023;
-exports.ER_CANT_SET_VARIABLE_WHEN_OWNING_GTID                                            = 2024;
-exports.ER_SLAVE_CHANNEL_OPERATION_NOT_ALLOWED                                           = 2025;
-exports.ER_INVALID_JSON_TEXT                                                             = 2026;
-exports.ER_INVALID_JSON_TEXT_IN_PARAM                                                    = 2027;
-exports.ER_INVALID_JSON_BINARY_DATA                                                      = 2028;
-exports.ER_INVALID_JSON_PATH                                                             = 2029;
-exports.ER_INVALID_JSON_CHARSET                                                          = 2030;
-exports.ER_INVALID_JSON_CHARSET_IN_FUNCTION                                              = 2031;
-exports.ER_INVALID_TYPE_FOR_JSON                                                         = 2032;
-exports.ER_INVALID_CAST_TO_JSON                                                          = 2033;
-exports.ER_INVALID_JSON_PATH_CHARSET                                                     = 2034;
-exports.ER_INVALID_JSON_PATH_WILDCARD                                                    = 2035;
-exports.ER_JSON_VALUE_TOO_BIG                                                            = 2036;
-exports.ER_JSON_KEY_TOO_BIG                                                              = 2037;
-exports.ER_JSON_USED_AS_KEY                                                              = 2038;
-exports.ER_JSON_VACUOUS_PATH                                                             = 2039;
-exports.ER_JSON_BAD_ONE_OR_ALL_ARG                                                       = 2040;
-exports.ER_NUMERIC_JSON_VALUE_OUT_OF_RANGE                                               = 2041;
-exports.ER_INVALID_JSON_VALUE_FOR_CAST                                                   = 2042;
-exports.ER_JSON_DOCUMENT_TOO_DEEP                                                        = 2043;
-exports.ER_JSON_DOCUMENT_NULL_KEY                                                        = 2044;
-exports.ER_SECURE_TRANSPORT_REQUIRED                                                     = 2045;
-exports.ER_NO_SECURE_TRANSPORTS_CONFIGURED                                               = 2046;
-exports.ER_DISABLED_STORAGE_ENGINE                                                       = 2047;
-exports.ER_USER_DOES_NOT_EXIST                                                           = 2048;
-exports.ER_USER_ALREADY_EXISTS                                                           = 2049;
-exports.ER_AUDIT_API_ABORT                                                               = 2050;
-exports.ER_INVALID_JSON_PATH_ARRAY_CELL                                                  = 2051;
-exports.ER_BUFPOOL_RESIZE_INPROGRESS                                                     = 2052;
-exports.ER_FEATURE_DISABLED_SEE_DOC                                                      = 2053;
-exports.ER_SERVER_ISNT_AVAILABLE                                                         = 2054;
-exports.ER_SESSION_WAS_KILLED                                                            = 2055;
-exports.ER_CAPACITY_EXCEEDED                                                             = 2056;
-exports.ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER                                          = 2057;
-exports.ER_TABLE_NEEDS_UPG_PART                                                          = 2058;
-exports.ER_CANT_WAIT_FOR_EXECUTED_GTID_SET_WHILE_OWNING_A_GTID                           = 2059;
-exports.ER_CANNOT_ADD_FOREIGN_BASE_COL_VIRTUAL                                           = 2060;
-exports.ER_CANNOT_CREATE_VIRTUAL_INDEX_CONSTRAINT                                        = 2061;
-exports.ER_ERROR_ON_MODIFYING_GTID_EXECUTED_TABLE                                        = 2062;
-exports.ER_LOCK_REFUSED_BY_ENGINE                                                        = 2063;
-exports.ER_UNSUPPORTED_ALTER_ONLINE_ON_VIRTUAL_COLUMN                                    = 2064;
-exports.ER_MASTER_KEY_ROTATION_NOT_SUPPORTED_BY_SE                                       = 2065;
-exports.ER_MASTER_KEY_ROTATION_ERROR_BY_SE                                               = 2066;
-exports.ER_MASTER_KEY_ROTATION_BINLOG_FAILED                                             = 2067;
-exports.ER_MASTER_KEY_ROTATION_SE_UNAVAILABLE                                            = 2068;
-exports.ER_TABLESPACE_CANNOT_ENCRYPT                                                     = 2069;
-exports.ER_INVALID_ENCRYPTION_OPTION                                                     = 2070;
-exports.ER_CANNOT_FIND_KEY_IN_KEYRING                                                    = 2071;
-exports.ER_CAPACITY_EXCEEDED_IN_PARSER                                                   = 2072;
-exports.ER_UNSUPPORTED_ALTER_ENCRYPTION_INPLACE                                          = 2073;
-exports.ER_KEYRING_UDF_KEYRING_SERVICE_ERROR                                             = 2074;
-exports.ER_USER_COLUMN_OLD_LENGTH                                                        = 2075;
-exports.ER_CANT_RESET_MASTER                                                             = 2076;
-exports.ER_GROUP_REPLICATION_MAX_GROUP_SIZE                                              = 2077;
-exports.ER_CANNOT_ADD_FOREIGN_BASE_COL_STORED                                            = 2078;
-exports.ER_TABLE_REFERENCED                                                              = 2079;
-exports.ER_PARTITION_ENGINE_DEPRECATED_FOR_TABLE                                         = 2080;
+exports.ER_FILE_CORRUPT                                                                  = 3000;
+exports.ER_ERROR_ON_MASTER                                                               = 3001;
+exports.ER_INCONSISTENT_ERROR                                                            = 3002;
+exports.ER_STORAGE_ENGINE_NOT_LOADED                                                     = 3003;
+exports.ER_GET_STACKED_DA_WITHOUT_ACTIVE_HANDLER                                         = 3004;
+exports.ER_WARN_LEGACY_SYNTAX_CONVERTED                                                  = 3005;
+exports.ER_BINLOG_UNSAFE_FULLTEXT_PLUGIN                                                 = 3006;
+exports.ER_CANNOT_DISCARD_TEMPORARY_TABLE                                                = 3007;
+exports.ER_FK_DEPTH_EXCEEDED                                                             = 3008;
+exports.ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE_V2                                       = 3009;
+exports.ER_WARN_TRIGGER_DOESNT_HAVE_CREATED                                              = 3010;
+exports.ER_REFERENCED_TRG_DOES_NOT_EXIST                                                 = 3011;
+exports.ER_EXPLAIN_NOT_SUPPORTED                                                         = 3012;
+exports.ER_INVALID_FIELD_SIZE                                                            = 3013;
+exports.ER_MISSING_HA_CREATE_OPTION                                                      = 3014;
+exports.ER_ENGINE_OUT_OF_MEMORY                                                          = 3015;
+exports.ER_PASSWORD_EXPIRE_ANONYMOUS_USER                                                = 3016;
+exports.ER_SLAVE_SQL_THREAD_MUST_STOP                                                    = 3017;
+exports.ER_NO_FT_MATERIALIZED_SUBQUERY                                                   = 3018;
+exports.ER_INNODB_UNDO_LOG_FULL                                                          = 3019;
+exports.ER_INVALID_ARGUMENT_FOR_LOGARITHM                                                = 3020;
+exports.ER_SLAVE_CHANNEL_IO_THREAD_MUST_STOP                                             = 3021;
+exports.ER_WARN_OPEN_TEMP_TABLES_MUST_BE_ZERO                                            = 3022;
+exports.ER_WARN_ONLY_MASTER_LOG_FILE_NO_POS                                              = 3023;
+exports.ER_QUERY_TIMEOUT                                                                 = 3024;
+exports.ER_NON_RO_SELECT_DISABLE_TIMER                                                   = 3025;
+exports.ER_DUP_LIST_ENTRY                                                                = 3026;
+exports.ER_SQL_MODE_NO_EFFECT                                                            = 3027;
+exports.ER_AGGREGATE_ORDER_FOR_UNION                                                     = 3028;
+exports.ER_AGGREGATE_ORDER_NON_AGG_QUERY                                                 = 3029;
+exports.ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR                                       = 3030;
+exports.ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER                                      = 3031;
+exports.ER_SERVER_OFFLINE_MODE                                                           = 3032;
+exports.ER_GIS_DIFFERENT_SRIDS                                                           = 3033;
+exports.ER_GIS_UNSUPPORTED_ARGUMENT                                                      = 3034;
+exports.ER_GIS_UNKNOWN_ERROR                                                             = 3035;
+exports.ER_GIS_UNKNOWN_EXCEPTION                                                         = 3036;
+exports.ER_GIS_INVALID_DATA                                                              = 3037;
+exports.ER_BOOST_GEOMETRY_EMPTY_INPUT_EXCEPTION                                          = 3038;
+exports.ER_BOOST_GEOMETRY_CENTROID_EXCEPTION                                             = 3039;
+exports.ER_BOOST_GEOMETRY_OVERLAY_INVALID_INPUT_EXCEPTION                                = 3040;
+exports.ER_BOOST_GEOMETRY_TURN_INFO_EXCEPTION                                            = 3041;
+exports.ER_BOOST_GEOMETRY_SELF_INTERSECTION_POINT_EXCEPTION                              = 3042;
+exports.ER_BOOST_GEOMETRY_UNKNOWN_EXCEPTION                                              = 3043;
+exports.ER_STD_BAD_ALLOC_ERROR                                                           = 3044;
+exports.ER_STD_DOMAIN_ERROR                                                              = 3045;
+exports.ER_STD_LENGTH_ERROR                                                              = 3046;
+exports.ER_STD_INVALID_ARGUMENT                                                          = 3047;
+exports.ER_STD_OUT_OF_RANGE_ERROR                                                        = 3048;
+exports.ER_STD_OVERFLOW_ERROR                                                            = 3049;
+exports.ER_STD_RANGE_ERROR                                                               = 3050;
+exports.ER_STD_UNDERFLOW_ERROR                                                           = 3051;
+exports.ER_STD_LOGIC_ERROR                                                               = 3052;
+exports.ER_STD_RUNTIME_ERROR                                                             = 3053;
+exports.ER_STD_UNKNOWN_EXCEPTION                                                         = 3054;
+exports.ER_GIS_DATA_WRONG_ENDIANESS                                                      = 3055;
+exports.ER_CHANGE_MASTER_PASSWORD_LENGTH                                                 = 3056;
+exports.ER_USER_LOCK_WRONG_NAME                                                          = 3057;
+exports.ER_USER_LOCK_DEADLOCK                                                            = 3058;
+exports.ER_REPLACE_INACCESSIBLE_ROWS                                                     = 3059;
+exports.ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_GIS                                      = 3060;
+exports.ER_ILLEGAL_USER_VAR                                                              = 3061;
+exports.ER_GTID_MODE_OFF                                                                 = 3062;
+exports.ER_UNSUPPORTED_BY_REPLICATION_THREAD                                             = 3063;
+exports.ER_INCORRECT_TYPE                                                                = 3064;
+exports.ER_FIELD_IN_ORDER_NOT_SELECT                                                     = 3065;
+exports.ER_AGGREGATE_IN_ORDER_NOT_SELECT                                                 = 3066;
+exports.ER_INVALID_RPL_WILD_TABLE_FILTER_PATTERN                                         = 3067;
+exports.ER_NET_OK_PACKET_TOO_LARGE                                                       = 3068;
+exports.ER_INVALID_JSON_DATA                                                             = 3069;
+exports.ER_INVALID_GEOJSON_MISSING_MEMBER                                                = 3070;
+exports.ER_INVALID_GEOJSON_WRONG_TYPE                                                    = 3071;
+exports.ER_INVALID_GEOJSON_UNSPECIFIED                                                   = 3072;
+exports.ER_DIMENSION_UNSUPPORTED                                                         = 3073;
+exports.ER_SLAVE_CHANNEL_DOES_NOT_EXIST                                                  = 3074;
+exports.ER_SLAVE_MULTIPLE_CHANNELS_HOST_PORT                                             = 3075;
+exports.ER_SLAVE_CHANNEL_NAME_INVALID_OR_TOO_LONG                                        = 3076;
+exports.ER_SLAVE_NEW_CHANNEL_WRONG_REPOSITORY                                            = 3077;
+exports.ER_SLAVE_CHANNEL_DELETE                                                          = 3078;
+exports.ER_SLAVE_MULTIPLE_CHANNELS_CMD                                                   = 3079;
+exports.ER_SLAVE_MAX_CHANNELS_EXCEEDED                                                   = 3080;
+exports.ER_SLAVE_CHANNEL_MUST_STOP                                                       = 3081;
+exports.ER_SLAVE_CHANNEL_NOT_RUNNING                                                     = 3082;
+exports.ER_SLAVE_CHANNEL_WAS_RUNNING                                                     = 3083;
+exports.ER_SLAVE_CHANNEL_WAS_NOT_RUNNING                                                 = 3084;
+exports.ER_SLAVE_CHANNEL_SQL_THREAD_MUST_STOP                                            = 3085;
+exports.ER_SLAVE_CHANNEL_SQL_SKIP_COUNTER                                                = 3086;
+exports.ER_WRONG_FIELD_WITH_GROUP_V2                                                     = 3087;
+exports.ER_MIX_OF_GROUP_FUNC_AND_FIELDS_V2                                               = 3088;
+exports.ER_WARN_DEPRECATED_SYSVAR_UPDATE                                                 = 3089;
+exports.ER_WARN_DEPRECATED_SQLMODE                                                       = 3090;
+exports.ER_CANNOT_LOG_PARTIAL_DROP_DATABASE_WITH_GTID                                    = 3091;
+exports.ER_GROUP_REPLICATION_CONFIGURATION                                               = 3092;
+exports.ER_GROUP_REPLICATION_RUNNING                                                     = 3093;
+exports.ER_GROUP_REPLICATION_APPLIER_INIT_ERROR                                          = 3094;
+exports.ER_GROUP_REPLICATION_STOP_APPLIER_THREAD_TIMEOUT                                 = 3095;
+exports.ER_GROUP_REPLICATION_COMMUNICATION_LAYER_SESSION_ERROR                           = 3096;
+exports.ER_GROUP_REPLICATION_COMMUNICATION_LAYER_JOIN_ERROR                              = 3097;
+exports.ER_BEFORE_DML_VALIDATION_ERROR                                                   = 3098;
+exports.ER_PREVENTS_VARIABLE_WITHOUT_RBR                                                 = 3099;
+exports.ER_RUN_HOOK_ERROR                                                                = 3100;
+exports.ER_TRANSACTION_ROLLBACK_DURING_COMMIT                                            = 3101;
+exports.ER_GENERATED_COLUMN_FUNCTION_IS_NOT_ALLOWED                                      = 3102;
+exports.ER_UNSUPPORTED_ALTER_INPLACE_ON_VIRTUAL_COLUMN                                   = 3103;
+exports.ER_WRONG_FK_OPTION_FOR_GENERATED_COLUMN                                          = 3104;
+exports.ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN                                        = 3105;
+exports.ER_UNSUPPORTED_ACTION_ON_GENERATED_COLUMN                                        = 3106;
+exports.ER_GENERATED_COLUMN_NON_PRIOR                                                    = 3107;
+exports.ER_DEPENDENT_BY_GENERATED_COLUMN                                                 = 3108;
+exports.ER_GENERATED_COLUMN_REF_AUTO_INC                                                 = 3109;
+exports.ER_FEATURE_NOT_AVAILABLE                                                         = 3110;
+exports.ER_CANT_SET_GTID_MODE                                                            = 3111;
+exports.ER_CANT_USE_AUTO_POSITION_WITH_GTID_MODE_OFF                                     = 3112;
+exports.ER_CANT_REPLICATE_ANONYMOUS_WITH_AUTO_POSITION                                   = 3113;
+exports.ER_CANT_REPLICATE_ANONYMOUS_WITH_GTID_MODE_ON                                    = 3114;
+exports.ER_CANT_REPLICATE_GTID_WITH_GTID_MODE_OFF                                        = 3115;
+exports.ER_CANT_SET_ENFORCE_GTID_CONSISTENCY_ON_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS = 3116;
+exports.ER_SET_ENFORCE_GTID_CONSISTENCY_WARN_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS    = 3117;
+exports.ER_ACCOUNT_HAS_BEEN_LOCKED                                                       = 3118;
+exports.ER_WRONG_TABLESPACE_NAME                                                         = 3119;
+exports.ER_TABLESPACE_IS_NOT_EMPTY                                                       = 3120;
+exports.ER_WRONG_FILE_NAME                                                               = 3121;
+exports.ER_BOOST_GEOMETRY_INCONSISTENT_TURNS_EXCEPTION                                   = 3122;
+exports.ER_WARN_OPTIMIZER_HINT_SYNTAX_ERROR                                              = 3123;
+exports.ER_WARN_BAD_MAX_EXECUTION_TIME                                                   = 3124;
+exports.ER_WARN_UNSUPPORTED_MAX_EXECUTION_TIME                                           = 3125;
+exports.ER_WARN_CONFLICTING_HINT                                                         = 3126;
+exports.ER_WARN_UNKNOWN_QB_NAME                                                          = 3127;
+exports.ER_UNRESOLVED_HINT_NAME                                                          = 3128;
+exports.ER_WARN_ON_MODIFYING_GTID_EXECUTED_TABLE                                         = 3129;
+exports.ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED                                      = 3130;
+exports.ER_LOCKING_SERVICE_WRONG_NAME                                                    = 3131;
+exports.ER_LOCKING_SERVICE_DEADLOCK                                                      = 3132;
+exports.ER_LOCKING_SERVICE_TIMEOUT                                                       = 3133;
+exports.ER_GIS_MAX_POINTS_IN_GEOMETRY_OVERFLOWED                                         = 3134;
+exports.ER_SQL_MODE_MERGED                                                               = 3135;
+exports.ER_VTOKEN_PLUGIN_TOKEN_MISMATCH                                                  = 3136;
+exports.ER_VTOKEN_PLUGIN_TOKEN_NOT_FOUND                                                 = 3137;
+exports.ER_CANT_SET_VARIABLE_WHEN_OWNING_GTID                                            = 3138;
+exports.ER_SLAVE_CHANNEL_OPERATION_NOT_ALLOWED                                           = 3139;
+exports.ER_INVALID_JSON_TEXT                                                             = 3140;
+exports.ER_INVALID_JSON_TEXT_IN_PARAM                                                    = 3141;
+exports.ER_INVALID_JSON_BINARY_DATA                                                      = 3142;
+exports.ER_INVALID_JSON_PATH                                                             = 3143;
+exports.ER_INVALID_JSON_CHARSET                                                          = 3144;
+exports.ER_INVALID_JSON_CHARSET_IN_FUNCTION                                              = 3145;
+exports.ER_INVALID_TYPE_FOR_JSON                                                         = 3146;
+exports.ER_INVALID_CAST_TO_JSON                                                          = 3147;
+exports.ER_INVALID_JSON_PATH_CHARSET                                                     = 3148;
+exports.ER_INVALID_JSON_PATH_WILDCARD                                                    = 3149;
+exports.ER_JSON_VALUE_TOO_BIG                                                            = 3150;
+exports.ER_JSON_KEY_TOO_BIG                                                              = 3151;
+exports.ER_JSON_USED_AS_KEY                                                              = 3152;
+exports.ER_JSON_VACUOUS_PATH                                                             = 3153;
+exports.ER_JSON_BAD_ONE_OR_ALL_ARG                                                       = 3154;
+exports.ER_NUMERIC_JSON_VALUE_OUT_OF_RANGE                                               = 3155;
+exports.ER_INVALID_JSON_VALUE_FOR_CAST                                                   = 3156;
+exports.ER_JSON_DOCUMENT_TOO_DEEP                                                        = 3157;
+exports.ER_JSON_DOCUMENT_NULL_KEY                                                        = 3158;
+exports.ER_SECURE_TRANSPORT_REQUIRED                                                     = 3159;
+exports.ER_NO_SECURE_TRANSPORTS_CONFIGURED                                               = 3160;
+exports.ER_DISABLED_STORAGE_ENGINE                                                       = 3161;
+exports.ER_USER_DOES_NOT_EXIST                                                           = 3162;
+exports.ER_USER_ALREADY_EXISTS                                                           = 3163;
+exports.ER_AUDIT_API_ABORT                                                               = 3164;
+exports.ER_INVALID_JSON_PATH_ARRAY_CELL                                                  = 3165;
+exports.ER_BUFPOOL_RESIZE_INPROGRESS                                                     = 3166;
+exports.ER_FEATURE_DISABLED_SEE_DOC                                                      = 3167;
+exports.ER_SERVER_ISNT_AVAILABLE                                                         = 3168;
+exports.ER_SESSION_WAS_KILLED                                                            = 3169;
+exports.ER_CAPACITY_EXCEEDED                                                             = 3170;
+exports.ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER                                          = 3171;
+exports.ER_TABLE_NEEDS_UPG_PART                                                          = 3172;
+exports.ER_CANT_WAIT_FOR_EXECUTED_GTID_SET_WHILE_OWNING_A_GTID                           = 3173;
+exports.ER_CANNOT_ADD_FOREIGN_BASE_COL_VIRTUAL                                           = 3174;
+exports.ER_CANNOT_CREATE_VIRTUAL_INDEX_CONSTRAINT                                        = 3175;
+exports.ER_ERROR_ON_MODIFYING_GTID_EXECUTED_TABLE                                        = 3176;
+exports.ER_LOCK_REFUSED_BY_ENGINE                                                        = 3177;
+exports.ER_UNSUPPORTED_ALTER_ONLINE_ON_VIRTUAL_COLUMN                                    = 3178;
+exports.ER_MASTER_KEY_ROTATION_NOT_SUPPORTED_BY_SE                                       = 3179;
+exports.ER_MASTER_KEY_ROTATION_ERROR_BY_SE                                               = 3180;
+exports.ER_MASTER_KEY_ROTATION_BINLOG_FAILED                                             = 3181;
+exports.ER_MASTER_KEY_ROTATION_SE_UNAVAILABLE                                            = 3182;
+exports.ER_TABLESPACE_CANNOT_ENCRYPT                                                     = 3183;
+exports.ER_INVALID_ENCRYPTION_OPTION                                                     = 3184;
+exports.ER_CANNOT_FIND_KEY_IN_KEYRING                                                    = 3185;
+exports.ER_CAPACITY_EXCEEDED_IN_PARSER                                                   = 3186;
+exports.ER_UNSUPPORTED_ALTER_ENCRYPTION_INPLACE                                          = 3187;
+exports.ER_KEYRING_UDF_KEYRING_SERVICE_ERROR                                             = 3188;
+exports.ER_USER_COLUMN_OLD_LENGTH                                                        = 3189;
+exports.ER_CANT_RESET_MASTER                                                             = 3190;
+exports.ER_GROUP_REPLICATION_MAX_GROUP_SIZE                                              = 3191;
+exports.ER_CANNOT_ADD_FOREIGN_BASE_COL_STORED                                            = 3192;
+exports.ER_TABLE_REFERENCED                                                              = 3193;
+exports.ER_PARTITION_ENGINE_DEPRECATED_FOR_TABLE                                         = 3194;
+exports.ER_WARN_USING_GEOMFROMWKB_TO_SET_SRID_ZERO                                       = 3195;
+exports.ER_WARN_USING_GEOMFROMWKB_TO_SET_SRID                                            = 3196;
+exports.ER_XA_RETRY                                                                      = 3197;
+exports.ER_KEYRING_AWS_UDF_AWS_KMS_ERROR                                                 = 3198;
 
 // Lookup-by-number table
 exports[1]    = 'EE_CANTCREATEFILE';
@@ -27390,205 +28203,209 @@ exports[1882] = 'ER_AES_INVALID_IV';
 exports[1883] = 'ER_PLUGIN_CANNOT_BE_UNINSTALLED';
 exports[1884] = 'ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP';
 exports[1885] = 'ER_SLAVE_HAS_MORE_GTIDS_THAN_MASTER';
-exports[1886] = 'ER_FILE_CORRUPT';
-exports[1887] = 'ER_ERROR_ON_MASTER';
-exports[1888] = 'ER_INCONSISTENT_ERROR';
-exports[1889] = 'ER_STORAGE_ENGINE_NOT_LOADED';
-exports[1890] = 'ER_GET_STACKED_DA_WITHOUT_ACTIVE_HANDLER';
-exports[1891] = 'ER_WARN_LEGACY_SYNTAX_CONVERTED';
-exports[1892] = 'ER_BINLOG_UNSAFE_FULLTEXT_PLUGIN';
-exports[1893] = 'ER_CANNOT_DISCARD_TEMPORARY_TABLE';
-exports[1894] = 'ER_FK_DEPTH_EXCEEDED';
-exports[1895] = 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE_V2';
-exports[1896] = 'ER_WARN_TRIGGER_DOESNT_HAVE_CREATED';
-exports[1897] = 'ER_REFERENCED_TRG_DOES_NOT_EXIST';
-exports[1898] = 'ER_EXPLAIN_NOT_SUPPORTED';
-exports[1899] = 'ER_INVALID_FIELD_SIZE';
-exports[1900] = 'ER_MISSING_HA_CREATE_OPTION';
-exports[1901] = 'ER_ENGINE_OUT_OF_MEMORY';
-exports[1902] = 'ER_PASSWORD_EXPIRE_ANONYMOUS_USER';
-exports[1903] = 'ER_SLAVE_SQL_THREAD_MUST_STOP';
-exports[1904] = 'ER_NO_FT_MATERIALIZED_SUBQUERY';
-exports[1905] = 'ER_INNODB_UNDO_LOG_FULL';
-exports[1906] = 'ER_INVALID_ARGUMENT_FOR_LOGARITHM';
-exports[1907] = 'ER_SLAVE_CHANNEL_IO_THREAD_MUST_STOP';
-exports[1908] = 'ER_WARN_OPEN_TEMP_TABLES_MUST_BE_ZERO';
-exports[1909] = 'ER_WARN_ONLY_MASTER_LOG_FILE_NO_POS';
-exports[1910] = 'ER_QUERY_TIMEOUT';
-exports[1911] = 'ER_NON_RO_SELECT_DISABLE_TIMER';
-exports[1912] = 'ER_DUP_LIST_ENTRY';
-exports[1913] = 'ER_SQL_MODE_NO_EFFECT';
-exports[1914] = 'ER_AGGREGATE_ORDER_FOR_UNION';
-exports[1915] = 'ER_AGGREGATE_ORDER_NON_AGG_QUERY';
-exports[1916] = 'ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR';
-exports[1917] = 'ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER';
-exports[1918] = 'ER_SERVER_OFFLINE_MODE';
-exports[1919] = 'ER_GIS_DIFFERENT_SRIDS';
-exports[1920] = 'ER_GIS_UNSUPPORTED_ARGUMENT';
-exports[1921] = 'ER_GIS_UNKNOWN_ERROR';
-exports[1922] = 'ER_GIS_UNKNOWN_EXCEPTION';
-exports[1923] = 'ER_GIS_INVALID_DATA';
-exports[1924] = 'ER_BOOST_GEOMETRY_EMPTY_INPUT_EXCEPTION';
-exports[1925] = 'ER_BOOST_GEOMETRY_CENTROID_EXCEPTION';
-exports[1926] = 'ER_BOOST_GEOMETRY_OVERLAY_INVALID_INPUT_EXCEPTION';
-exports[1927] = 'ER_BOOST_GEOMETRY_TURN_INFO_EXCEPTION';
-exports[1928] = 'ER_BOOST_GEOMETRY_SELF_INTERSECTION_POINT_EXCEPTION';
-exports[1929] = 'ER_BOOST_GEOMETRY_UNKNOWN_EXCEPTION';
-exports[1930] = 'ER_STD_BAD_ALLOC_ERROR';
-exports[1931] = 'ER_STD_DOMAIN_ERROR';
-exports[1932] = 'ER_STD_LENGTH_ERROR';
-exports[1933] = 'ER_STD_INVALID_ARGUMENT';
-exports[1934] = 'ER_STD_OUT_OF_RANGE_ERROR';
-exports[1935] = 'ER_STD_OVERFLOW_ERROR';
-exports[1936] = 'ER_STD_RANGE_ERROR';
-exports[1937] = 'ER_STD_UNDERFLOW_ERROR';
-exports[1938] = 'ER_STD_LOGIC_ERROR';
-exports[1939] = 'ER_STD_RUNTIME_ERROR';
-exports[1940] = 'ER_STD_UNKNOWN_EXCEPTION';
-exports[1941] = 'ER_GIS_DATA_WRONG_ENDIANESS';
-exports[1942] = 'ER_CHANGE_MASTER_PASSWORD_LENGTH';
-exports[1943] = 'ER_USER_LOCK_WRONG_NAME';
-exports[1944] = 'ER_USER_LOCK_DEADLOCK';
-exports[1945] = 'ER_REPLACE_INACCESSIBLE_ROWS';
-exports[1946] = 'ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_GIS';
-exports[1947] = 'ER_ILLEGAL_USER_VAR';
-exports[1948] = 'ER_GTID_MODE_OFF';
-exports[1949] = 'ER_UNSUPPORTED_BY_REPLICATION_THREAD';
-exports[1950] = 'ER_INCORRECT_TYPE';
-exports[1951] = 'ER_FIELD_IN_ORDER_NOT_SELECT';
-exports[1952] = 'ER_AGGREGATE_IN_ORDER_NOT_SELECT';
-exports[1953] = 'ER_INVALID_RPL_WILD_TABLE_FILTER_PATTERN';
-exports[1954] = 'ER_NET_OK_PACKET_TOO_LARGE';
-exports[1955] = 'ER_INVALID_JSON_DATA';
-exports[1956] = 'ER_INVALID_GEOJSON_MISSING_MEMBER';
-exports[1957] = 'ER_INVALID_GEOJSON_WRONG_TYPE';
-exports[1958] = 'ER_INVALID_GEOJSON_UNSPECIFIED';
-exports[1959] = 'ER_DIMENSION_UNSUPPORTED';
-exports[1960] = 'ER_SLAVE_CHANNEL_DOES_NOT_EXIST';
-exports[1961] = 'ER_SLAVE_MULTIPLE_CHANNELS_HOST_PORT';
-exports[1962] = 'ER_SLAVE_CHANNEL_NAME_INVALID_OR_TOO_LONG';
-exports[1963] = 'ER_SLAVE_NEW_CHANNEL_WRONG_REPOSITORY';
-exports[1964] = 'ER_SLAVE_CHANNEL_DELETE';
-exports[1965] = 'ER_SLAVE_MULTIPLE_CHANNELS_CMD';
-exports[1966] = 'ER_SLAVE_MAX_CHANNELS_EXCEEDED';
-exports[1967] = 'ER_SLAVE_CHANNEL_MUST_STOP';
-exports[1968] = 'ER_SLAVE_CHANNEL_NOT_RUNNING';
-exports[1969] = 'ER_SLAVE_CHANNEL_WAS_RUNNING';
-exports[1970] = 'ER_SLAVE_CHANNEL_WAS_NOT_RUNNING';
-exports[1971] = 'ER_SLAVE_CHANNEL_SQL_THREAD_MUST_STOP';
-exports[1972] = 'ER_SLAVE_CHANNEL_SQL_SKIP_COUNTER';
-exports[1973] = 'ER_WRONG_FIELD_WITH_GROUP_V2';
-exports[1974] = 'ER_MIX_OF_GROUP_FUNC_AND_FIELDS_V2';
-exports[1975] = 'ER_WARN_DEPRECATED_SYSVAR_UPDATE';
-exports[1976] = 'ER_WARN_DEPRECATED_SQLMODE';
-exports[1977] = 'ER_CANNOT_LOG_PARTIAL_DROP_DATABASE_WITH_GTID';
-exports[1978] = 'ER_GROUP_REPLICATION_CONFIGURATION';
-exports[1979] = 'ER_GROUP_REPLICATION_RUNNING';
-exports[1980] = 'ER_GROUP_REPLICATION_APPLIER_INIT_ERROR';
-exports[1981] = 'ER_GROUP_REPLICATION_STOP_APPLIER_THREAD_TIMEOUT';
-exports[1982] = 'ER_GROUP_REPLICATION_COMMUNICATION_LAYER_SESSION_ERROR';
-exports[1983] = 'ER_GROUP_REPLICATION_COMMUNICATION_LAYER_JOIN_ERROR';
-exports[1984] = 'ER_BEFORE_DML_VALIDATION_ERROR';
-exports[1985] = 'ER_PREVENTS_VARIABLE_WITHOUT_RBR';
-exports[1986] = 'ER_RUN_HOOK_ERROR';
-exports[1987] = 'ER_TRANSACTION_ROLLBACK_DURING_COMMIT';
-exports[1988] = 'ER_GENERATED_COLUMN_FUNCTION_IS_NOT_ALLOWED';
-exports[1989] = 'ER_UNSUPPORTED_ALTER_INPLACE_ON_VIRTUAL_COLUMN';
-exports[1990] = 'ER_WRONG_FK_OPTION_FOR_GENERATED_COLUMN';
-exports[1991] = 'ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN';
-exports[1992] = 'ER_UNSUPPORTED_ACTION_ON_GENERATED_COLUMN';
-exports[1993] = 'ER_GENERATED_COLUMN_NON_PRIOR';
-exports[1994] = 'ER_DEPENDENT_BY_GENERATED_COLUMN';
-exports[1995] = 'ER_GENERATED_COLUMN_REF_AUTO_INC';
-exports[1996] = 'ER_FEATURE_NOT_AVAILABLE';
-exports[1997] = 'ER_CANT_SET_GTID_MODE';
-exports[1998] = 'ER_CANT_USE_AUTO_POSITION_WITH_GTID_MODE_OFF';
-exports[1999] = 'ER_CANT_REPLICATE_ANONYMOUS_WITH_AUTO_POSITION';
-exports[2000] = 'ER_CANT_REPLICATE_ANONYMOUS_WITH_GTID_MODE_ON';
-exports[2001] = 'ER_CANT_REPLICATE_GTID_WITH_GTID_MODE_OFF';
-exports[2002] = 'ER_CANT_SET_ENFORCE_GTID_CONSISTENCY_ON_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS';
-exports[2003] = 'ER_SET_ENFORCE_GTID_CONSISTENCY_WARN_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS';
-exports[2004] = 'ER_ACCOUNT_HAS_BEEN_LOCKED';
-exports[2005] = 'ER_WRONG_TABLESPACE_NAME';
-exports[2006] = 'ER_TABLESPACE_IS_NOT_EMPTY';
-exports[2007] = 'ER_WRONG_FILE_NAME';
-exports[2008] = 'ER_BOOST_GEOMETRY_INCONSISTENT_TURNS_EXCEPTION';
-exports[2009] = 'ER_WARN_OPTIMIZER_HINT_SYNTAX_ERROR';
-exports[2010] = 'ER_WARN_BAD_MAX_EXECUTION_TIME';
-exports[2011] = 'ER_WARN_UNSUPPORTED_MAX_EXECUTION_TIME';
-exports[2012] = 'ER_WARN_CONFLICTING_HINT';
-exports[2013] = 'ER_WARN_UNKNOWN_QB_NAME';
-exports[2014] = 'ER_UNRESOLVED_HINT_NAME';
-exports[2015] = 'ER_WARN_ON_MODIFYING_GTID_EXECUTED_TABLE';
-exports[2016] = 'ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED';
-exports[2017] = 'ER_LOCKING_SERVICE_WRONG_NAME';
-exports[2018] = 'ER_LOCKING_SERVICE_DEADLOCK';
-exports[2019] = 'ER_LOCKING_SERVICE_TIMEOUT';
-exports[2020] = 'ER_GIS_MAX_POINTS_IN_GEOMETRY_OVERFLOWED';
-exports[2021] = 'ER_SQL_MODE_MERGED';
-exports[2022] = 'ER_VTOKEN_PLUGIN_TOKEN_MISMATCH';
-exports[2023] = 'ER_VTOKEN_PLUGIN_TOKEN_NOT_FOUND';
-exports[2024] = 'ER_CANT_SET_VARIABLE_WHEN_OWNING_GTID';
-exports[2025] = 'ER_SLAVE_CHANNEL_OPERATION_NOT_ALLOWED';
-exports[2026] = 'ER_INVALID_JSON_TEXT';
-exports[2027] = 'ER_INVALID_JSON_TEXT_IN_PARAM';
-exports[2028] = 'ER_INVALID_JSON_BINARY_DATA';
-exports[2029] = 'ER_INVALID_JSON_PATH';
-exports[2030] = 'ER_INVALID_JSON_CHARSET';
-exports[2031] = 'ER_INVALID_JSON_CHARSET_IN_FUNCTION';
-exports[2032] = 'ER_INVALID_TYPE_FOR_JSON';
-exports[2033] = 'ER_INVALID_CAST_TO_JSON';
-exports[2034] = 'ER_INVALID_JSON_PATH_CHARSET';
-exports[2035] = 'ER_INVALID_JSON_PATH_WILDCARD';
-exports[2036] = 'ER_JSON_VALUE_TOO_BIG';
-exports[2037] = 'ER_JSON_KEY_TOO_BIG';
-exports[2038] = 'ER_JSON_USED_AS_KEY';
-exports[2039] = 'ER_JSON_VACUOUS_PATH';
-exports[2040] = 'ER_JSON_BAD_ONE_OR_ALL_ARG';
-exports[2041] = 'ER_NUMERIC_JSON_VALUE_OUT_OF_RANGE';
-exports[2042] = 'ER_INVALID_JSON_VALUE_FOR_CAST';
-exports[2043] = 'ER_JSON_DOCUMENT_TOO_DEEP';
-exports[2044] = 'ER_JSON_DOCUMENT_NULL_KEY';
-exports[2045] = 'ER_SECURE_TRANSPORT_REQUIRED';
-exports[2046] = 'ER_NO_SECURE_TRANSPORTS_CONFIGURED';
-exports[2047] = 'ER_DISABLED_STORAGE_ENGINE';
-exports[2048] = 'ER_USER_DOES_NOT_EXIST';
-exports[2049] = 'ER_USER_ALREADY_EXISTS';
-exports[2050] = 'ER_AUDIT_API_ABORT';
-exports[2051] = 'ER_INVALID_JSON_PATH_ARRAY_CELL';
-exports[2052] = 'ER_BUFPOOL_RESIZE_INPROGRESS';
-exports[2053] = 'ER_FEATURE_DISABLED_SEE_DOC';
-exports[2054] = 'ER_SERVER_ISNT_AVAILABLE';
-exports[2055] = 'ER_SESSION_WAS_KILLED';
-exports[2056] = 'ER_CAPACITY_EXCEEDED';
-exports[2057] = 'ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER';
-exports[2058] = 'ER_TABLE_NEEDS_UPG_PART';
-exports[2059] = 'ER_CANT_WAIT_FOR_EXECUTED_GTID_SET_WHILE_OWNING_A_GTID';
-exports[2060] = 'ER_CANNOT_ADD_FOREIGN_BASE_COL_VIRTUAL';
-exports[2061] = 'ER_CANNOT_CREATE_VIRTUAL_INDEX_CONSTRAINT';
-exports[2062] = 'ER_ERROR_ON_MODIFYING_GTID_EXECUTED_TABLE';
-exports[2063] = 'ER_LOCK_REFUSED_BY_ENGINE';
-exports[2064] = 'ER_UNSUPPORTED_ALTER_ONLINE_ON_VIRTUAL_COLUMN';
-exports[2065] = 'ER_MASTER_KEY_ROTATION_NOT_SUPPORTED_BY_SE';
-exports[2066] = 'ER_MASTER_KEY_ROTATION_ERROR_BY_SE';
-exports[2067] = 'ER_MASTER_KEY_ROTATION_BINLOG_FAILED';
-exports[2068] = 'ER_MASTER_KEY_ROTATION_SE_UNAVAILABLE';
-exports[2069] = 'ER_TABLESPACE_CANNOT_ENCRYPT';
-exports[2070] = 'ER_INVALID_ENCRYPTION_OPTION';
-exports[2071] = 'ER_CANNOT_FIND_KEY_IN_KEYRING';
-exports[2072] = 'ER_CAPACITY_EXCEEDED_IN_PARSER';
-exports[2073] = 'ER_UNSUPPORTED_ALTER_ENCRYPTION_INPLACE';
-exports[2074] = 'ER_KEYRING_UDF_KEYRING_SERVICE_ERROR';
-exports[2075] = 'ER_USER_COLUMN_OLD_LENGTH';
-exports[2076] = 'ER_CANT_RESET_MASTER';
-exports[2077] = 'ER_GROUP_REPLICATION_MAX_GROUP_SIZE';
-exports[2078] = 'ER_CANNOT_ADD_FOREIGN_BASE_COL_STORED';
-exports[2079] = 'ER_TABLE_REFERENCED';
-exports[2080] = 'ER_PARTITION_ENGINE_DEPRECATED_FOR_TABLE';
+exports[3000] = 'ER_FILE_CORRUPT';
+exports[3001] = 'ER_ERROR_ON_MASTER';
+exports[3002] = 'ER_INCONSISTENT_ERROR';
+exports[3003] = 'ER_STORAGE_ENGINE_NOT_LOADED';
+exports[3004] = 'ER_GET_STACKED_DA_WITHOUT_ACTIVE_HANDLER';
+exports[3005] = 'ER_WARN_LEGACY_SYNTAX_CONVERTED';
+exports[3006] = 'ER_BINLOG_UNSAFE_FULLTEXT_PLUGIN';
+exports[3007] = 'ER_CANNOT_DISCARD_TEMPORARY_TABLE';
+exports[3008] = 'ER_FK_DEPTH_EXCEEDED';
+exports[3009] = 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE_V2';
+exports[3010] = 'ER_WARN_TRIGGER_DOESNT_HAVE_CREATED';
+exports[3011] = 'ER_REFERENCED_TRG_DOES_NOT_EXIST';
+exports[3012] = 'ER_EXPLAIN_NOT_SUPPORTED';
+exports[3013] = 'ER_INVALID_FIELD_SIZE';
+exports[3014] = 'ER_MISSING_HA_CREATE_OPTION';
+exports[3015] = 'ER_ENGINE_OUT_OF_MEMORY';
+exports[3016] = 'ER_PASSWORD_EXPIRE_ANONYMOUS_USER';
+exports[3017] = 'ER_SLAVE_SQL_THREAD_MUST_STOP';
+exports[3018] = 'ER_NO_FT_MATERIALIZED_SUBQUERY';
+exports[3019] = 'ER_INNODB_UNDO_LOG_FULL';
+exports[3020] = 'ER_INVALID_ARGUMENT_FOR_LOGARITHM';
+exports[3021] = 'ER_SLAVE_CHANNEL_IO_THREAD_MUST_STOP';
+exports[3022] = 'ER_WARN_OPEN_TEMP_TABLES_MUST_BE_ZERO';
+exports[3023] = 'ER_WARN_ONLY_MASTER_LOG_FILE_NO_POS';
+exports[3024] = 'ER_QUERY_TIMEOUT';
+exports[3025] = 'ER_NON_RO_SELECT_DISABLE_TIMER';
+exports[3026] = 'ER_DUP_LIST_ENTRY';
+exports[3027] = 'ER_SQL_MODE_NO_EFFECT';
+exports[3028] = 'ER_AGGREGATE_ORDER_FOR_UNION';
+exports[3029] = 'ER_AGGREGATE_ORDER_NON_AGG_QUERY';
+exports[3030] = 'ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR';
+exports[3031] = 'ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER';
+exports[3032] = 'ER_SERVER_OFFLINE_MODE';
+exports[3033] = 'ER_GIS_DIFFERENT_SRIDS';
+exports[3034] = 'ER_GIS_UNSUPPORTED_ARGUMENT';
+exports[3035] = 'ER_GIS_UNKNOWN_ERROR';
+exports[3036] = 'ER_GIS_UNKNOWN_EXCEPTION';
+exports[3037] = 'ER_GIS_INVALID_DATA';
+exports[3038] = 'ER_BOOST_GEOMETRY_EMPTY_INPUT_EXCEPTION';
+exports[3039] = 'ER_BOOST_GEOMETRY_CENTROID_EXCEPTION';
+exports[3040] = 'ER_BOOST_GEOMETRY_OVERLAY_INVALID_INPUT_EXCEPTION';
+exports[3041] = 'ER_BOOST_GEOMETRY_TURN_INFO_EXCEPTION';
+exports[3042] = 'ER_BOOST_GEOMETRY_SELF_INTERSECTION_POINT_EXCEPTION';
+exports[3043] = 'ER_BOOST_GEOMETRY_UNKNOWN_EXCEPTION';
+exports[3044] = 'ER_STD_BAD_ALLOC_ERROR';
+exports[3045] = 'ER_STD_DOMAIN_ERROR';
+exports[3046] = 'ER_STD_LENGTH_ERROR';
+exports[3047] = 'ER_STD_INVALID_ARGUMENT';
+exports[3048] = 'ER_STD_OUT_OF_RANGE_ERROR';
+exports[3049] = 'ER_STD_OVERFLOW_ERROR';
+exports[3050] = 'ER_STD_RANGE_ERROR';
+exports[3051] = 'ER_STD_UNDERFLOW_ERROR';
+exports[3052] = 'ER_STD_LOGIC_ERROR';
+exports[3053] = 'ER_STD_RUNTIME_ERROR';
+exports[3054] = 'ER_STD_UNKNOWN_EXCEPTION';
+exports[3055] = 'ER_GIS_DATA_WRONG_ENDIANESS';
+exports[3056] = 'ER_CHANGE_MASTER_PASSWORD_LENGTH';
+exports[3057] = 'ER_USER_LOCK_WRONG_NAME';
+exports[3058] = 'ER_USER_LOCK_DEADLOCK';
+exports[3059] = 'ER_REPLACE_INACCESSIBLE_ROWS';
+exports[3060] = 'ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_GIS';
+exports[3061] = 'ER_ILLEGAL_USER_VAR';
+exports[3062] = 'ER_GTID_MODE_OFF';
+exports[3063] = 'ER_UNSUPPORTED_BY_REPLICATION_THREAD';
+exports[3064] = 'ER_INCORRECT_TYPE';
+exports[3065] = 'ER_FIELD_IN_ORDER_NOT_SELECT';
+exports[3066] = 'ER_AGGREGATE_IN_ORDER_NOT_SELECT';
+exports[3067] = 'ER_INVALID_RPL_WILD_TABLE_FILTER_PATTERN';
+exports[3068] = 'ER_NET_OK_PACKET_TOO_LARGE';
+exports[3069] = 'ER_INVALID_JSON_DATA';
+exports[3070] = 'ER_INVALID_GEOJSON_MISSING_MEMBER';
+exports[3071] = 'ER_INVALID_GEOJSON_WRONG_TYPE';
+exports[3072] = 'ER_INVALID_GEOJSON_UNSPECIFIED';
+exports[3073] = 'ER_DIMENSION_UNSUPPORTED';
+exports[3074] = 'ER_SLAVE_CHANNEL_DOES_NOT_EXIST';
+exports[3075] = 'ER_SLAVE_MULTIPLE_CHANNELS_HOST_PORT';
+exports[3076] = 'ER_SLAVE_CHANNEL_NAME_INVALID_OR_TOO_LONG';
+exports[3077] = 'ER_SLAVE_NEW_CHANNEL_WRONG_REPOSITORY';
+exports[3078] = 'ER_SLAVE_CHANNEL_DELETE';
+exports[3079] = 'ER_SLAVE_MULTIPLE_CHANNELS_CMD';
+exports[3080] = 'ER_SLAVE_MAX_CHANNELS_EXCEEDED';
+exports[3081] = 'ER_SLAVE_CHANNEL_MUST_STOP';
+exports[3082] = 'ER_SLAVE_CHANNEL_NOT_RUNNING';
+exports[3083] = 'ER_SLAVE_CHANNEL_WAS_RUNNING';
+exports[3084] = 'ER_SLAVE_CHANNEL_WAS_NOT_RUNNING';
+exports[3085] = 'ER_SLAVE_CHANNEL_SQL_THREAD_MUST_STOP';
+exports[3086] = 'ER_SLAVE_CHANNEL_SQL_SKIP_COUNTER';
+exports[3087] = 'ER_WRONG_FIELD_WITH_GROUP_V2';
+exports[3088] = 'ER_MIX_OF_GROUP_FUNC_AND_FIELDS_V2';
+exports[3089] = 'ER_WARN_DEPRECATED_SYSVAR_UPDATE';
+exports[3090] = 'ER_WARN_DEPRECATED_SQLMODE';
+exports[3091] = 'ER_CANNOT_LOG_PARTIAL_DROP_DATABASE_WITH_GTID';
+exports[3092] = 'ER_GROUP_REPLICATION_CONFIGURATION';
+exports[3093] = 'ER_GROUP_REPLICATION_RUNNING';
+exports[3094] = 'ER_GROUP_REPLICATION_APPLIER_INIT_ERROR';
+exports[3095] = 'ER_GROUP_REPLICATION_STOP_APPLIER_THREAD_TIMEOUT';
+exports[3096] = 'ER_GROUP_REPLICATION_COMMUNICATION_LAYER_SESSION_ERROR';
+exports[3097] = 'ER_GROUP_REPLICATION_COMMUNICATION_LAYER_JOIN_ERROR';
+exports[3098] = 'ER_BEFORE_DML_VALIDATION_ERROR';
+exports[3099] = 'ER_PREVENTS_VARIABLE_WITHOUT_RBR';
+exports[3100] = 'ER_RUN_HOOK_ERROR';
+exports[3101] = 'ER_TRANSACTION_ROLLBACK_DURING_COMMIT';
+exports[3102] = 'ER_GENERATED_COLUMN_FUNCTION_IS_NOT_ALLOWED';
+exports[3103] = 'ER_UNSUPPORTED_ALTER_INPLACE_ON_VIRTUAL_COLUMN';
+exports[3104] = 'ER_WRONG_FK_OPTION_FOR_GENERATED_COLUMN';
+exports[3105] = 'ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN';
+exports[3106] = 'ER_UNSUPPORTED_ACTION_ON_GENERATED_COLUMN';
+exports[3107] = 'ER_GENERATED_COLUMN_NON_PRIOR';
+exports[3108] = 'ER_DEPENDENT_BY_GENERATED_COLUMN';
+exports[3109] = 'ER_GENERATED_COLUMN_REF_AUTO_INC';
+exports[3110] = 'ER_FEATURE_NOT_AVAILABLE';
+exports[3111] = 'ER_CANT_SET_GTID_MODE';
+exports[3112] = 'ER_CANT_USE_AUTO_POSITION_WITH_GTID_MODE_OFF';
+exports[3113] = 'ER_CANT_REPLICATE_ANONYMOUS_WITH_AUTO_POSITION';
+exports[3114] = 'ER_CANT_REPLICATE_ANONYMOUS_WITH_GTID_MODE_ON';
+exports[3115] = 'ER_CANT_REPLICATE_GTID_WITH_GTID_MODE_OFF';
+exports[3116] = 'ER_CANT_SET_ENFORCE_GTID_CONSISTENCY_ON_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS';
+exports[3117] = 'ER_SET_ENFORCE_GTID_CONSISTENCY_WARN_WITH_ONGOING_GTID_VIOLATING_TRANSACTIONS';
+exports[3118] = 'ER_ACCOUNT_HAS_BEEN_LOCKED';
+exports[3119] = 'ER_WRONG_TABLESPACE_NAME';
+exports[3120] = 'ER_TABLESPACE_IS_NOT_EMPTY';
+exports[3121] = 'ER_WRONG_FILE_NAME';
+exports[3122] = 'ER_BOOST_GEOMETRY_INCONSISTENT_TURNS_EXCEPTION';
+exports[3123] = 'ER_WARN_OPTIMIZER_HINT_SYNTAX_ERROR';
+exports[3124] = 'ER_WARN_BAD_MAX_EXECUTION_TIME';
+exports[3125] = 'ER_WARN_UNSUPPORTED_MAX_EXECUTION_TIME';
+exports[3126] = 'ER_WARN_CONFLICTING_HINT';
+exports[3127] = 'ER_WARN_UNKNOWN_QB_NAME';
+exports[3128] = 'ER_UNRESOLVED_HINT_NAME';
+exports[3129] = 'ER_WARN_ON_MODIFYING_GTID_EXECUTED_TABLE';
+exports[3130] = 'ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED';
+exports[3131] = 'ER_LOCKING_SERVICE_WRONG_NAME';
+exports[3132] = 'ER_LOCKING_SERVICE_DEADLOCK';
+exports[3133] = 'ER_LOCKING_SERVICE_TIMEOUT';
+exports[3134] = 'ER_GIS_MAX_POINTS_IN_GEOMETRY_OVERFLOWED';
+exports[3135] = 'ER_SQL_MODE_MERGED';
+exports[3136] = 'ER_VTOKEN_PLUGIN_TOKEN_MISMATCH';
+exports[3137] = 'ER_VTOKEN_PLUGIN_TOKEN_NOT_FOUND';
+exports[3138] = 'ER_CANT_SET_VARIABLE_WHEN_OWNING_GTID';
+exports[3139] = 'ER_SLAVE_CHANNEL_OPERATION_NOT_ALLOWED';
+exports[3140] = 'ER_INVALID_JSON_TEXT';
+exports[3141] = 'ER_INVALID_JSON_TEXT_IN_PARAM';
+exports[3142] = 'ER_INVALID_JSON_BINARY_DATA';
+exports[3143] = 'ER_INVALID_JSON_PATH';
+exports[3144] = 'ER_INVALID_JSON_CHARSET';
+exports[3145] = 'ER_INVALID_JSON_CHARSET_IN_FUNCTION';
+exports[3146] = 'ER_INVALID_TYPE_FOR_JSON';
+exports[3147] = 'ER_INVALID_CAST_TO_JSON';
+exports[3148] = 'ER_INVALID_JSON_PATH_CHARSET';
+exports[3149] = 'ER_INVALID_JSON_PATH_WILDCARD';
+exports[3150] = 'ER_JSON_VALUE_TOO_BIG';
+exports[3151] = 'ER_JSON_KEY_TOO_BIG';
+exports[3152] = 'ER_JSON_USED_AS_KEY';
+exports[3153] = 'ER_JSON_VACUOUS_PATH';
+exports[3154] = 'ER_JSON_BAD_ONE_OR_ALL_ARG';
+exports[3155] = 'ER_NUMERIC_JSON_VALUE_OUT_OF_RANGE';
+exports[3156] = 'ER_INVALID_JSON_VALUE_FOR_CAST';
+exports[3157] = 'ER_JSON_DOCUMENT_TOO_DEEP';
+exports[3158] = 'ER_JSON_DOCUMENT_NULL_KEY';
+exports[3159] = 'ER_SECURE_TRANSPORT_REQUIRED';
+exports[3160] = 'ER_NO_SECURE_TRANSPORTS_CONFIGURED';
+exports[3161] = 'ER_DISABLED_STORAGE_ENGINE';
+exports[3162] = 'ER_USER_DOES_NOT_EXIST';
+exports[3163] = 'ER_USER_ALREADY_EXISTS';
+exports[3164] = 'ER_AUDIT_API_ABORT';
+exports[3165] = 'ER_INVALID_JSON_PATH_ARRAY_CELL';
+exports[3166] = 'ER_BUFPOOL_RESIZE_INPROGRESS';
+exports[3167] = 'ER_FEATURE_DISABLED_SEE_DOC';
+exports[3168] = 'ER_SERVER_ISNT_AVAILABLE';
+exports[3169] = 'ER_SESSION_WAS_KILLED';
+exports[3170] = 'ER_CAPACITY_EXCEEDED';
+exports[3171] = 'ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER';
+exports[3172] = 'ER_TABLE_NEEDS_UPG_PART';
+exports[3173] = 'ER_CANT_WAIT_FOR_EXECUTED_GTID_SET_WHILE_OWNING_A_GTID';
+exports[3174] = 'ER_CANNOT_ADD_FOREIGN_BASE_COL_VIRTUAL';
+exports[3175] = 'ER_CANNOT_CREATE_VIRTUAL_INDEX_CONSTRAINT';
+exports[3176] = 'ER_ERROR_ON_MODIFYING_GTID_EXECUTED_TABLE';
+exports[3177] = 'ER_LOCK_REFUSED_BY_ENGINE';
+exports[3178] = 'ER_UNSUPPORTED_ALTER_ONLINE_ON_VIRTUAL_COLUMN';
+exports[3179] = 'ER_MASTER_KEY_ROTATION_NOT_SUPPORTED_BY_SE';
+exports[3180] = 'ER_MASTER_KEY_ROTATION_ERROR_BY_SE';
+exports[3181] = 'ER_MASTER_KEY_ROTATION_BINLOG_FAILED';
+exports[3182] = 'ER_MASTER_KEY_ROTATION_SE_UNAVAILABLE';
+exports[3183] = 'ER_TABLESPACE_CANNOT_ENCRYPT';
+exports[3184] = 'ER_INVALID_ENCRYPTION_OPTION';
+exports[3185] = 'ER_CANNOT_FIND_KEY_IN_KEYRING';
+exports[3186] = 'ER_CAPACITY_EXCEEDED_IN_PARSER';
+exports[3187] = 'ER_UNSUPPORTED_ALTER_ENCRYPTION_INPLACE';
+exports[3188] = 'ER_KEYRING_UDF_KEYRING_SERVICE_ERROR';
+exports[3189] = 'ER_USER_COLUMN_OLD_LENGTH';
+exports[3190] = 'ER_CANT_RESET_MASTER';
+exports[3191] = 'ER_GROUP_REPLICATION_MAX_GROUP_SIZE';
+exports[3192] = 'ER_CANNOT_ADD_FOREIGN_BASE_COL_STORED';
+exports[3193] = 'ER_TABLE_REFERENCED';
+exports[3194] = 'ER_PARTITION_ENGINE_DEPRECATED_FOR_TABLE';
+exports[3195] = 'ER_WARN_USING_GEOMFROMWKB_TO_SET_SRID_ZERO';
+exports[3196] = 'ER_WARN_USING_GEOMFROMWKB_TO_SET_SRID';
+exports[3197] = 'ER_XA_RETRY';
+exports[3198] = 'ER_KEYRING_AWS_UDF_AWS_KMS_ERROR';
 
 
 /***/ }),
-/* 176 */
+/* 182 */
 /***/ (function(module, exports) {
 
 // Manually extracted from mysql-5.5.23/include/mysql_com.h
@@ -27633,7 +28450,7 @@ exports.SERVER_PS_OUT_PARAMS = 4096;
 
 
 /***/ }),
-/* 177 */
+/* 183 */
 /***/ (function(module, exports) {
 
 // Certificates for Amazon RDS
@@ -28077,14 +28894,173 @@ exports['Amazon RDS'] = {
     + 'NMb0QME981kGRzc2WhgP71YS2hHd1kXtsoYP1yTu4vThSKsoN4bkiHsaC1cRkLoy\n'
     + '0fFA4wpB3WloMEvCDaUvvH1LZlBXTNlwi9KtcwD4tDxkkBt4tQczKLGpQ/nF/W9n\n'
     + '8YDWk3IIc1sd0bkZqoau2Q==\n'
+    + '-----END CERTIFICATE-----\n',
+
+    /**
+     * Amazon RDS ap-south-1 certificate CA 2016 to 2020
+     *
+     *   CN = Amazon RDS ap-south-1 CA
+     *   OU = Amazon RDS
+     *   O = Amazon Web Services, Inc.
+     *   L = Seattle
+     *   ST = Washington
+     *   C = US
+     *   P = 2016-05-03T21:29:22Z/2020-03-05T21:29:22Z
+     *   F = F3:A3:C2:52:D9:82:20:AC:8C:62:31:2A:8C:AD:5D:7B:1C:31:F1:DD
+     */
+    '-----BEGIN CERTIFICATE-----\n'
+    + 'MIID/TCCAuWgAwIBAgIBTTANBgkqhkiG9w0BAQsFADCBijELMAkGA1UEBhMCVVMx\n'
+    + 'EzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxIjAgBgNVBAoM\n'
+    + 'GUFtYXpvbiBXZWIgU2VydmljZXMsIEluYy4xEzARBgNVBAsMCkFtYXpvbiBSRFMx\n'
+    + 'GzAZBgNVBAMMEkFtYXpvbiBSRFMgUm9vdCBDQTAeFw0xNjA1MDMyMTI5MjJaFw0y\n'
+    + 'MDAzMDUyMTI5MjJaMIGQMQswCQYDVQQGEwJVUzETMBEGA1UECAwKV2FzaGluZ3Rv\n'
+    + 'bjEQMA4GA1UEBwwHU2VhdHRsZTEiMCAGA1UECgwZQW1hem9uIFdlYiBTZXJ2aWNl\n'
+    + 'cywgSW5jLjETMBEGA1UECwwKQW1hem9uIFJEUzEhMB8GA1UEAwwYQW1hem9uIFJE\n'
+    + 'UyBhcC1zb3V0aC0xIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\n'
+    + '06eWGLE0TeqL9kyWOLkS8q0fXO97z+xyBV3DKSB2lg2GkgBz3B98MkmkeB0SZy3G\n'
+    + 'Ce4uCpCPbFKiFEdiUclOlhZsrBuCeaimxLM3Ig2wuenElO/7TqgaYHYUbT3d+VQW\n'
+    + 'GUbLn5GRZJZe1OAClYdOWm7A1CKpuo+cVV1vxbY2nGUQSJPpVn2sT9gnwvjdE60U\n'
+    + 'JGYU/RLCTm8zmZBvlWaNIeKDnreIc4rKn6gUnJ2cQn1ryCVleEeyc3xjYDSrjgdn\n'
+    + 'FLYGcp9mphqVT0byeQMOk0c7RHpxrCSA0V5V6/CreFV2LteK50qcDQzDSM18vWP/\n'
+    + 'p09FoN8O7QrtOeZJzH/lmwIDAQABo2YwZDAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0T\n'
+    + 'AQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU2i83QHuEl/d0keXF+69HNJph7cMwHwYD\n'
+    + 'VR0jBBgwFoAUTgLurD72FchM7Sz1BcGPnIQISYMwDQYJKoZIhvcNAQELBQADggEB\n'
+    + 'ACqnH2VjApoDqoSQOky52QBwsGaj+xWYHW5Gm7EvCqvQuhWMkeBuD6YJmMvNyA9G\n'
+    + 'I2lh6/o+sUk/RIsbYbxPRdhNPTOgDR9zsNRw6qxaHztq/CEC+mxDCLa3O1hHBaDV\n'
+    + 'BmB3nCZb93BvO0EQSEk7aytKq/f+sjyxqOcs385gintdHGU9uM7gTZHnU9vByJsm\n'
+    + '/TL07Miq67X0NlhIoo3jAk+xHaeKJdxdKATQp0448P5cY20q4b8aMk1twcNaMvCP\n'
+    + 'dG4M5doaoUA8OQ/0ukLLae/LBxLeTw04q1/a2SyFaVUX2Twbb1S3xVWwLA8vsyGr\n'
+    + 'igXx7B5GgP+IHb6DTjPJAi0=\n'
+    + '-----END CERTIFICATE-----\n',
+
+    /**
+     * Amazon RDS ca-central-1 certificate CA 2016 to 2020
+     *
+     *   CN = Amazon RDS ca-central-1 CA
+     *   OU = Amazon RDS
+     *   O = Amazon Web Services, Inc.
+     *   L = Seattle
+     *   ST = Washington
+     *   C = US
+     *   P = 2016-09-15T00:10:11Z/2020-03-05T00:10:11Z
+     *   F = D7:E0:16:AB:8A:0B:63:9F:67:1F:16:87:42:F4:0A:EE:73:A6:FC:04
+     */
+    '-----BEGIN CERTIFICATE-----\n'
+    + 'MIID/zCCAuegAwIBAgIBTzANBgkqhkiG9w0BAQsFADCBijELMAkGA1UEBhMCVVMx\n'
+    + 'EzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxIjAgBgNVBAoM\n'
+    + 'GUFtYXpvbiBXZWIgU2VydmljZXMsIEluYy4xEzARBgNVBAsMCkFtYXpvbiBSRFMx\n'
+    + 'GzAZBgNVBAMMEkFtYXpvbiBSRFMgUm9vdCBDQTAeFw0xNjA5MTUwMDEwMTFaFw0y\n'
+    + 'MDAzMDUwMDEwMTFaMIGSMQswCQYDVQQGEwJVUzETMBEGA1UECAwKV2FzaGluZ3Rv\n'
+    + 'bjEQMA4GA1UEBwwHU2VhdHRsZTEiMCAGA1UECgwZQW1hem9uIFdlYiBTZXJ2aWNl\n'
+    + 'cywgSW5jLjETMBEGA1UECwwKQW1hem9uIFJEUzEjMCEGA1UEAwwaQW1hem9uIFJE\n'
+    + 'UyBjYS1jZW50cmFsLTEgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB\n'
+    + 'AQCZYI/iQ6DrS3ny3t1EwX1wAD+3LMgh7Fd01EW5LIuaK2kYIIQpsVKhxLCit/V5\n'
+    + 'AGc/1qiJS1Qz9ODLTh0Na6bZW6EakRzuHJLe32KJtoFYPC7Z09UqzXrpA/XL+1hM\n'
+    + 'P0ZmCWsU7Nn/EmvfBp9zX3dZp6P6ATrvDuYaVFr+SA7aT3FXpBroqBS1fyzUPs+W\n'
+    + 'c6zTR6+yc4zkHX0XQxC5RH6xjgpeRkoOajA/sNo7AQF7KlWmKHbdVF44cvvAhRKZ\n'
+    + 'XaoVs/C4GjkaAEPTCbopYdhzg+KLx9eB2BQnYLRrIOQZtRfbQI2Nbj7p3VsRuOW1\n'
+    + 'tlcks2w1Gb0YC6w6SuIMFkl1AgMBAAGjZjBkMA4GA1UdDwEB/wQEAwIBBjASBgNV\n'
+    + 'HRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBToYWxE1lawl6Ks6NsvpbHQ3GKEtzAf\n'
+    + 'BgNVHSMEGDAWgBROAu6sPvYVyEztLPUFwY+chAhJgzANBgkqhkiG9w0BAQsFAAOC\n'
+    + 'AQEAG/8tQ0ooi3hoQpa5EJz0/E5VYBsAz3YxA2HoIonn0jJyG16bzB4yZt4vNQMA\n'
+    + 'KsNlQ1uwDWYL1nz63axieUUFIxqxl1KmwfhsmLgZ0Hd2mnTPIl2Hw3uj5+wdgGBg\n'
+    + 'agnAZ0bajsBYgD2VGQbqjdk2Qn7Fjy3LEWIvGZx4KyZ99OJ2QxB7JOPdauURAtWA\n'
+    + 'DKYkP4LLJxtj07DSzG8kuRWb9B47uqUD+eKDIyjfjbnzGtd9HqqzYFau7EX3HVD9\n'
+    + '9Qhnjl7bTZ6YfAEZ3nH2t3Vc0z76XfGh47rd0pNRhMV+xpok75asKf/lNh5mcUrr\n'
+    + 'VKwflyMkQpSbDCmcdJ90N2xEXQ==\n'
+    + '-----END CERTIFICATE-----\n',
+
+    /**
+     * Amazon RDS eu-west-2 certificate CA 2016 to 2020
+     *
+     *   CN = Amazon RDS eu-west-2 CA
+     *   OU = Amazon RDS
+     *   O = Amazon Web Services, Inc.
+     *   L = Seattle
+     *   ST = Washington
+     *   C = US
+     *   P = 2016-10-10T17:44:42Z/2020-03-05T17:44:42Z
+     *   F = 47:79:51:9F:FF:07:D3:F4:27:D3:AB:64:56:7F:00:45:BB:84:C1:71
+     */
+    '-----BEGIN CERTIFICATE-----\n'
+    + 'MIID/DCCAuSgAwIBAgIBUDANBgkqhkiG9w0BAQsFADCBijELMAkGA1UEBhMCVVMx\n'
+    + 'EzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxIjAgBgNVBAoM\n'
+    + 'GUFtYXpvbiBXZWIgU2VydmljZXMsIEluYy4xEzARBgNVBAsMCkFtYXpvbiBSRFMx\n'
+    + 'GzAZBgNVBAMMEkFtYXpvbiBSRFMgUm9vdCBDQTAeFw0xNjEwMTAxNzQ0NDJaFw0y\n'
+    + 'MDAzMDUxNzQ0NDJaMIGPMQswCQYDVQQGEwJVUzETMBEGA1UECAwKV2FzaGluZ3Rv\n'
+    + 'bjEQMA4GA1UEBwwHU2VhdHRsZTEiMCAGA1UECgwZQW1hem9uIFdlYiBTZXJ2aWNl\n'
+    + 'cywgSW5jLjETMBEGA1UECwwKQW1hem9uIFJEUzEgMB4GA1UEAwwXQW1hem9uIFJE\n'
+    + 'UyBldS13ZXN0LTIgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDO\n'
+    + 'cttLJfubB4XMMIGWNfJISkIdCMGJyOzLiMJaiWB5GYoXKhEl7YGotpy0qklwW3BQ\n'
+    + 'a0fmVdcCLX+dIuVQ9iFK+ZcK7zwm7HtdDTCHOCKeOh2IcnU4c/VIokFi6Gn8udM6\n'
+    + 'N/Zi5M5OGpVwLVALQU7Yctsn3c95el6MdVx6mJiIPVu7tCVZn88Z2koBQ2gq9P4O\n'
+    + 'Sb249SHFqOb03lYDsaqy1NDsznEOhaRBw7DPJFpvmw1lA3/Y6qrExRI06H2VYR2i\n'
+    + '7qxwDV50N58fs10n7Ye1IOxTVJsgEA7X6EkRRXqYaM39Z76R894548WHfwXWjUsi\n'
+    + 'MEX0RS0/t1GmnUQjvevDAgMBAAGjZjBkMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMB\n'
+    + 'Af8ECDAGAQH/AgEAMB0GA1UdDgQWBBQBxmcuRSxERYCtNnSr5xNfySokHjAfBgNV\n'
+    + 'HSMEGDAWgBROAu6sPvYVyEztLPUFwY+chAhJgzANBgkqhkiG9w0BAQsFAAOCAQEA\n'
+    + 'UyCUQjsF3nUAABjfEZmpksTuUo07aT3KGYt+EMMFdejnBQ0+2lJJFGtT+CDAk1SD\n'
+    + 'RSgfEBon5vvKEtlnTf9a3pv8WXOAkhfxnryr9FH6NiB8obISHNQNPHn0ljT2/T+I\n'
+    + 'Y6ytfRvKHa0cu3V0NXbJm2B4KEOt4QCDiFxUIX9z6eB4Kditwu05OgQh6KcogOiP\n'
+    + 'JesWxBMXXGoDC1rIYTFO7szwDyOHlCcVXJDNsTJhc32oDWYdeIbW7o/5I+aQsrXZ\n'
+    + 'C96HykZcgWzz6sElrQxUaT3IoMw/5nmw4uWKKnZnxgI9bY4fpQwMeBZ96iHfFxvH\n'
+    + 'mqfEEuC7uUoPofXdBp2ObQ==\n'
     + '-----END CERTIFICATE-----\n'
   ]
 };
 
 
 /***/ }),
-/* 178 */
+/* 184 */
 /***/ (function(module, exports) {
+
+module.exports = AuthSwitchRequestPacket;
+function AuthSwitchRequestPacket(options) {
+  options = options || {};
+
+  this.status         = 0xfe;
+  this.authMethodName = options.authMethodName;
+  this.authMethodData = options.authMethodData;
+}
+
+AuthSwitchRequestPacket.prototype.parse = function parse(parser) {
+  this.status         = parser.parseUnsignedNumber(1);
+  this.authMethodName = parser.parseNullTerminatedString();
+  this.authMethodData = parser.parsePacketTerminatedBuffer();
+};
+
+AuthSwitchRequestPacket.prototype.write = function write(writer) {
+  writer.writeUnsignedNumber(1, this.status);
+  writer.writeNullTerminatedString(this.authMethodName);
+  writer.writeBuffer(this.authMethodData);
+};
+
+
+/***/ }),
+/* 185 */
+/***/ (function(module, exports) {
+
+module.exports = AuthSwitchResponsePacket;
+function AuthSwitchResponsePacket(options) {
+  options = options || {};
+
+  this.data = options.data;
+}
+
+AuthSwitchResponsePacket.prototype.parse = function parse(parser) {
+  this.data = parser.parsePacketTerminatedBuffer();
+};
+
+AuthSwitchResponsePacket.prototype.write = function write(writer) {
+  writer.writeBuffer(this.data);
+};
+
+
+/***/ }),
+/* 186 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Buffer = __webpack_require__(7).Buffer;
 
 module.exports = ClientAuthenticationPacket;
 function ClientAuthenticationPacket(options) {
@@ -28134,14 +29110,14 @@ ClientAuthenticationPacket.prototype.write = function(writer) {
     writer.writeBuffer(this.scrambleBuff);
     if (this.database && this.database.length) {
       writer.writeFiller(1);
-      writer.writeBuffer(new Buffer(this.database));
+      writer.writeBuffer(Buffer.from(this.database));
     }
   }
 };
 
 
 /***/ }),
-/* 179 */
+/* 187 */
 /***/ (function(module, exports) {
 
 module.exports = ComChangeUserPacket;
@@ -28173,7 +29149,7 @@ ComChangeUserPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 180 */
+/* 188 */
 /***/ (function(module, exports) {
 
 module.exports = ComPingPacket;
@@ -28191,7 +29167,7 @@ ComPingPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 181 */
+/* 189 */
 /***/ (function(module, exports) {
 
 module.exports = ComQueryPacket;
@@ -28212,7 +29188,7 @@ ComQueryPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 182 */
+/* 190 */
 /***/ (function(module, exports) {
 
 module.exports = ComQuitPacket;
@@ -28230,7 +29206,7 @@ ComQuitPacket.prototype.write = function write(writer) {
 
 
 /***/ }),
-/* 183 */
+/* 191 */
 /***/ (function(module, exports) {
 
 module.exports = ComStatisticsPacket;
@@ -28248,7 +29224,7 @@ ComStatisticsPacket.prototype.parse = function(parser) {
 
 
 /***/ }),
-/* 184 */
+/* 192 */
 /***/ (function(module, exports) {
 
 module.exports = EmptyPacket;
@@ -28260,7 +29236,7 @@ EmptyPacket.prototype.write = function write() {
 
 
 /***/ }),
-/* 185 */
+/* 193 */
 /***/ (function(module, exports) {
 
 module.exports = EofPacket;
@@ -28291,7 +29267,7 @@ EofPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 186 */
+/* 194 */
 /***/ (function(module, exports) {
 
 module.exports = ErrorPacket;
@@ -28332,7 +29308,7 @@ ErrorPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 187 */
+/* 195 */
 /***/ (function(module, exports) {
 
 module.exports = FieldPacket;
@@ -28431,10 +29407,11 @@ FieldPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 188 */
+/* 196 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Client = __webpack_require__(26);
+var Buffer = __webpack_require__(7).Buffer;
+var Client = __webpack_require__(27);
 
 module.exports = HandshakeInitializationPacket;
 function HandshakeInitializationPacket(options) {
@@ -28524,11 +29501,13 @@ HandshakeInitializationPacket.prototype.write = function(writer) {
 };
 
 HandshakeInitializationPacket.prototype.scrambleBuff = function() {
-  var buffer = new Buffer(this.scrambleBuff1.length +
-                          (typeof this.scrambleBuff2 !== 'undefined' ? this.scrambleBuff2.length : 0));
+  var buffer = null;
 
-  this.scrambleBuff1.copy(buffer);
-  if (typeof this.scrambleBuff2 !== 'undefined') {
+  if (typeof this.scrambleBuff2 === 'undefined') {
+    buffer = Buffer.from(this.scrambleBuff1);
+  } else {
+    buffer = Buffer.allocUnsafe(this.scrambleBuff1.length + this.scrambleBuff2.length);
+    this.scrambleBuff1.copy(buffer, 0);
     this.scrambleBuff2.copy(buffer, this.scrambleBuff1.length);
   }
 
@@ -28537,7 +29516,7 @@ HandshakeInitializationPacket.prototype.scrambleBuff = function() {
 
 
 /***/ }),
-/* 189 */
+/* 197 */
 /***/ (function(module, exports) {
 
 module.exports = LocalDataFilePacket;
@@ -28558,8 +29537,12 @@ LocalDataFilePacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 190 */
+/* 198 */
 /***/ (function(module, exports) {
+
+
+// Language-neutral expression to match ER_UPDATE_INFO
+var ER_UPDATE_INFO_REGEXP = /^[^:0-9]+: [0-9]+[^:0-9]+: ([0-9]+)[^:0-9]+: [0-9]+[^:0-9]*$/;
 
 module.exports = OkPacket;
 function OkPacket(options) {
@@ -28585,8 +29568,7 @@ OkPacket.prototype.parse = function(parser) {
   this.message      = parser.parsePacketTerminatedString();
   this.changedRows  = 0;
 
-  var m = this.message.match(/\schanged:\s*(\d+)/i);
-
+  var m = ER_UPDATE_INFO_REGEXP.exec(this.message);
   if (m !== null) {
     this.changedRows = parseInt(m[1], 10);
   }
@@ -28605,7 +29587,7 @@ OkPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 191 */
+/* 199 */
 /***/ (function(module, exports) {
 
 module.exports = OldPasswordPacket;
@@ -28626,7 +29608,7 @@ OldPasswordPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 192 */
+/* 200 */
 /***/ (function(module, exports) {
 
 module.exports = ResultSetHeaderPacket;
@@ -28657,12 +29639,12 @@ ResultSetHeaderPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 193 */
+/* 201 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Types                        = __webpack_require__(36);
-var Charsets                     = __webpack_require__(56);
-var Field                        = __webpack_require__(57);
+var Types                        = __webpack_require__(37);
+var Charsets                     = __webpack_require__(62);
+var Field                        = __webpack_require__(63);
 var IEEE_754_BINARY_64_PRECISION = Math.pow(2, 53);
 
 module.exports = RowDataPacket;
@@ -28796,13 +29778,13 @@ function typeMatch(type, list) {
 
 
 /***/ }),
-/* 194 */
+/* 202 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // http://dev.mysql.com/doc/internals/en/ssl.html
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
 
-var ClientConstants = __webpack_require__(26);
+var ClientConstants = __webpack_require__(27);
 
 module.exports = SSLRequestPacket;
 
@@ -28829,7 +29811,7 @@ SSLRequestPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 195 */
+/* 203 */
 /***/ (function(module, exports) {
 
 module.exports = StatisticsPacket;
@@ -28855,7 +29837,7 @@ StatisticsPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 196 */
+/* 204 */
 /***/ (function(module, exports) {
 
 module.exports = UseOldPasswordPacket;
@@ -28875,13 +29857,13 @@ UseOldPasswordPacket.prototype.write = function(writer) {
 
 
 /***/ }),
-/* 197 */
+/* 205 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(11);
+var Sequence = __webpack_require__(12);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
-var Auth     = __webpack_require__(54);
+var Auth     = __webpack_require__(60);
 
 module.exports = ChangeUser;
 Util.inherits(ChangeUser, Sequence);
@@ -28922,14 +29904,14 @@ ChangeUser.prototype['ErrorPacket'] = function(packet) {
 
 
 /***/ }),
-/* 198 */
+/* 206 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence        = __webpack_require__(11);
+var Sequence        = __webpack_require__(12);
 var Util            = __webpack_require__(0);
 var Packets         = __webpack_require__(10);
-var Auth            = __webpack_require__(54);
-var ClientConstants = __webpack_require__(26);
+var Auth            = __webpack_require__(60);
+var ClientConstants = __webpack_require__(27);
 
 module.exports = Handshake;
 Util.inherits(Handshake, Sequence);
@@ -28942,7 +29924,7 @@ function Handshake(options, callback) {
   this._handshakeInitializationPacket = null;
 }
 
-Handshake.prototype.determinePacket = function(firstByte) {
+Handshake.prototype.determinePacket = function determinePacket(firstByte, parser) {
   if (firstByte === 0xff) {
     return Packets.ErrorPacket;
   }
@@ -28952,10 +29934,37 @@ Handshake.prototype.determinePacket = function(firstByte) {
   }
 
   if (firstByte === 0xfe) {
-    return Packets.UseOldPasswordPacket;
+    return (parser.packetLength() === 1)
+      ? Packets.UseOldPasswordPacket
+      : Packets.AuthSwitchRequestPacket;
   }
 
   return undefined;
+};
+
+Handshake.prototype['AuthSwitchRequestPacket'] = function (packet) {
+  switch (packet.authMethodName) {
+    case 'mysql_native_password':
+    case 'mysql_old_password':
+    default:
+  }
+
+  if (packet.authMethodName === 'mysql_native_password') {
+    var challenge = packet.authMethodData.slice(0, 20);
+
+    this.emit('packet', new Packets.AuthSwitchResponsePacket({
+      data: Auth.token(this._config.password, challenge)
+    }));
+  } else {
+    var err = new Error(
+      'MySQL is requesting the ' + packet.authMethodName + ' authentication method, which is not supported.'
+    );
+
+    err.code = 'UNSUPPORTED_AUTH_METHOD';
+    err.fatal = true;
+
+    this.end(err);
+  }
 };
 
 Handshake.prototype['HandshakeInitializationPacket'] = function(packet) {
@@ -29002,15 +30011,15 @@ Handshake.prototype._sendCredentials = function() {
     database      : this._config.database,
     protocol41    : packet.protocol41,
     scrambleBuff  : (packet.protocol41)
-                     ? Auth.token(this._config.password, packet.scrambleBuff())
-                     : Auth.scramble323(packet.scrambleBuff(), this._config.password)
+      ? Auth.token(this._config.password, packet.scrambleBuff())
+      : Auth.scramble323(packet.scrambleBuff(), this._config.password)
   }));
 };
 
 Handshake.prototype['UseOldPasswordPacket'] = function() {
   if (!this._config.insecureAuth) {
     var err = new Error(
-      'MySQL server is requesting the old and insecure pre-4.1 auth mechanism.' +
+      'MySQL server is requesting the old and insecure pre-4.1 auth mechanism. ' +
       'Upgrade the user password or use the {insecureAuth: true} option.'
     );
 
@@ -29034,10 +30043,10 @@ Handshake.prototype['ErrorPacket'] = function(packet) {
 
 
 /***/ }),
-/* 199 */
+/* 207 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(11);
+var Sequence = __webpack_require__(12);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29059,10 +30068,10 @@ Ping.prototype.start = function() {
 
 
 /***/ }),
-/* 200 */
+/* 208 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(11);
+var Sequence = __webpack_require__(12);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29075,18 +30084,40 @@ function Quit(options, callback) {
   }
 
   Sequence.call(this, options, callback);
+
+  this._started = false;
 }
 
+Quit.prototype.end = function end(err) {
+  if (this._ended) {
+    return;
+  }
+
+  if (!this._started) {
+    Sequence.prototype.end.call(this, err);
+    return;
+  }
+
+  if (err && err.code === 'ECONNRESET' && err.syscall === 'read') {
+    // Ignore read errors after packet sent
+    Sequence.prototype.end.call(this);
+    return;
+  }
+
+  Sequence.prototype.end.call(this, err);
+};
+
 Quit.prototype.start = function() {
+  this._started = true;
   this.emit('packet', new Packets.ComQuitPacket());
 };
 
 
 /***/ }),
-/* 201 */
+/* 209 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Sequence = __webpack_require__(11);
+var Sequence = __webpack_require__(12);
 var Util     = __webpack_require__(0);
 var Packets  = __webpack_require__(10);
 
@@ -29119,22 +30150,34 @@ Statistics.prototype.determinePacket = function determinePacket(firstByte) {
 
 
 /***/ }),
-/* 202 */
+/* 210 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports.ChangeUser = __webpack_require__(197);
-exports.Handshake = __webpack_require__(198);
-exports.Ping = __webpack_require__(199);
-exports.Query = __webpack_require__(58);
-exports.Quit = __webpack_require__(200);
-exports.Sequence = __webpack_require__(11);
-exports.Statistics = __webpack_require__(201);
+exports.ChangeUser = __webpack_require__(205);
+exports.Handshake = __webpack_require__(206);
+exports.Ping = __webpack_require__(207);
+exports.Query = __webpack_require__(64);
+exports.Quit = __webpack_require__(208);
+exports.Sequence = __webpack_require__(12);
+exports.Statistics = __webpack_require__(209);
 
 
 /***/ }),
-/* 203 */
+/* 211 */
+/***/ (function(module, exports) {
+
+var toString = {}.toString;
+
+module.exports = Array.isArray || function (arr) {
+  return toString.call(arr) == '[object Array]';
+};
+
+
+/***/ }),
+/* 212 */
 /***/ (function(module, exports, __webpack_require__) {
 
+"use strict";
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -29160,50 +30203,229 @@ exports.Statistics = __webpack_require__(201);
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
 
+
+
 module.exports = PassThrough;
 
-var Transform = __webpack_require__(60);
+var Transform = __webpack_require__(66);
 
 /*<replacement>*/
-var util = __webpack_require__(14);
-util.inherits = __webpack_require__(15);
+var util = __webpack_require__(15);
+util.inherits = __webpack_require__(16);
 /*</replacement>*/
 
 util.inherits(PassThrough, Transform);
 
 function PassThrough(options) {
-  if (!(this instanceof PassThrough))
-    return new PassThrough(options);
+  if (!(this instanceof PassThrough)) return new PassThrough(options);
 
   Transform.call(this, options);
 }
 
-PassThrough.prototype._transform = function(chunk, encoding, cb) {
+PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-
 /***/ }),
-/* 204 */
+/* 213 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(59);
-exports.Stream = __webpack_require__(8);
-exports.Readable = exports;
-exports.Writable = __webpack_require__(61);
-exports.Duplex = __webpack_require__(13);
-exports.Transform = __webpack_require__(60);
-exports.PassThrough = __webpack_require__(203);
-if (!process.browser && process.env.READABLE_STREAM === 'disable') {
-  module.exports = __webpack_require__(8);
+"use strict";
+
+
+/*<replacement>*/
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Buffer = __webpack_require__(7).Buffer;
+/*</replacement>*/
+
+function copyBuffer(src, target, offset) {
+  src.copy(target, offset);
+}
+
+module.exports = function () {
+  function BufferList() {
+    _classCallCheck(this, BufferList);
+
+    this.head = null;
+    this.tail = null;
+    this.length = 0;
+  }
+
+  BufferList.prototype.push = function push(v) {
+    var entry = { data: v, next: null };
+    if (this.length > 0) this.tail.next = entry;else this.head = entry;
+    this.tail = entry;
+    ++this.length;
+  };
+
+  BufferList.prototype.unshift = function unshift(v) {
+    var entry = { data: v, next: this.head };
+    if (this.length === 0) this.tail = entry;
+    this.head = entry;
+    ++this.length;
+  };
+
+  BufferList.prototype.shift = function shift() {
+    if (this.length === 0) return;
+    var ret = this.head.data;
+    if (this.length === 1) this.head = this.tail = null;else this.head = this.head.next;
+    --this.length;
+    return ret;
+  };
+
+  BufferList.prototype.clear = function clear() {
+    this.head = this.tail = null;
+    this.length = 0;
+  };
+
+  BufferList.prototype.join = function join(s) {
+    if (this.length === 0) return '';
+    var p = this.head;
+    var ret = '' + p.data;
+    while (p = p.next) {
+      ret += s + p.data;
+    }return ret;
+  };
+
+  BufferList.prototype.concat = function concat(n) {
+    if (this.length === 0) return Buffer.alloc(0);
+    if (this.length === 1) return this.head.data;
+    var ret = Buffer.allocUnsafe(n >>> 0);
+    var p = this.head;
+    var i = 0;
+    while (p) {
+      copyBuffer(p.data, ret, i);
+      i += p.data.length;
+      p = p.next;
+    }
+    return ret;
+  };
+
+  return BufferList;
+}();
+
+/***/ }),
+/* 214 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Stream = __webpack_require__(11);
+if (process.env.READABLE_STREAM === 'disable' && Stream) {
+  module.exports = Stream;
+  exports = module.exports = Stream.Readable;
+  exports.Readable = Stream.Readable;
+  exports.Writable = Stream.Writable;
+  exports.Duplex = Stream.Duplex;
+  exports.Transform = Stream.Transform;
+  exports.PassThrough = Stream.PassThrough;
+  exports.Stream = Stream;
+} else {
+  exports = module.exports = __webpack_require__(65);
+  exports.Stream = Stream || exports;
+  exports.Readable = exports;
+  exports.Writable = __webpack_require__(67);
+  exports.Duplex = __webpack_require__(14);
+  exports.Transform = __webpack_require__(66);
+  exports.PassThrough = __webpack_require__(212);
 }
 
 
 /***/ }),
-/* 205 */
+/* 215 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var assert = __webpack_require__(31)
+"use strict";
+
+/* eslint-disable no-unused-vars */
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+function toObject(val) {
+	if (val === null || val === undefined) {
+		throw new TypeError('Object.assign cannot be called with null or undefined');
+	}
+
+	return Object(val);
+}
+
+function shouldUseNative() {
+	try {
+		if (!Object.assign) {
+			return false;
+		}
+
+		// Detect buggy property enumeration order in older V8 versions.
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
+		var test1 = new String('abc');  // eslint-disable-line
+		test1[5] = 'de';
+		if (Object.getOwnPropertyNames(test1)[0] === '5') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test2 = {};
+		for (var i = 0; i < 10; i++) {
+			test2['_' + String.fromCharCode(i)] = i;
+		}
+		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
+			return test2[n];
+		});
+		if (order2.join('') !== '0123456789') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test3 = {};
+		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
+			test3[letter] = letter;
+		});
+		if (Object.keys(Object.assign({}, test3)).join('') !==
+				'abcdefghijklmnopqrst') {
+			return false;
+		}
+
+		return true;
+	} catch (e) {
+		// We don't expect any of the above to throw, but better to be safe.
+		return false;
+	}
+}
+
+module.exports = shouldUseNative() ? Object.assign : function (target, source) {
+	var from;
+	var to = toObject(target);
+	var symbols;
+
+	for (var s = 1; s < arguments.length; s++) {
+		from = Object(arguments[s]);
+
+		for (var key in from) {
+			if (hasOwnProperty.call(from, key)) {
+				to[key] = from[key];
+			}
+		}
+
+		if (Object.getOwnPropertySymbols) {
+			symbols = Object.getOwnPropertySymbols(from);
+			for (var i = 0; i < symbols.length; i++) {
+				if (propIsEnumerable.call(from, symbols[i])) {
+					to[symbols[i]] = from[symbols[i]];
+				}
+			}
+		}
+	}
+
+	return to;
+};
+
+
+/***/ }),
+/* 216 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var assert = __webpack_require__(34)
 
 var Reader = module.exports = function(options) {
   //TODO - remove for version 1.0
@@ -29263,13 +30485,13 @@ Reader.prototype.read = function() {
 
 
 /***/ }),
-/* 206 */
+/* 217 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var url = __webpack_require__(41);
+var url = __webpack_require__(45);
 
 //Parse method copied from https://github.com/brianc/node-postgres
 //Copyright (c) 2010-2014 Brian Carlson (brian.m.carlson@gmail.com)
@@ -29332,30 +30554,30 @@ module.exports = {
 
 
 /***/ }),
-/* 207 */
+/* 218 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var os = __webpack_require__(4);
-var errorLib = __webpack_require__(62);
+var errorLib = __webpack_require__(71);
+var utils = __webpack_require__(72);
 
 var PEC = errorLib.parsingErrorCode;
 
 // symbols that need no spaces around them:
 var compressors = '.,;:()[]=<>+-*/|!?@#';
 
-///////////////////////////////////////////
-// Parses and minifies a PostgreSQL script.
+////////////////////////////////////////////
+// Parses and minimizes a PostgreSQL script.
 function minify(sql, options) {
 
     if (typeof sql !== 'string') {
-        throw new TypeError("Input SQL must be a text string.");
+        throw new TypeError('Input SQL must be a text string.');
     }
 
     if (options !== undefined && typeof options !== 'object') {
-        throw new TypeError("Parameter 'options' must be an object.");
+        throw new TypeError('Parameter \'options\' must be an object.');
     }
 
     if (!sql.length) {
@@ -29365,7 +30587,7 @@ function minify(sql, options) {
     var idx = 0, // current index
         result = '', // resulting sql
         len = sql.length, // sql length
-        EOL = getEOL(sql), // end-of-line
+        EOL = utils.getEOL(sql), // end-of-line
         space = false, // add a space on the next step
         compress = options && options.compress; // option 'compress'
 
@@ -29374,7 +30596,7 @@ function minify(sql, options) {
             s1 = idx < len - 1 ? sql[idx + 1] : ''; // next symbol;
 
         if (isGap(s)) {
-            while (++idx < len && isGap(sql[idx]));
+            while (++idx < len && isGap(sql[idx])) ;
             if (idx < len) {
                 space = true;
             }
@@ -29402,12 +30624,14 @@ function minify(sql, options) {
             continue;
         }
 
+        var closeIdx, text;
+
         if (s === '"') {
-            var closeIdx = sql.indexOf('"', idx + 1);
+            closeIdx = sql.indexOf('"', idx + 1);
             if (closeIdx < 0) {
                 throwError(PEC.unclosedQI);
             }
-            var text = sql.substr(idx, closeIdx - idx + 1);
+            text = sql.substr(idx, closeIdx - idx + 1);
             if (text.indexOf(EOL) > 0) {
                 throwError(PEC.multiLineQI);
             }
@@ -29422,12 +30646,12 @@ function minify(sql, options) {
         }
 
         if (s === '\'') {
-            var closeIdx = idx;
+            closeIdx = idx;
             do {
                 closeIdx = sql.indexOf('\'', closeIdx + 1);
                 if (closeIdx > 0) {
                     var step = closeIdx;
-                    while (++step < len && sql[step] === '\'');
+                    while (++step < len && sql[step] === '\'') ;
                     if ((step - closeIdx) % 2) {
                         closeIdx = step - 1;
                         break;
@@ -29442,7 +30666,7 @@ function minify(sql, options) {
                 space = false;
             }
             addSpace();
-            var text = sql.substr(idx, closeIdx - idx + 1);
+            text = sql.substr(idx, closeIdx - idx + 1);
             var hasLB = text.indexOf(EOL) > 0;
             if (hasLB) {
                 text = text.split(EOL).map(function (m) {
@@ -29499,50 +30723,9 @@ function minify(sql, options) {
     }
 
     function throwError(code) {
-        var position = getIndexPos(sql, idx, EOL);
+        var position = utils.getIndexPos(sql, idx, EOL);
         throw new errorLib.SQLParsingError(code, position);
     }
-}
-
-//////////////////////////////////////
-// Returns the End-Of-Line from text.
-function getEOL(text) {
-    var idx = 0, unix = 0, windows = 0;
-    while (idx < text.length) {
-        idx = text.indexOf('\n', idx);
-        if (idx == -1) {
-            break;
-        }
-        if (idx > 0 && text[idx - 1] === '\r') {
-            windows++;
-        } else {
-            unix++;
-        }
-        idx++;
-    }
-    if (unix === windows) {
-        return os.EOL;
-    }
-    return unix > windows ? '\n' : '\r\n';
-}
-
-///////////////////////////////////////////////////////
-// Returns {line, column} of an index within the text.
-function getIndexPos(text, index, eol) {
-    var lineIdx = 0, colIdx = index, pos = 0;
-    do {
-        pos = text.indexOf(eol, pos);
-        if (pos == -1 || index < pos + eol.length) {
-            break;
-        }
-        lineIdx++;
-        pos += eol.length;
-        colIdx = index - pos;
-    } while (pos < index);
-    return {
-        line: lineIdx + 1,
-        column: colIdx + 1
-    };
 }
 
 ////////////////////////////////////
@@ -29551,24 +30734,18 @@ function isGap(s) {
     return s === ' ' || s === '\t' || s === '\r' || s === '\n';
 }
 
-module.exports = {
-    minify: minify,
-
-    // these are exported only for testing:
-    getEOL: getEOL,
-    getIndexPos: getIndexPos
-};
+module.exports = minify;
 
 
 /***/ }),
-/* 208 */
+/* 219 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Libpq = __webpack_require__(163);
+var Libpq = __webpack_require__(169);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var assert = __webpack_require__(31);
-var types = __webpack_require__(20);
+var assert = __webpack_require__(34);
+var types = __webpack_require__(21);
 
 var Client = module.exports = function(config) {
   if(!(this instanceof Client)) {
@@ -29810,7 +30987,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
   });
 };
 
-var CopyStream = __webpack_require__(209);
+var CopyStream = __webpack_require__(220);
 Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
   this._stopReading();
@@ -29855,15 +31032,15 @@ Client.prototype.escapeIdentifier = function(value) {
 };
 
 //export the version number so we can check it in node-postgres
-module.exports.version = __webpack_require__(210).version
+module.exports.version = __webpack_require__(221).version
 
 
 /***/ }),
-/* 209 */
+/* 220 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Duplex = __webpack_require__(8).Duplex;
-var Writable = __webpack_require__(8).Writable;
+var Duplex = __webpack_require__(11).Duplex;
+var Writable = __webpack_require__(11).Writable;
 var util = __webpack_require__(0);
 
 var CopyStream = module.exports = function(pq, options) {
@@ -30023,113 +31200,193 @@ var consumeResults = function(pq, cb) {
 
 
 /***/ }),
-/* 210 */
+/* 221 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"_args": [
-		[
-			{
-				"raw": "pg-native@^1.10.0",
-				"scope": null,
-				"escapedName": "pg-native",
-				"name": "pg-native",
-				"rawSpec": "^1.10.0",
-				"spec": ">=1.10.0 <2.0.0",
-				"type": "range"
-			},
-			"/home/neil/DevGit/ZenGate"
-		]
-	],
-	"_from": "pg-native@>=1.10.0 <2.0.0",
-	"_id": "pg-native@1.10.1",
-	"_inCache": true,
-	"_location": "/pg-native",
-	"_nodeVersion": "6.10.1",
-	"_npmOperationalInternal": {
-		"host": "packages-18-east.internal.npmjs.com",
-		"tmp": "tmp/pg-native-1.10.1.tgz_1491404030746_0.959228094201535"
-	},
-	"_npmUser": {
-		"name": "brianc",
-		"email": "brian.m.carlson@gmail.com"
-	},
-	"_npmVersion": "3.10.10",
-	"_phantomChildren": {},
-	"_requested": {
-		"raw": "pg-native@^1.10.0",
-		"scope": null,
-		"escapedName": "pg-native",
-		"name": "pg-native",
-		"rawSpec": "^1.10.0",
-		"spec": ">=1.10.0 <2.0.0",
-		"type": "range"
-	},
-	"_requiredBy": [
-		"/"
-	],
-	"_resolved": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz",
-	"_shasum": "94e61ccbb85a7f3436b2e526315c7581107fe40c",
-	"_shrinkwrap": null,
-	"_spec": "pg-native@^1.10.0",
-	"_where": "/home/neil/DevGit/ZenGate",
-	"author": {
-		"name": "Brian M. Carlson"
-	},
-	"bugs": {
-		"url": "https://github.com/brianc/node-pg-native/issues"
-	},
-	"dependencies": {
-		"libpq": "^1.7.0",
-		"pg-types": "1.6.0",
-		"readable-stream": "1.0.31"
-	},
-	"description": "A slightly nicer interface to Postgres over node-libpq",
-	"devDependencies": {
-		"async": "^0.9.0",
-		"concat-stream": "^1.4.6",
-		"generic-pool": "^2.1.1",
-		"lodash": "^2.4.1",
-		"mocha": "^1.21.4",
-		"okay": "^0.3.0",
-		"pg": "*",
-		"semver": "^4.1.0"
-	},
-	"directories": {},
-	"dist": {
-		"shasum": "94e61ccbb85a7f3436b2e526315c7581107fe40c",
-		"tarball": "https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz"
-	},
-	"gitHead": "e45f2d18a64ac61d61166a21f1b3a81639e88d2c",
-	"homepage": "https://github.com/brianc/node-pg-native",
-	"keywords": [
-		"postgres",
-		"pg",
-		"libpq"
-	],
-	"license": "MIT",
-	"main": "index.js",
-	"maintainers": [
-		{
-			"name": "brianc",
-			"email": "brian.m.carlson@gmail.com"
-		}
-	],
-	"name": "pg-native",
-	"optionalDependencies": {},
-	"readme": "ERROR: No README data found!",
-	"repository": {
-		"type": "git",
-		"url": "git://github.com/brianc/node-pg-native.git"
-	},
-	"scripts": {
-		"test": "mocha"
-	},
-	"version": "1.10.1"
-};
+module.exports = {"_args":[[{"raw":"pg-native@^1.10.0","scope":null,"escapedName":"pg-native","name":"pg-native","rawSpec":"^1.10.0","spec":">=1.10.0 <2.0.0","type":"range"},"/home/neil/DevGit/ZenGate"]],"_from":"pg-native@>=1.10.0 <2.0.0","_id":"pg-native@1.10.1","_inCache":true,"_location":"/pg-native","_nodeVersion":"6.10.1","_npmOperationalInternal":{"host":"packages-18-east.internal.npmjs.com","tmp":"tmp/pg-native-1.10.1.tgz_1491404030746_0.959228094201535"},"_npmUser":{"name":"brianc","email":"brian.m.carlson@gmail.com"},"_npmVersion":"3.10.10","_phantomChildren":{},"_requested":{"raw":"pg-native@^1.10.0","scope":null,"escapedName":"pg-native","name":"pg-native","rawSpec":"^1.10.0","spec":">=1.10.0 <2.0.0","type":"range"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz","_shasum":"94e61ccbb85a7f3436b2e526315c7581107fe40c","_shrinkwrap":null,"_spec":"pg-native@^1.10.0","_where":"/home/neil/DevGit/ZenGate","author":{"name":"Brian M. Carlson"},"bugs":{"url":"https://github.com/brianc/node-pg-native/issues"},"dependencies":{"libpq":"^1.7.0","pg-types":"1.6.0","readable-stream":"1.0.31"},"description":"A slightly nicer interface to Postgres over node-libpq","devDependencies":{"async":"^0.9.0","concat-stream":"^1.4.6","generic-pool":"^2.1.1","lodash":"^2.4.1","mocha":"^1.21.4","okay":"^0.3.0","pg":"*","semver":"^4.1.0"},"directories":{},"dist":{"shasum":"94e61ccbb85a7f3436b2e526315c7581107fe40c","tarball":"https://registry.npmjs.org/pg-native/-/pg-native-1.10.1.tgz"},"gitHead":"e45f2d18a64ac61d61166a21f1b3a81639e88d2c","homepage":"https://github.com/brianc/node-pg-native","keywords":["postgres","pg","libpq"],"license":"MIT","main":"index.js","maintainers":[{"name":"brianc","email":"brian.m.carlson@gmail.com"}],"name":"pg-native","optionalDependencies":{},"readme":"ERROR: No README data found!","repository":{"type":"git","url":"git://github.com/brianc/node-pg-native.git"},"scripts":{"test":"mocha"},"version":"1.10.1"}
 
 /***/ }),
-/* 211 */
+/* 222 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var genericPool = __webpack_require__(166)
+var util = __webpack_require__(0)
+var EventEmitter = __webpack_require__(3).EventEmitter
+var objectAssign = __webpack_require__(215)
+
+// there is a bug in the generic pool where it will not recreate
+// destroyed workers (even if there is waiting work to do) unless
+// there is a min specified. Make sure we keep some connections
+// SEE: https://github.com/coopernurse/node-pool/pull/186
+// SEE: https://github.com/brianc/node-pg-pool/issues/48
+// SEE: https://github.com/strongloop/loopback-connector-postgresql/issues/231
+function _ensureMinimum () {
+  var i, diff, waiting
+  if (this._draining) return
+  waiting = this._waitingClients.size()
+  if (this._factory.min > 0) { // we have positive specified minimum
+    diff = this._factory.min - this._count
+  } else if (waiting > 0) { // we have no minimum, but we do have work to do
+    diff = Math.min(waiting, this._factory.max - this._count)
+  }
+  for (i = 0; i < diff; i++) {
+    this._createResource()
+  }
+};
+
+var Pool = module.exports = function (options, Client) {
+  if (!(this instanceof Pool)) {
+    return new Pool(options, Client)
+  }
+  EventEmitter.call(this)
+  this.options = objectAssign({}, options)
+  this.log = this.options.log || function () { }
+  this.Client = this.options.Client || Client || __webpack_require__(84).Client
+  this.Promise = this.options.Promise || global.Promise
+
+  this.options.max = this.options.max || this.options.poolSize || 10
+  this.options.create = this.options.create || this._create.bind(this)
+  this.options.destroy = this.options.destroy || this._destroy.bind(this)
+  this.pool = new genericPool.Pool(this.options)
+  // Monkey patch to ensure we always finish our work
+  //  - There is a bug where callbacks go uncalled if min is not set
+  //  - We might still not want a connection to *always* exist
+  //  - but we do want to create up to max connections if we have work
+  //  - still waiting
+  // This should be safe till the version of pg-pool is upgraded
+  // SEE: https://github.com/coopernurse/node-pool/pull/186
+  this.pool._ensureMinimum = _ensureMinimum
+  this.onCreate = this.options.onCreate
+}
+
+util.inherits(Pool, EventEmitter)
+
+Pool.prototype._promise = function (cb, executor) {
+  if (!cb) {
+    return new this.Promise(executor)
+  }
+
+  function resolved (value) {
+    process.nextTick(function () {
+      cb(null, value)
+    })
+  }
+
+  function rejected (error) {
+    process.nextTick(function () {
+      cb(error)
+    })
+  }
+
+  executor(resolved, rejected)
+}
+
+Pool.prototype._promiseNoCallback = function (callback, executor) {
+  return callback
+    ? executor()
+    : new this.Promise(executor)
+}
+
+Pool.prototype._destroy = function (client) {
+  if (client._destroying) return
+  client._destroying = true
+  client.end()
+}
+
+Pool.prototype._create = function (cb) {
+  this.log('connecting new client')
+  var client = new this.Client(this.options)
+
+  client.on('error', function (e) {
+    this.log('connected client error:', e)
+    this.pool.destroy(client)
+    e.client = client
+    this.emit('error', e, client)
+  }.bind(this))
+
+  client.connect(function (err) {
+    if (err) {
+      this.log('client connection error:', err)
+      cb(err, null)
+    } else {
+      this.log('client connected')
+      this.emit('connect', client)
+      cb(null, client)
+    }
+  }.bind(this))
+}
+
+Pool.prototype.connect = function (cb) {
+  return this._promiseNoCallback(cb, function (resolve, reject) {
+    this.log('acquire client begin')
+    this.pool.acquire(function (err, client) {
+      if (err) {
+        this.log('acquire client. error:', err)
+        if (cb) {
+          cb(err, null, function () {})
+        } else {
+          reject(err)
+        }
+        return
+      }
+
+      this.log('acquire client')
+      this.emit('acquire', client)
+
+      client.release = function (err) {
+        delete client.release
+        if (err) {
+          this.log('destroy client. error:', err)
+          this.pool.destroy(client)
+        } else {
+          this.log('release client')
+          this.pool.release(client)
+        }
+      }.bind(this)
+
+      if (cb) {
+        cb(null, client, client.release)
+      } else {
+        resolve(client)
+      }
+    }.bind(this))
+  }.bind(this))
+}
+
+Pool.prototype.take = Pool.prototype.connect
+
+Pool.prototype.query = function (text, values, cb) {
+  if (typeof values === 'function') {
+    cb = values
+    values = undefined
+  }
+
+  return this._promise(cb, function (resolve, reject) {
+    this.connect(function (err, client, done) {
+      if (err) {
+        return reject(err)
+      }
+      client.query(text, values, function (err, res) {
+        done(err)
+        err ? reject(err) : resolve(res)
+      })
+    })
+  }.bind(this))
+}
+
+Pool.prototype.end = function (cb) {
+  this.log('draining pool')
+  return this._promise(cb, function (resolve, reject) {
+    this.pool.drain(function () {
+      this.log('pool drained, calling destroy all now')
+      this.pool.destroyAllNow(resolve)
+    }.bind(this))
+  }.bind(this))
+}
+
+
+/***/ }),
+/* 223 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -30148,11 +31405,11 @@ module.exports = config => {
     //
     // Based on: https://www.promisejs.org/generators/#both
     return generator => {
-        var $p = config.promise;
+        const $p = config.promise;
         return function () {
-            var g = generator.apply(this, arguments);
+            const g = generator.apply(this, arguments);
 
-            var handle = result => {
+            const handle = result => {
                 if (result.done) {
                     return $p.resolve(result.value);
                 }
@@ -30169,14 +31426,14 @@ module.exports = config => {
 
 
 /***/ }),
-/* 212 */
+/* 224 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 /**
- * @constructor ConnectionContext
+ * @class ConnectionContext
  * @private
  * @summary Connection context object.
  * @param {object} cn
@@ -30185,28 +31442,29 @@ module.exports = config => {
  * @param {object} db
  * @param {number} txLevel
  */
-function ConnectionContext(cn, dc, options, db, txLevel) {
+class ConnectionContext {
+    constructor(cn, dc, options, db, txLevel) {
+        this.cn = cn; // connection details;
+        this.dc = dc; // database context;
+        this.options = options; // library options;
+        this.db = db; // database session;
+        this.txLevel = txLevel; // transaction level;
+    }
 
-    this.cn = cn; // connection details;
-    this.dc = dc; // database context;
-    this.options = options; // library options;
-    this.db = db; // database session;
-    this.txLevel = txLevel; // transaction level;
-
-    this.connect = function (db) {
+    connect(db) {
         this.db = db;
-    };
+    }
 
-    this.disconnect = function () {
+    disconnect() {
         if (this.db) {
             this.db.done();
             this.db = null;
         }
-    };
+    }
 
-    this.clone = function () {
+    clone() {
         return new ConnectionContext(this.cn, this.dc, this.options, this.db, this.txLevel);
-    };
+    }
 }
 
 /**
@@ -30219,16 +31477,16 @@ module.exports = ConnectionContext;
 
 
 /***/ }),
-/* 213 */
+/* 225 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    con: __webpack_require__(16).local,
+const $npm = {
+    con: __webpack_require__(17).local,
     utils: __webpack_require__(2),
-    events: __webpack_require__(17)
+    events: __webpack_require__(18)
 };
 
 function poolConnect(ctx, config) {
@@ -30241,12 +31499,12 @@ function poolConnect(ctx, config) {
                 });
                 reject(err);
             } else {
-                var isFresh = !client.$used;
+                const isFresh = !client.$used;
                 if (isFresh) {
                     $npm.utils.addReadProp(client, '$used', true, true);
                 }
                 setCtx(client, ctx);
-                var end = lockClientEnd(client);
+                const end = lockClientEnd(client);
                 resolve({
                     isFresh: isFresh,
                     client: client,
@@ -30264,7 +31522,7 @@ function poolConnect(ctx, config) {
 
 function directConnect(ctx, config) {
     return config.promise((resolve, reject) => {
-        var client = new config.pgp.pg.Client(ctx.cn);
+        const client = new config.pgp.pg.Client(ctx.cn);
         client.connect(err => {
             if (err) {
                 $npm.events.error(ctx.options, err, {
@@ -30274,7 +31532,7 @@ function directConnect(ctx, config) {
                 reject(err);
             } else {
                 setCtx(client, ctx);
-                var end = lockClientEnd(client);
+                const end = lockClientEnd(client);
                 resolve({
                     isFresh: true,
                     client: client,
@@ -30291,7 +31549,7 @@ function directConnect(ctx, config) {
 }
 
 function lockClientEnd(client) {
-    var end = client.end;
+    const end = client.end;
     client.end = doNotCall => {
         // This call can happen only in the following two cases:
         // 1. the client made the call directly, against the library's documentation (invalid code)
@@ -30320,22 +31578,22 @@ module.exports = config => ({
 
 
 /***/ }),
-/* 214 */
+/* 226 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    con: __webpack_require__(16).local,
-    result: __webpack_require__(38),
-    special: __webpack_require__(67),
-    Context: __webpack_require__(212),
-    events: __webpack_require__(17),
+const $npm = {
+    con: __webpack_require__(17).local,
+    result: __webpack_require__(40),
+    special: __webpack_require__(77),
+    Context: __webpack_require__(224),
+    events: __webpack_require__(18),
     utils: __webpack_require__(2),
-    connect: __webpack_require__(213),
-    query: __webpack_require__(66),
-    task: __webpack_require__(227)
+    connect: __webpack_require__(225),
+    query: __webpack_require__(76),
+    task: __webpack_require__(239)
 };
 
 /**
@@ -30410,15 +31668,15 @@ var $npm = {
  * // Proper way to initialize and share the Database object
  *
  * // Loading and initializing the library:
- * var pgp = require('pg-promise')({
+ * const pgp = require('pg-promise')({
  *     // Initialization Options
  * });
  *
  * // Preparing the connection details:
- * var cn = "postgres://username:password@host:port/database";
+ * const cn = "postgres://username:password@host:port/database";
  *
  * // Creating a new database instance from the connection details:
- * var db = pgp(cn);
+ * const db = pgp(cn);
  *
  * // Exporting the database object for shared use:
  * module.exports = db;
@@ -30428,7 +31686,7 @@ function Database(cn, dc, config) {
     checkForDuplicates(cn, config);
     setErrorHandler(config);
 
-    var $p = config.promise;
+    const $p = config.promise;
 
     /**
      * @method Database.connect
@@ -30473,7 +31731,7 @@ function Database(cn, dc, config) {
      *
      * @example
      *
-     * var sco; // shared connection object;
+     * let sco; // shared connection object;
      *
      * db.connect()
      *     .then(obj => {
@@ -30499,8 +31757,8 @@ function Database(cn, dc, config) {
      *
      */
     this.connect = function (options) {
-        var ctx = createContext();
-        var self = {
+        const ctx = createContext();
+        const self = {
             // Generic query method;
             query: function (query, values, qrm) {
                 if (!ctx.db) {
@@ -30516,7 +31774,7 @@ function Database(cn, dc, config) {
                 ctx.disconnect();
             }
         };
-        var method = (options && options.direct) ? 'direct' : 'pool';
+        const method = (options && options.direct) ? 'direct' : 'pool';
         return config.$npm.connect[method](ctx)
             .then(db => {
                 ctx.connect(db);
@@ -30561,7 +31819,7 @@ function Database(cn, dc, config) {
      * number of milliseconds it took the client to execute the query.
      */
     this.query = function (query, values, qrm) {
-        var self = this, ctx = createContext();
+        const self = this, ctx = createContext();
         return config.$npm.connect.pool(ctx)
             .then(db => {
                 ctx.connect(db);
@@ -30587,10 +31845,11 @@ function Database(cn, dc, config) {
      * - `pgp` - instance of the entire library after initialization
      * - `options` - the library's {@link module:pg-promise Initialization Options} object
      * - `promiseLib` - instance of the promise library that's used
-     * - `promise` - generic promise interface that uses `promiseLib` via 3 basic methods:
+     * - `promise` - generic promise interface that uses `promiseLib` via 4 basic methods:
      *   - `promise((resolve, reject)=>{})` - to create a new promise
      *   - `promise.resolve(value)` - to resolve with a value
      *   - `promise.reject(value)` - to reject with a value
+     *   - `promise.all(data)` - to resolve an array of promises
      * - `version` - this library's version
      * - `$npm` _(hidden property)_ - internal module cache
      *
@@ -30598,12 +31857,12 @@ function Database(cn, dc, config) {
      *
      * // Using the promise protocol as configured by pg-promise:
      *
-     * var $p = db.$config.promise;
+     * const $p = db.$config.promise;
      *
-     * var resolvedPromise = $p.resolve('some data');
-     * var rejectedPromise = $p.reject('some reason');
+     * const resolvedPromise = $p.resolve('some data');
+     * const rejectedPromise = $p.reject('some reason');
      *
-     * var newPromise = $p((resolve, reject) => {
+     * const newPromise = $p((resolve, reject) => {
      *     // call either resolve(data) or reject(reason) here
      * });
      */
@@ -30759,7 +32018,7 @@ function Database(cn, dc, config) {
          *
          */
         obj.one = function (query, values, cb, thisArg) {
-            var v = obj.query.call(this, query, values, $npm.result.one);
+            const v = obj.query.call(this, query, values, $npm.result.one);
             return transform(v, cb, thisArg);
         };
 
@@ -30858,7 +32117,7 @@ function Database(cn, dc, config) {
          *
          */
         obj.oneOrNone = function (query, values, cb, thisArg) {
-            var v = obj.query.call(this, query, values, $npm.result.one | $npm.result.none);
+            const v = obj.query.call(this, query, values, $npm.result.one | $npm.result.none);
             return transform(v, cb, thisArg);
         };
 
@@ -31007,7 +32266,7 @@ function Database(cn, dc, config) {
          *
          */
         obj.result = function (query, values, cb, thisArg) {
-            var v = obj.query.call(this, query, values, $npm.special.cache.resultQuery);
+            const v = obj.query.call(this, query, values, $npm.special.cache.resultQuery);
             return transform(v, cb, thisArg);
         };
 
@@ -31106,7 +32365,7 @@ function Database(cn, dc, config) {
          * {@link Database.func func}
          */
         obj.proc = function (procName, values, cb, thisArg) {
-            var v = obj.func.call(this, procName, values, $npm.result.one | $npm.result.none);
+            const v = obj.func.call(this, procName, values, $npm.result.one | $npm.result.none);
             return transform(v, cb, thisArg);
         };
 
@@ -31211,7 +32470,7 @@ function Database(cn, dc, config) {
         obj.map = function (query, values, cb, thisArg) {
             return obj.any.call(this, query, values)
                 .then(data => {
-                    var result = data.map(cb, thisArg);
+                    const result = data.map(cb, thisArg);
                     $npm.utils.addReadProp(result, 'duration', data.duration, true);
                     return result;
                 });
@@ -31488,8 +32747,8 @@ function Database(cn, dc, config) {
         // Resolves with result from the callback function;
         function taskProcessor(p1, p2, isTX) {
 
-            var tag, // tag object/value;
-                taskCtx = ctx.clone(); // task context object;
+            let tag; // tag object/value;
+            const taskCtx = ctx.clone(); // task context object;
 
             if (isTX) {
                 taskCtx.txLevel = taskCtx.txLevel >= 0 ? (taskCtx.txLevel + 1) : 0;
@@ -31508,7 +32767,7 @@ function Database(cn, dc, config) {
                 taskCtx.cb = p2;
             }
 
-            var cb = taskCtx.cb;
+            const cb = taskCtx.cb;
 
             if (typeof cb !== 'function') {
                 return $p.reject(new TypeError('Callback function is required for the ' + (isTX ? 'transaction.' : 'task.')));
@@ -31525,7 +32784,8 @@ function Database(cn, dc, config) {
                 }
             }
 
-            var tsk = new config.$npm.task(taskCtx, tag, isTX, config); // eslint-disable-line
+            // eslint-disable-next-line
+            const tsk = new config.$npm.task(taskCtx, tag, isTX, config);
 
             extend(taskCtx, tsk);
 
@@ -31565,10 +32825,11 @@ function Database(cn, dc, config) {
 
 }
 
-var jsHandled, nativeHandled, dbObjects = {};
+let jsHandled, nativeHandled;
+const dbObjects = {};
 
 function checkForDuplicates(cn, config) {
-    var cnKey = normalizeConnection(cn);
+    const cnKey = normalizeConnection(cn);
     if (cnKey in dbObjects) {
         if (!config.options.noWarnings) {
             $npm.con.warn('WARNING: Creating a duplicate database object for the same connection.\n%s\n',
@@ -31589,7 +32850,7 @@ function checkForDuplicates(cn, config) {
  */
 function normalizeConnection(cn) {
     if (typeof cn === 'object') {
-        var obj = {}, keys = Object.keys(cn).sort();
+        const obj = {}, keys = Object.keys(cn).sort();
         keys.forEach(name => {
             obj[name] = cn[name];
         });
@@ -31618,7 +32879,7 @@ function setErrorHandler(config) {
 // which cannot be tested automatically; removing from coverage:
 // istanbul ignore next
 function onError(err, client) {
-    var ctx = client.$ctx;
+    const ctx = client.$ctx;
     $npm.events.error(ctx.options, err, {
         cn: $npm.utils.getSafeConnection(ctx.cn),
         dc: ctx.dc
@@ -31626,7 +32887,7 @@ function onError(err, client) {
 }
 
 module.exports = config => {
-    var npm = config.$npm;
+    const npm = config.$npm;
     npm.connect = npm.connect || $npm.connect(config);
     npm.query = npm.query || $npm.query(config);
     npm.task = npm.task || $npm.task(config);
@@ -31642,12 +32903,12 @@ module.exports = config => {
  * Stream object to initialize streaming.
  *
  * @example
- * var QueryStream = require('pg-query-stream');
- * var JSONStream = require('JSONStream');
+ * const QueryStream = require('pg-query-stream');
+ * const JSONStream = require('JSONStream');
  *
  * // you can also use pgp.as.format(query, values, options)
  * // to format queries properly, via pg-promise;
- * var qs = new QueryStream('select * from users');
+ * const qs = new QueryStream('select * from users');
  *
  * db.stream(qs, stream => {
  *         // initiate streaming into the console:
@@ -31669,16 +32930,16 @@ module.exports = config => {
 
 
 /***/ }),
-/* 215 */
+/* 227 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    QueryFileError: __webpack_require__(28)
+    QueryFileError: __webpack_require__(29)
 };
 
 /**
@@ -31710,7 +32971,7 @@ var $npm = {
  * @see ParameterizedQuery
  */
 function ParameterizedQueryError(error, ps) {
-    var temp = Error.apply(this, arguments);
+    const temp = Error.apply(this, arguments);
     temp.name = this.name = 'ParameterizedQueryError';
     this.stack = temp.stack;
     if (error instanceof $npm.QueryFileError) {
@@ -31744,7 +33005,7 @@ ParameterizedQueryError.prototype = Object.create(Error.prototype, {
  */
 ParameterizedQueryError.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
+    const gap0 = $npm.utils.messageGap(level),
         gap1 = $npm.utils.messageGap(level + 1),
         gap2 = $npm.utils.messageGap(level + 2),
         lines = [
@@ -31770,16 +33031,16 @@ module.exports = ParameterizedQueryError;
 
 
 /***/ }),
-/* 216 */
+/* 228 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    QueryFileError: __webpack_require__(28)
+    QueryFileError: __webpack_require__(29)
 };
 
 /**
@@ -31811,7 +33072,7 @@ var $npm = {
  * @see PreparedStatement
  */
 function PreparedStatementError(error, ps) {
-    var temp = Error.apply(this, arguments);
+    const temp = Error.apply(this, arguments);
     temp.name = this.name = 'PreparedStatementError';
     this.stack = temp.stack;
     if (error instanceof $npm.QueryFileError) {
@@ -31845,7 +33106,7 @@ PreparedStatementError.prototype = Object.create(Error.prototype, {
  */
 PreparedStatementError.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
+    const gap0 = $npm.utils.messageGap(level),
         gap1 = $npm.utils.messageGap(level + 1),
         gap2 = $npm.utils.messageGap(level + 2),
         lines = [
@@ -31872,13 +33133,13 @@ module.exports = PreparedStatementError;
 
 
 /***/ }),
-/* 217 */
+/* 229 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2)
 };
@@ -31894,7 +33155,7 @@ var $npm = {
  *
  * @see {@link errors.QueryResultError}
  */
-var queryResultErrorCode = {
+const queryResultErrorCode = {
     /** No data returned from the query. */
     noData: 0,
 
@@ -31907,7 +33168,7 @@ var queryResultErrorCode = {
 
 Object.freeze(queryResultErrorCode);
 
-var errorMessages = [
+const errorMessages = [
     {name: 'noData', message: 'No data returned from the query.'},
     {name: 'notEmpty', message: 'No return data was expected.'},
     {name: 'multiple', message: 'Multiple rows were not expected.'}
@@ -31964,10 +33225,10 @@ var errorMessages = [
  *
  * @example
  *
- * var QueryResultError = pgp.errors.QueryResultError;
- * var qrec = pgp.errors.queryResultErrorCode;
+ * const QueryResultError = pgp.errors.QueryResultError;
+ * const qrec = pgp.errors.queryResultErrorCode;
  *
- * var options = {
+ * const options = {
  *
  *   // pg-promise initialization options...
  *
@@ -31996,7 +33257,7 @@ var errorMessages = [
  *
  */
 function QueryResultError(code, result, query, values) {
-    var temp = Error.apply(this, arguments);
+    const temp = Error.apply(this, arguments);
     temp.name = this.name = 'QueryResultError';
     this.stack = temp.stack;
     this.message = errorMessages[code].message;
@@ -32029,7 +33290,7 @@ QueryResultError.prototype = Object.create(Error.prototype, {
  */
 QueryResultError.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap0 = $npm.utils.messageGap(level),
+    const gap0 = $npm.utils.messageGap(level),
         gap1 = $npm.utils.messageGap(level + 1),
         lines = [
             'QueryResultError {',
@@ -32056,21 +33317,21 @@ module.exports = {
 
 
 /***/ }),
-/* 218 */
+/* 230 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    concat: __webpack_require__(219),
-    insert: __webpack_require__(220),
-    update: __webpack_require__(222),
-    values: __webpack_require__(223),
-    sets: __webpack_require__(221),
-    TableName: __webpack_require__(29),
-    ColumnSet: __webpack_require__(18),
-    Column: __webpack_require__(64)
+const $npm = {
+    concat: __webpack_require__(231),
+    insert: __webpack_require__(232),
+    update: __webpack_require__(234),
+    values: __webpack_require__(235),
+    sets: __webpack_require__(233),
+    TableName: __webpack_require__(30),
+    ColumnSet: __webpack_require__(19),
+    Column: __webpack_require__(74)
 };
 
 /**
@@ -32107,13 +33368,13 @@ var $npm = {
  * {@link helpers.concat concat} static method.
  */
 module.exports = config => {
-    var res = {
+    const res = {
         insert: (data, columns, table) => {
-            var capSQL = config.options && config.options.capSQL;
+            const capSQL = config.options && config.options.capSQL;
             return $npm.insert(data, columns, table, capSQL);
         },
         update: (data, columns, table, options) => {
-            var capSQL = config.options && config.options.capSQL;
+            const capSQL = config.options && config.options.capSQL;
             return $npm.update(data, columns, table, options, capSQL);
         },
         concat: $npm.concat,
@@ -32129,15 +33390,15 @@ module.exports = config => {
 
 
 /***/ }),
-/* 219 */
+/* 231 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     format: __webpack_require__(5).as.format,
-    QueryFile: __webpack_require__(19)
+    QueryFile: __webpack_require__(20)
 };
 
 /**
@@ -32161,12 +33422,12 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')();
+ * const pgp = require('pg-promise')();
  *
- * var qf1 = new pgp.QueryFile('./query1.sql', {minify: true});
- * var qf2 = new pgp.QueryFile('./query2.sql', {minify: true});
+ * const qf1 = new pgp.QueryFile('./query1.sql', {minify: true});
+ * const qf2 = new pgp.QueryFile('./query2.sql', {minify: true});
  *
- * var query = pgp.helpers.concat([
+ * const query = pgp.helpers.concat([
  *     {query: 'INSERT INTO Users(name, age) VALUES($1, $2)', values: ['John', 23]}, // QueryFormat-like object
  *     {query: qf1, values: [1, 'Name']}, // QueryFile with formatting parameters
  *     'SELECT count(*) FROM Users', // a simple-string query,
@@ -32179,7 +33440,7 @@ function concat(queries) {
     if (!Array.isArray(queries)) {
         throw new TypeError('Parameter \'queries\' must be an array.');
     }
-    var all = queries.map((q, index) => {
+    const all = queries.map((q, index) => {
         if (typeof q === 'string') {
             // a simple query string without parameters:
             return clean(q);
@@ -32227,15 +33488,15 @@ module.exports = concat;
 
 
 /***/ }),
-/* 220 */
+/* 232 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    TableName: __webpack_require__(29),
-    ColumnSet: __webpack_require__(18),
+const $npm = {
+    TableName: __webpack_require__(30),
+    ColumnSet: __webpack_require__(19),
     formatting: __webpack_require__(5),
     utils: __webpack_require__(2)
 };
@@ -32284,12 +33545,12 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')({
+ * const pgp = require('pg-promise')({
  *    capSQL: true // if you want all generated SQL capitalized
  * });
  *
- * var dataSingle = {val: 123, msg: 'hello'};
- * var dataMulti = [{val: 123, msg: 'hello'}, {val: 456, msg: 'world!'}];
+ * const dataSingle = {val: 123, msg: 'hello'};
+ * const dataMulti = [{val: 123, msg: 'hello'}, {val: 456, msg: 'world!'}];
  *
  * // Column details can be taken from the data object:
  *
@@ -32307,7 +33568,7 @@ var $npm = {
  *
  * // Column details from a reusable ColumnSet (recommended for performance):
  *
- * var cs = new pgp.helpers.ColumnSet(['val', 'msg'], {table: 'my-table'});
+ * const cs = new pgp.helpers.ColumnSet(['val', 'msg'], {table: 'my-table'});
  *
  * pgp.helpers.insert(dataMulti, cs);
  * //=> INSERT INTO "my-table"("val","msg") VALUES(123,'hello'),(456,'world!')
@@ -32319,7 +33580,7 @@ function insert(data, columns, table, capSQL) {
         throw new TypeError('Invalid parameter \'data\' specified.');
     }
 
-    var isArray = Array.isArray(data);
+    const isArray = Array.isArray(data);
 
     if (isArray && !data.length) {
         throw new TypeError('Cannot generate an INSERT from an empty array.');
@@ -32348,9 +33609,9 @@ function insert(data, columns, table, capSQL) {
         table = new $npm.TableName(table);
     }
 
-    var query = capSQL ? sql.capCase : sql.lowCase;
+    let query = capSQL ? sql.capCase : sql.lowCase;
 
-    var format = $npm.formatting.as.format;
+    const format = $npm.formatting.as.format;
     query = format(query, [table.name, columns.names]);
 
     if (isArray) {
@@ -32364,7 +33625,7 @@ function insert(data, columns, table, capSQL) {
     return query + '(' + format(columns.variables, columns.prepare(data)) + ')';
 }
 
-var sql = {
+const sql = {
     lowCase: 'insert into $1^($2^) values',
     capCase: 'INSERT INTO $1^($2^) VALUES'
 };
@@ -32373,14 +33634,14 @@ module.exports = insert;
 
 
 /***/ }),
-/* 221 */
+/* 233 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    ColumnSet: __webpack_require__(18),
+const $npm = {
+    ColumnSet: __webpack_require__(19),
     format: __webpack_require__(5).as.format,
     utils: __webpack_require__(2)
 };
@@ -32415,9 +33676,9 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')();
+ * const pgp = require('pg-promise')();
  *
- * var data = {id: 1, val: 123, msg: 'hello'};
+ * const data = {id: 1, val: 123, msg: 'hello'};
  *
  * // Properties can be pulled automatically from the object:
  *
@@ -32429,7 +33690,7 @@ var $npm = {
  * // Column details from a reusable ColumnSet (recommended for performance);
  * // NOTE: Conditional columns (start with '?') are skipped:
  *
- * var cs = new pgp.helpers.ColumnSet(['?id','val', 'msg']);
+ * const cs = new pgp.helpers.ColumnSet(['?id','val', 'msg']);
  *
  * pgp.helpers.sets(data, cs);
  * //=> "val"=123,"msg"='hello'
@@ -32452,15 +33713,15 @@ module.exports = sets;
 
 
 /***/ }),
-/* 222 */
+/* 234 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    TableName: __webpack_require__(29),
-    ColumnSet: __webpack_require__(18),
+const $npm = {
+    TableName: __webpack_require__(30),
+    ColumnSet: __webpack_require__(19),
     formatting: __webpack_require__(5),
     utils: __webpack_require__(2)
 };
@@ -32535,12 +33796,12 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')({
+ * const pgp = require('pg-promise')({
  *    capSQL: true // if you want all generated SQL capitalized
  * });
  *
- * var dataSingle = {id: 1, val: 123, msg: 'hello'};
- * var dataMulti = [{id: 1, val: 123, msg: 'hello'}, {id: 2, val: 456, msg: 'world!'}];
+ * const dataSingle = {id: 1, val: 123, msg: 'hello'};
+ * const dataMulti = [{id: 1, val: 123, msg: 'hello'}, {id: 2, val: 456, msg: 'world!'}];
  *
  * // Although column details can be taken from the data object, it is not
  * // a likely scenario for an update, unless updating the whole table:
@@ -32568,7 +33829,7 @@ var $npm = {
  *
  * // Column details from a reusable ColumnSet (recommended for performance):
  *
- * var cs = new pgp.helpers.ColumnSet(['?id', 'val', 'msg'], {table: 'my-table'});
+ * const cs = new pgp.helpers.ColumnSet(['?id', 'val', 'msg'], {table: 'my-table'});
  *
  * pgp.helpers.update(dataMulti, cs) + ' WHERE v.id = t.id';
  * //=> UPDATE "my-table" AS t SET "val"=v."val","msg"=v."msg" FROM (VALUES(1,123,'hello'),(2,456,'world!'))
@@ -32586,8 +33847,8 @@ var $npm = {
  *
  * // Handling an empty update
  *
- * var cs = new pgp.helpers.ColumnSet(['?id', '?name'], {table: 'tt'}); // no actual update-able columns
- * var result = pgp.helpers.update(dataMulti, cs, null, {emptyUpdate: 123});
+ * const cs = new pgp.helpers.ColumnSet(['?id', '?name'], {table: 'tt'}); // no actual update-able columns
+ * const result = pgp.helpers.update(dataMulti, cs, null, {emptyUpdate: 123});
  * if(result === 123) {
  *    // We know the update is empty, i.e. no columns that can be updated;
  *    // And it didn't throw because we specified `emptyUpdate` option.
@@ -32599,7 +33860,7 @@ function update(data, columns, table, options, capSQL) {
         throw new TypeError('Invalid parameter \'data\' specified.');
     }
 
-    var isArray = Array.isArray(data);
+    const isArray = Array.isArray(data);
 
     if (isArray && !data.length) {
         throw new TypeError('Cannot generate an UPDATE from an empty array.');
@@ -32618,16 +33879,16 @@ function update(data, columns, table, options, capSQL) {
 
     options = options || {};
 
-    var format = $npm.formatting.as.format,
+    const format = $npm.formatting.as.format,
         useEmptyUpdate = 'emptyUpdate' in options;
 
     if (isArray) {
-        var tableAlias = $npm.formatting.as.alias($npm.utils.isNull(options.tableAlias) ? 't' : options.tableAlias);
-        var valueAlias = $npm.formatting.as.alias($npm.utils.isNull(options.valueAlias) ? 'v' : options.valueAlias);
+        const tableAlias = $npm.formatting.as.alias($npm.utils.isNull(options.tableAlias) ? 't' : options.tableAlias);
+        const valueAlias = $npm.formatting.as.alias($npm.utils.isNull(options.valueAlias) ? 'v' : options.valueAlias);
 
-        var q = capSQL ? sql.multi.capCase : sql.multi.lowCase;
+        const q = capSQL ? sql.multi.capCase : sql.multi.lowCase;
 
-        var actualColumns = columns.columns.filter(c => !c.cnd);
+        const actualColumns = columns.columns.filter(c => !c.cnd);
 
         if (checkColumns(actualColumns)) {
             return options.emptyUpdate;
@@ -32635,9 +33896,9 @@ function update(data, columns, table, options, capSQL) {
 
         checkTable();
 
-        var targetCols = actualColumns.map(c => c.escapedName + '=' + valueAlias + '.' + c.escapedName).join();
+        const targetCols = actualColumns.map(c => c.escapedName + '=' + valueAlias + '.' + c.escapedName).join();
 
-        var values = data.map((d, index) => {
+        const values = data.map((d, index) => {
             if (!d || typeof d !== 'object') {
                 throw new Error('Invalid update object at index ' + index + '.');
             }
@@ -32647,7 +33908,7 @@ function update(data, columns, table, options, capSQL) {
         return format(q, [table.name, tableAlias, targetCols, values, valueAlias, columns.names]);
     }
 
-    var updates = columns.assign({source: data});
+    const updates = columns.assign({source: data});
 
     if (checkColumns(updates)) {
         return options.emptyUpdate;
@@ -32655,7 +33916,7 @@ function update(data, columns, table, options, capSQL) {
 
     checkTable();
 
-    var query = capSQL ? sql.single.capCase : sql.single.lowCase;
+    const query = capSQL ? sql.single.capCase : sql.single.lowCase;
 
     return format(query, table.name) + format(updates, columns.prepare(data));
 
@@ -32678,7 +33939,7 @@ function update(data, columns, table, options, capSQL) {
     }
 }
 
-var sql = {
+const sql = {
     single: {
         lowCase: 'update $1^ set ',
         capCase: 'UPDATE $1^ SET '
@@ -32693,14 +33954,14 @@ module.exports = update;
 
 
 /***/ }),
-/* 223 */
+/* 235 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    ColumnSet: __webpack_require__(18),
+const $npm = {
+    ColumnSet: __webpack_require__(19),
     formatting: __webpack_require__(5),
     utils: __webpack_require__(2)
 };
@@ -32743,10 +34004,10 @@ var $npm = {
  *
  * @example
  *
- * var pgp = require('pg-promise')();
+ * const pgp = require('pg-promise')();
  *
- * var dataSingle = {val: 123, msg: 'hello'};
- * var dataMulti = [{val: 123, msg: 'hello'}, {val: 456, msg: 'world!'}];
+ * const dataSingle = {val: 123, msg: 'hello'};
+ * const dataMulti = [{val: 123, msg: 'hello'}, {val: 456, msg: 'world!'}];
  *
  * // Properties can be pulled automatically from a single object:
  *
@@ -32764,7 +34025,7 @@ var $npm = {
  *
  * // Column details from a reusable ColumnSet (recommended for performance):
  *
- * var cs = new pgp.helpers.ColumnSet(['val', 'msg']);
+ * const cs = new pgp.helpers.ColumnSet(['val', 'msg']);
  *
  * pgp.helpers.values(dataMulti, cs);
  * //=> (123,'hello'),(456,'world!')
@@ -32776,7 +34037,7 @@ function values(data, columns) {
         throw new TypeError('Invalid parameter \'data\' specified.');
     }
 
-    var isArray = Array.isArray(data);
+    const isArray = Array.isArray(data);
 
     if (!(columns instanceof $npm.ColumnSet)) {
         if (isArray && $npm.utils.isNull(columns)) {
@@ -32789,7 +34050,7 @@ function values(data, columns) {
         throw new Error('Cannot generate values without any columns.');
     }
 
-    var format = $npm.formatting.as.format;
+    const format = $npm.formatting.as.format;
 
     if (isArray) {
         return data.map((d, index) => {
@@ -32806,29 +34067,29 @@ module.exports = values;
 
 
 /***/ }),
-/* 224 */
+/* 236 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    con: __webpack_require__(16).local,
-    path: __webpack_require__(7),
-    pg: __webpack_require__(234),
-    minify: __webpack_require__(37),
-    adapter: __webpack_require__(63),
-    result: __webpack_require__(38),
-    promise: __webpack_require__(225),
+const $npm = {
+    con: __webpack_require__(17).local,
+    path: __webpack_require__(6),
+    pg: __webpack_require__(84),
+    minify: __webpack_require__(38),
+    adapter: __webpack_require__(73),
+    result: __webpack_require__(40),
+    promise: __webpack_require__(237),
     formatting: __webpack_require__(5),
-    helpers: __webpack_require__(218),
-    queryFile: __webpack_require__(19),
-    errors: __webpack_require__(27),
+    helpers: __webpack_require__(230),
+    queryFile: __webpack_require__(20),
+    errors: __webpack_require__(28),
     utils: __webpack_require__(2),
-    pubUtils: __webpack_require__(230),
-    mode: __webpack_require__(68),
-    types: __webpack_require__(69),
-    package: __webpack_require__(71)
+    pubUtils: __webpack_require__(242),
+    mode: __webpack_require__(78),
+    types: __webpack_require__(79),
+    package: __webpack_require__(81)
 };
 
 /**
@@ -32925,11 +34186,11 @@ var $npm = {
  *
  * @example
  *
- * var options = {
+ * const options = {
  *   // Initialization Options
  * };
  *
- * var pgp = require('pg-promise')(options);
+ * const pgp = require('pg-promise')(options);
  *
  */
 function $main(options) {
@@ -32942,11 +34203,11 @@ function $main(options) {
         }
 
         // list of supported initialization options:
-        var validOptions = ['pgFormatting', 'pgNative', 'promiseLib', 'noLocking', 'capSQL', 'noWarnings',
+        const validOptions = ['pgFormatting', 'pgNative', 'promiseLib', 'noLocking', 'capSQL', 'noWarnings',
             'connect', 'disconnect', 'query', 'receive', 'task', 'transact', 'error', 'extend'];
 
         if (!options.noWarnings) {
-            for (var prop in options) {
+            for (let prop in options) {
                 if (validOptions.indexOf(prop) === -1) {
                     $npm.con.warn('WARNING: Invalid property \'%s\' in initialization options.\n%s\n', prop, $npm.utils.getLocalStack(3));
                     break;
@@ -32955,9 +34216,10 @@ function $main(options) {
         }
     }
 
-    var pg = $npm.pg, p = $npm.promise(options.promiseLib);
+    let pg = $npm.pg;
+    const p = $npm.promise(options.promiseLib);
 
-    var config = {
+    const config = {
         version: $npm.package.version,
         promiseLib: p.promiseLib,
         promise: p.promise
@@ -32980,9 +34242,9 @@ function $main(options) {
         }
     }
 
-    var Database = __webpack_require__(214)(config);
+    const Database = __webpack_require__(226)(config);
 
-    var inst = (cn, dc) => {
+    const inst = (cn, dc) => {
         if ($npm.utils.isText(cn) || (cn && typeof cn === 'object')) {
             return new Database(cn, dc, config);
         }
@@ -33048,7 +34310,7 @@ function $main(options) {
     return inst;
 }
 
-var rootNameSpace = {
+const rootNameSpace = {
 
     /**
      * @member {formatting} as
@@ -33185,36 +34447,40 @@ module.exports = $main;
 
 
 /***/ }),
-/* 225 */
+/* 237 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var PromiseAdapter = __webpack_require__(63);
+const PromiseAdapter = __webpack_require__(73);
 
 //////////////////////////////////////////
 // Parses and validates a promise library;
 function parsePromiseLib(pl) {
 
-    var promise;
+    let promise;
     if (pl instanceof PromiseAdapter) {
         promise = function (func) {
             return pl.create(func);
         };
         promise.resolve = pl.resolve;
         promise.reject = pl.reject;
+        promise.all = pl.all;
         return promise;
     }
-    var t = typeof pl;
+    const t = typeof pl;
     if (t === 'function' || t === 'object') {
-        var Root = typeof pl.Promise === 'function' ? pl.Promise : pl;
+        const Root = typeof pl.Promise === 'function' ? pl.Promise : pl;
         promise = function (func) {
             return new Root(func);
         };
         promise.resolve = Root.resolve;
         promise.reject = Root.reject;
-        if (typeof promise.resolve === 'function' && typeof promise.reject === 'function') {
+        promise.all = Root.all;
+        if (typeof promise.resolve === 'function' &&
+            typeof promise.reject === 'function' &&
+            typeof promise.all === 'function') {
             return promise;
         }
     }
@@ -33223,7 +34489,7 @@ function parsePromiseLib(pl) {
 }
 
 function init(promiseLib) {
-    var result = {
+    const result = {
         promiseLib: promiseLib
     };
     if (promiseLib) {
@@ -33239,14 +34505,14 @@ module.exports = init;
 
 
 /***/ }),
-/* 226 */
+/* 238 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    events: __webpack_require__(17),
+const $npm = {
+    events: __webpack_require__(18),
     utils: __webpack_require__(2)
 };
 
@@ -33255,7 +34521,7 @@ var $npm = {
 // with the help of pg-query-stream library.
 function $stream(ctx, qs, initCB, config) {
 
-    var $p = config.promise;
+    const $p = config.promise;
 
     // istanbul ignore next:
     // we do not provide code coverage for the Native Bindings specifics
@@ -33274,13 +34540,13 @@ function $stream(ctx, qs, initCB, config) {
         // parameter `initCB` must be passed as the initialization callback;
         return $p.reject(new TypeError('Invalid or missing stream initialization callback.'));
     }
-    var error = $npm.events.query(ctx.options, getContext());
+    let error = $npm.events.query(ctx.options, getContext());
     if (error) {
         error = getError(error);
         $npm.events.error(ctx.options, error, getContext());
         return $p.reject(error);
     }
-    var stream, fetch, start, nRows = 0;
+    let stream, fetch, start, nRows = 0;
     try {
         stream = ctx.db.client.query(qs);
         fetch = stream._fetch;
@@ -33288,7 +34554,7 @@ function $stream(ctx, qs, initCB, config) {
             fetch.call(stream, size, (err, rows) => {
                 if (!err && rows.length) {
                     nRows += rows.length;
-                    var context = getContext();
+                    const context = getContext();
                     if (!error) {
                         error = $npm.events.receive(ctx.options, rows, undefined, context);
                     }
@@ -33327,6 +34593,7 @@ function $stream(ctx, qs, initCB, config) {
             stream._fetch = fetch;
             onError(err);
         });
+
         function onError(e) {
             e = getError(e);
             $npm.events.error(ctx.options, e, getContext());
@@ -33339,7 +34606,7 @@ function $stream(ctx, qs, initCB, config) {
     }
 
     function getContext() {
-        var client;
+        let client;
         if (ctx.db) {
             client = ctx.db.client;
         } else {
@@ -33360,19 +34627,19 @@ module.exports = $stream;
 
 
 /***/ }),
-/* 227 */
+/* 239 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    spex: __webpack_require__(253),
+const $npm = {
+    spex: __webpack_require__(264),
     utils: __webpack_require__(2),
-    mode: __webpack_require__(68),
-    events: __webpack_require__(17),
-    query: __webpack_require__(66),
-    async: __webpack_require__(211)
+    mode: __webpack_require__(78),
+    events: __webpack_require__(18),
+    query: __webpack_require__(76),
+    async: __webpack_require__(223)
 };
 
 /**
@@ -33542,11 +34809,11 @@ function Task(ctx, tag, isTX, config) {
 // Executes a task;
 Task.exec = (ctx, obj, isTX, config) => {
 
-    var $p = config.promise;
+    const $p = config.promise;
 
     // callback invocation helper;
     function callback() {
-        var result, cb = ctx.cb;
+        let result, cb = ctx.cb;
         if (cb.constructor.name === 'GeneratorFunction') {
             cb = config.$npm.async(cb);
         }
@@ -33568,7 +34835,7 @@ Task.exec = (ctx, obj, isTX, config) => {
 
     // updates the task context and notifies the client;
     function update(start, success, result) {
-        var c = ctx.ctx;
+        const c = ctx.ctx;
         if (start) {
             $npm.utils.addReadProp(c, 'start', new Date());
         } else {
@@ -33584,9 +34851,10 @@ Task.exec = (ctx, obj, isTX, config) => {
         });
     }
 
-    var cbData, cbReason, success,
-        spName, // Save-Point Name;
-        capSQL = ctx.options.capSQL; // capitalize sql;
+    let cbData, cbReason, success,
+        spName; // Save-Point Name;
+
+    const capSQL = ctx.options.capSQL; // capitalize sql;
 
     update(true);
 
@@ -33663,7 +34931,7 @@ Task.exec = (ctx, obj, isTX, config) => {
 };
 
 module.exports = config => {
-    var npm = config.$npm;
+    const npm = config.$npm;
 
     // istanbul ignore next:
     // we keep 'npm.query' initialization here, even though it is always
@@ -33677,17 +34945,17 @@ module.exports = config => {
 
 
 /***/ }),
-/* 228 */
+/* 240 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    errors: __webpack_require__(27),
-    QueryFile: __webpack_require__(19)
+    errors: __webpack_require__(28),
+    QueryFile: __webpack_require__(20)
 };
 
 /**
@@ -33725,10 +34993,10 @@ var $npm = {
  *
  * @example
  *
- * var PQ = require('pg-promise').ParameterizedQuery;
+ * const PQ = require('pg-promise').ParameterizedQuery;
  *
  * // Creating a complete Parameterized Query with parameters:
- * var findUser = new PQ('SELECT * FROM Users WHERE id = $1', [123]);
+ * const findUser = new PQ('SELECT * FROM Users WHERE id = $1', [123]);
  *
  * db.one(findUser)
  *     .then(user=> {
@@ -33740,10 +35008,10 @@ var $npm = {
  *
  * @example
  *
- * var PQ = require('pg-promise').ParameterizedQuery;
+ * const PQ = require('pg-promise').ParameterizedQuery;
  *
  * // Creating a reusable Parameterized Query without values:
- * var addUser = new PQ('INSERT INTO Users(name, age) VALUES($1, $2)');
+ * const addUser = new PQ('INSERT INTO Users(name, age) VALUES($1, $2)');
  *
  * // setting values explicitly:
  * addUser.values = ['John', 30];
@@ -33771,7 +35039,8 @@ function ParameterizedQuery(text, values) {
         return new ParameterizedQuery(text, values);
     }
 
-    var currentError, PQ = {}, changed = true, state = {
+    let currentError, PQ = {}, changed = true;
+    const state = {
         text: text,
         binary: undefined,
         rowMode: undefined
@@ -33900,13 +35169,13 @@ function ParameterizedQuery(text, values) {
      */
     this.parse = () => {
 
-        var qf = state.text instanceof $npm.QueryFile ? state.text : null;
+        const qf = state.text instanceof $npm.QueryFile ? state.text : null;
 
         if (!changed && !qf) {
             return PQ;
         }
 
-        var errors = [], values = PQ.values;
+        const errors = [], values = PQ.values;
         PQ = {
             name: state.name
         };
@@ -33964,9 +35233,9 @@ function ParameterizedQuery(text, values) {
  */
 ParameterizedQuery.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap = $npm.utils.messageGap(level + 1);
-    var pq = this.parse();
-    var lines = [
+    const gap = $npm.utils.messageGap(level + 1);
+    const pq = this.parse();
+    const lines = [
         'ParameterizedQuery {'
     ];
     if ($npm.utils.isText(pq.text)) {
@@ -33992,17 +35261,17 @@ module.exports = ParameterizedQuery;
 
 
 /***/ }),
-/* 229 */
+/* 241 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
+const $npm = {
     os: __webpack_require__(4),
     utils: __webpack_require__(2),
-    errors: __webpack_require__(27),
-    QueryFile: __webpack_require__(19)
+    errors: __webpack_require__(28),
+    QueryFile: __webpack_require__(20)
 };
 
 /**
@@ -34045,10 +35314,10 @@ var $npm = {
  *
  * @example
  *
- * var PS = require('pg-promise').PreparedStatement;
+ * const PS = require('pg-promise').PreparedStatement;
  *
  * // Creating a complete Prepared Statement with parameters:
- * var findUser = new PS('find-user', 'SELECT * FROM Users WHERE id = $1', [123]);
+ * const findUser = new PS('find-user', 'SELECT * FROM Users WHERE id = $1', [123]);
  *
  * db.one(findUser)
  *     .then(user=> {
@@ -34060,10 +35329,10 @@ var $npm = {
  *
  * @example
  *
- * var PS = require('pg-promise').PreparedStatement;
+ * const PS = require('pg-promise').PreparedStatement;
  *
  * // Creating a reusable Prepared Statement without values:
- * var addUser = new PS('add-user', 'INSERT INTO Users(name, age) VALUES($1, $2)');
+ * const addUser = new PS('add-user', 'INSERT INTO Users(name, age) VALUES($1, $2)');
  *
  * // setting values explicitly:
  * addUser.values = ['John', 30];
@@ -34090,7 +35359,8 @@ function PreparedStatement(name, text, values) {
         return new PreparedStatement(name, text, values);
     }
 
-    var currentError, PS = {}, changed = true, state = {
+    let currentError, PS = {}, changed = true;
+    const state = {
         name: name,
         text: text,
         binary: undefined,
@@ -34259,13 +35529,13 @@ function PreparedStatement(name, text, values) {
      */
     this.parse = () => {
 
-        var qf = state.text instanceof $npm.QueryFile ? state.text : null;
+        const qf = state.text instanceof $npm.QueryFile ? state.text : null;
 
         if (!changed && !qf) {
             return PS;
         }
 
-        var errors = [], values = PS.values;
+        const errors = [], values = PS.values;
         PS = {
             name: state.name
         };
@@ -34331,9 +35601,9 @@ function PreparedStatement(name, text, values) {
  */
 PreparedStatement.prototype.toString = function (level) {
     level = level > 0 ? parseInt(level) : 0;
-    var gap = $npm.utils.messageGap(level + 1);
-    var ps = this.parse();
-    var lines = [
+    const gap = $npm.utils.messageGap(level + 1);
+    const ps = this.parse();
+    const lines = [
         'PreparedStatement {',
         gap + 'name: ' + JSON.stringify(this.name)
     ];
@@ -34362,22 +35632,21 @@ PreparedStatement.prototype.toString = function (level) {
 module.exports = PreparedStatement;
 
 
-
 /***/ }),
-/* 230 */
+/* 242 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var $npm = {
-    fs: __webpack_require__(6),
-    path: __webpack_require__(7),
+const $npm = {
+    fs: __webpack_require__(8),
+    path: __webpack_require__(6),
     utils: __webpack_require__(2),
-    package: __webpack_require__(71)
+    package: __webpack_require__(81)
 };
 
-var EOL = __webpack_require__(4).EOL;
+const EOL = __webpack_require__(4).EOL;
 
 /**
  * @method utils.camelize
@@ -34401,7 +35670,7 @@ var EOL = __webpack_require__(4).EOL;
  *
  */
 function camelize(text) {
-    text = text.replace(/[\-_\s\.]+(.)?/g, (match, chr) => {
+    text = text.replace(/[-_\s.]+(.)?/g, (match, chr) => {
         return chr ? chr.toUpperCase() : '';
     });
     return text.substr(0, 1).toLowerCase() + text.substr(1);
@@ -34430,14 +35699,15 @@ function camelize(text) {
  *
  */
 function camelizeVar(text) {
-    text = text.replace(/[^a-zA-Z0-9\$_\-\s\.]/g, '').replace(/^[0-9_\-\s\.]+/, '');
+    text = text.replace(/[^a-zA-Z0-9$_\-\s.]/g, '').replace(/^[0-9_\-\s.]+/, '');
     return camelize(text);
 }
 
 function _enumSql(dir, options, cb, namePath) {
-    var tree = {};
+    const tree = {};
     $npm.fs.readdirSync(dir).forEach(file => {
-        var stat, fullPath = $npm.path.join(dir, file);
+        let stat;
+        const fullPath = $npm.path.join(dir, file);
         try {
             stat = $npm.fs.statSync(fullPath);
         } catch (e) {
@@ -34452,9 +35722,9 @@ function _enumSql(dir, options, cb, namePath) {
         }
         if (stat.isDirectory()) {
             if (options.recursive) {
-                var dirName = camelizeVar(file);
-                var np = namePath ? (namePath + '.' + dirName) : dirName;
-                var t = _enumSql(fullPath, options, cb, np);
+                const dirName = camelizeVar(file);
+                const np = namePath ? (namePath + '.' + dirName) : dirName;
+                const t = _enumSql(fullPath, options, cb, np);
                 if (Object.keys(t).length) {
                     if (!dirName.length || dirName in tree) {
                         if (!options.ignoreErrors) {
@@ -34466,7 +35736,7 @@ function _enumSql(dir, options, cb, namePath) {
             }
         } else {
             if ($npm.path.extname(file).toLowerCase() === '.sql') {
-                var name = camelizeVar(file.replace(/\.[^/.]+$/, ''));
+                const name = camelizeVar(file.replace(/\.[^/.]+$/, ''));
                 if (!name.length || name in tree) {
                     if (!options.ignoreErrors) {
                         throw new Error('Empty or duplicate camelized file name: ' + fullPath);
@@ -34474,7 +35744,7 @@ function _enumSql(dir, options, cb, namePath) {
                 }
                 tree[name] = fullPath;
                 if (cb) {
-                    var result = cb(fullPath, name, namePath ? (namePath + '.' + name) : name);
+                    const result = cb(fullPath, name, namePath ? (namePath + '.' + name) : name);
                     if (result !== undefined) {
                         tree[name] = result;
                     }
@@ -34532,21 +35802,21 @@ function _enumSql(dir, options, cb, namePath) {
  * @example
  *
  * // simple SQL tree generation for further processing:
- * var tree = pgp.utils.enumSql('../sql', {recursive: true});
+ * const tree = pgp.utils.enumSql('../sql', {recursive: true});
  *
  * @example
  *
  * // generating an SQL tree for dynamic use of names:
- * var sql = pgp.utils.enumSql(__dirname, {recursive: true}, file=> {
+ * const sql = pgp.utils.enumSql(__dirname, {recursive: true}, file=> {
  *     return new pgp.QueryFile(file, {minify: true});
  * });
  *
  * @example
  *
- * var path = require('path');
+ * const path = require('path');
  *
  * // replacing each relative path in the tree with a full one:
- * var tree = pgp.utils.enumSql('../sql', {recursive: true}, file=> {
+ * const tree = pgp.utils.enumSql('../sql', {recursive: true}, file=> {
  *     return path.join(__dirname, file);
  * });
  *
@@ -34592,9 +35862,9 @@ function enumSql(dir, options, cb) {
  *
  * // Generating code for a simple object
  *
- * var tree = {one: 1, two: {item: 'abc'}};
+ * const tree = {one: 1, two: {item: 'abc'}};
  *
- * var code = pgp.utils.objectToCode(tree);
+ * const code = pgp.utils.objectToCode(tree);
  *
  * console.log(code);
  * //=>
@@ -34609,14 +35879,14 @@ function enumSql(dir, options, cb) {
  *
  * // Generating a Node.js module with an SQL tree
  *
- * var fs = require('fs');
- * var EOL = require('os').EOL;
+ * const fs = require('fs');
+ * const EOL = require('os').EOL;
  *
  * // generating an SQL tree from the folder:
- * var tree = pgp.utils.enumSql('./sql', {recursive: true});
+ * const tree = pgp.utils.enumSql('./sql', {recursive: true});
  *
  * // generating the module's code:
- * var code = "var load = require('./loadSql');" + EOL + EOL + "module.exports = " +
+ * const code = "const load = require('./loadSql');" + EOL + EOL + "module.exports = " +
  *         pgp.utils.objectToCode(tree, value => {
  *             return 'load(' + JSON.stringify(value) + ')';
  *         }) + ';';
@@ -34628,7 +35898,7 @@ function enumSql(dir, options, cb) {
  *
  * // generated code example (file sql.js)
  *
- * var load = require('./loadSql');
+ * const load = require('./loadSql');
  *
  * module.exports = {
  *     events: {
@@ -34658,7 +35928,7 @@ function enumSql(dir, options, cb) {
  *
  * // loadSql.js module example
  *
- * var QueryFile = require('pg-promise').QueryFile;
+ * const QueryFile = require('pg-promise').QueryFile;
  *
  * module.exports = file => {
  *     return new QueryFile(file, {minify: true});
@@ -34676,10 +35946,10 @@ function objectToCode(obj, cb) {
     return '{' + generate(obj, 1) + EOL + '}';
 
     function generate(obj, level) {
-        var code = '', gap = $npm.utils.messageGap(level);
-        var idx = 0;
-        for (var prop in obj) {
-            var value = obj[prop];
+        let code = '', idx = 0;
+        const gap = $npm.utils.messageGap(level);
+        for (let prop in obj) {
+            const value = obj[prop];
             if (idx) {
                 code += ',';
             }
@@ -34768,7 +36038,7 @@ function objectToCode(obj, cb) {
  * // API: http://vitaly-t.github.io/pg-promise/utils.html#.buildSqlModule
  * /////////////////////////////////////////////////////////////////////////
  *
- * var load = require('./loadSql');
+ * const load = require('./loadSql');
  *
  * module.exports = {
  *     events: {
@@ -34798,11 +36068,11 @@ function objectToCode(obj, cb) {
 function buildSqlModule(config) {
 
     if ($npm.utils.isText(config)) {
-        var path = $npm.utils.isPathAbsolute(config) ? config : $npm.path.join($npm.utils.startDir, config);
+        const path = $npm.utils.isPathAbsolute(config) ? config : $npm.path.join($npm.utils.startDir, config);
         config = !(function webpackMissingModule() { var e = new Error("Cannot find module \".\""); e.code = 'MODULE_NOT_FOUND'; throw e; }());
     } else {
         if ($npm.utils.isNull(config)) {
-            var defConfig = $npm.path.join($npm.utils.startDir, 'sql-config.json');
+            const defConfig = $npm.path.join($npm.utils.startDir, 'sql-config.json');
             // istanbul ignore else;
             if (!$npm.fs.existsSync(defConfig)) {
                 throw new Error('Default SQL configuration file not found: ' + defConfig);
@@ -34822,13 +36092,13 @@ function buildSqlModule(config) {
         throw new Error('Property \'dir\' must be a non-empty string.');
     }
 
-    var total = 0;
+    let total = 0;
 
-    var tree = enumSql(config.dir, {recursive: config.recursive, ignoreErrors: config.ignoreErrors}, () => {
+    const tree = enumSql(config.dir, {recursive: config.recursive, ignoreErrors: config.ignoreErrors}, () => {
         total++;
     });
 
-    var modulePath = './loadSql', moduleName = 'load';
+    let modulePath = './loadSql', moduleName = 'load';
     if (config.module && typeof config.module === 'object') {
         if ($npm.utils.isText(config.module.path)) {
             modulePath = config.module.path;
@@ -34838,9 +36108,9 @@ function buildSqlModule(config) {
         }
     }
 
-    var d = new Date();
+    const d = new Date();
 
-    var header =
+    const header =
         '/////////////////////////////////////////////////////////////////////////' + EOL +
         '// This file was automatically generated by pg-promise v.' + $npm.package.version + EOL +
         '//' + EOL +
@@ -34850,15 +36120,15 @@ function buildSqlModule(config) {
         '// API: http://vitaly-t.github.io/pg-promise/utils.html#.buildSqlModule' + EOL +
         '/////////////////////////////////////////////////////////////////////////' + EOL + EOL +
         '\'use strict\';' + EOL + EOL +
-        'var ' + moduleName + ' = require(\'' + modulePath + '\');' + EOL + EOL +
+        'const ' + moduleName + ' = require(\'' + modulePath + '\');' + EOL + EOL +
         'module.exports = ';
 
-    var code = header + objectToCode(tree, value => {
-            return moduleName + '(' + JSON.stringify(value) + ')';
-        }) + ';';
+    const code = header + objectToCode(tree, value => {
+        return moduleName + '(' + JSON.stringify(value) + ')';
+    }) + ';';
 
     if ($npm.utils.isText(config.output)) {
-        var p = config.output;
+        let p = config.output;
         if (!$npm.utils.isPathAbsolute(p)) {
             p = $npm.path.join($npm.utils.startDir, p);
         }
@@ -34909,7 +36179,7 @@ Object.freeze(module.exports);
 
 
 /***/ }),
-/* 231 */
+/* 243 */
 /***/ (function(module, exports) {
 
 var parseBits = function(data, bits, offset, invert, callback) {
@@ -35169,10 +36439,10 @@ module.exports = {
 
 
 /***/ }),
-/* 232 */
+/* 244 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var arrayParser = __webpack_require__(72);
+var arrayParser = __webpack_require__(82);
 
 //parses PostgreSQL server formatted date strings into javascript date objects
 var parseDate = function(isoDate) {
@@ -35447,19 +36717,19 @@ module.exports = {
 
 
 /***/ }),
-/* 233 */
+/* 245 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var crypto = __webpack_require__(40);
+var crypto = __webpack_require__(44);
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var pgPass = __webpack_require__(242);
-var TypeOverrides = __webpack_require__(76);
+var pgPass = __webpack_require__(252);
+var TypeOverrides = __webpack_require__(86);
 
-var ConnectionParameters = __webpack_require__(73);
-var Query = __webpack_require__(238);
-var defaults = __webpack_require__(21);
-var Connection = __webpack_require__(74);
+var ConnectionParameters = __webpack_require__(41);
+var Query = __webpack_require__(248);
+var defaults = __webpack_require__(31);
+var Connection = __webpack_require__(83);
 
 var Client = function(config) {
   EventEmitter.call(this);
@@ -35794,109 +37064,13 @@ module.exports = Client;
 
 
 /***/ }),
-/* 234 */
+/* 246 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
-var Client = __webpack_require__(233);
-var defaults =  __webpack_require__(21);
-var pool = __webpack_require__(237);
-var Connection = __webpack_require__(74);
-
-var PG = function(clientConstructor) {
-  EventEmitter.call(this);
-  this.defaults = defaults;
-  this.Client = clientConstructor;
-  this.Query = this.Client.Query;
-  this.pools = pool(clientConstructor);
-  this.Connection = Connection;
-  this.types = __webpack_require__(20);
-};
-
-util.inherits(PG, EventEmitter);
-
-PG.prototype.end = function() {
-  var self = this;
-  var keys = Object.keys(self.pools.all);
-  var count = keys.length;
-  if(count === 0) {
-    self.emit('end');
-  } else {
-    keys.forEach(function(key) {
-      var pool = self.pools.all[key];
-      delete self.pools.all[key];
-      pool.drain(function() {
-        pool.destroyAllNow(function() {
-          count--;
-          if(count === 0) {
-            self.emit('end');
-          }
-        });
-      });
-    });
-  }
-};
-
-
-PG.prototype.connect = function(config, callback) {
-  if(typeof config == "function") {
-    callback = config;
-    config = null;
-  }
-  var pool = this.pools.getOrCreate(config);
-  pool.connect(callback);
-  if(!pool.listeners('error').length) {
-    //propagate errors up to pg object
-    pool.on('error', this.emit.bind(this, 'error'));
-  }
-};
-
-// cancel the query runned by the given client
-PG.prototype.cancel = function(config, client, query) {
-  if(client.native) {
-    return client.cancel(query);
-  }
-  var c = config;
-  //allow for no config to be passed
-  if(typeof c === 'function') {
-    c = defaults;
-  }
-  var cancellingClient = new this.Client(c);
-  cancellingClient.cancel(client, query);
-};
-
-if(typeof process.env.NODE_PG_FORCE_NATIVE != 'undefined') {
-  module.exports = new PG(__webpack_require__(75));
-} else {
-  module.exports = new PG(Client);
-
-  //lazy require native module...the native module may not have installed
-  module.exports.__defineGetter__("native", function() {
-    delete module.exports.native;
-    var native = null;
-    try {
-      native = new PG(__webpack_require__(75));
-    } catch (err) {
-      if (err.code !== 'MODULE_NOT_FOUND') {
-        throw err;
-      }
-      console.error(err.message);
-    }
-    module.exports.native = native;
-    return native;
-  });
-}
-
-
-/***/ }),
-/* 235 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var EventEmitter = __webpack_require__(3).EventEmitter;
-var util = __webpack_require__(0);
-var utils = __webpack_require__(39);
-var NativeResult = __webpack_require__(236);
+var utils = __webpack_require__(42);
+var NativeResult = __webpack_require__(247);
 
 var NativeQuery = module.exports = function(native) {
   EventEmitter.call(this);
@@ -36026,7 +37200,7 @@ NativeQuery.prototype.submit = function(client) {
 
 
 /***/ }),
-/* 236 */
+/* 247 */
 /***/ (function(module, exports) {
 
 var NativeResult = module.exports = function(pq) {
@@ -36060,119 +37234,14 @@ NativeResult.prototype.addRow = function(row) {
 
 
 /***/ }),
-/* 237 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var EventEmitter = __webpack_require__(3).EventEmitter;
-
-var defaults = __webpack_require__(21);
-var genericPool = __webpack_require__(159);
-
-
-module.exports = function(Client) {
-  var pools = {
-    Client: Client,
-    //dictionary of all key:pool pairs
-    all: {},
-    //reference to the client constructor - can override in tests or for require('pg').native
-    getOrCreate: function(clientConfig) {
-      clientConfig = clientConfig || {};
-      var name = JSON.stringify(clientConfig);
-      var pool = pools.all[name];
-      if(pool) {
-        return pool;
-      }
-      pool = genericPool.Pool({
-        name: name,
-        max: clientConfig.poolSize || defaults.poolSize,
-        idleTimeoutMillis: clientConfig.poolIdleTimeout || defaults.poolIdleTimeout,
-        reapIntervalMillis: clientConfig.reapIntervalMillis || defaults.reapIntervalMillis,
-        returnToHead: clientConfig.returnToHead || defaults.returnToHead,
-        log: clientConfig.poolLog || defaults.poolLog,
-        create: function(cb) {
-          var client = new pools.Client(clientConfig);
-          // Ignore errors on pooled clients until they are connected.
-          client.on('error', Function.prototype);
-          client.connect(function(err) {
-            if(err) return cb(err, null);
-
-            // Remove the noop error handler after a connection has been established.
-            client.removeListener('error', Function.prototype);
-
-            //handle connected client background errors by emitting event
-            //via the pg object and then removing errored client from the pool
-            client.on('error', function(e) {
-              pool.emit('error', e, client);
-
-              // If the client is already being destroyed, the error
-              // occurred during stream ending. Do not attempt to destroy
-              // the client again.
-              if (!client._destroying) {
-                pool.destroy(client);
-              }
-            });
-
-            // Remove connection from pool on disconnect
-            client.on('end', function(e) {
-              // Do not enter infinite loop between pool.destroy
-              // and client 'end' event...
-              if ( ! client._destroying ) {
-                pool.destroy(client);
-              }
-            });
-            client.poolCount = 0;
-            return cb(null, client);
-          });
-        },
-        destroy: function(client) {
-          client._destroying = true;
-          client.poolCount = undefined;
-          client.end();
-        }
-      });
-      pools.all[name] = pool;
-      //mixin EventEmitter to pool
-      EventEmitter.call(pool);
-      for(var key in EventEmitter.prototype) {
-        if(EventEmitter.prototype.hasOwnProperty(key)) {
-          pool[key] = EventEmitter.prototype[key];
-        }
-      }
-      //monkey-patch with connect method
-      pool.connect = function(cb) {
-        var domain = process.domain;
-        pool.acquire(function(err, client) {
-          if(domain) {
-            cb = domain.bind(cb);
-          }
-          if(err)  return cb(err, null, function() {/*NOOP*/});
-          client.poolCount++;
-          cb(null, client, function(err) {
-            if(err) {
-              pool.destroy(client);
-            } else {
-              pool.release(client);
-            }
-          });
-        });
-      };
-      return pool;
-    }
-  };
-
-  return pools;
-};
-
-
-/***/ }),
-/* 238 */
+/* 248 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var EventEmitter = __webpack_require__(3).EventEmitter;
 var util = __webpack_require__(0);
 
-var Result = __webpack_require__(239);
-var utils = __webpack_require__(39);
+var Result = __webpack_require__(249);
+var utils = __webpack_require__(42);
 
 var Query = function(config, values, callback) {
   // use of "new" optional
@@ -36371,10 +37440,11 @@ module.exports = Query;
 
 
 /***/ }),
-/* 239 */
+/* 249 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var types = __webpack_require__(20);
+var types = __webpack_require__(21);
+var escape = __webpack_require__(168);
 
 //result object returned from query
 //in the 'end' event and also
@@ -36443,13 +37513,13 @@ Result.prototype.addRow = function(row) {
 
 var inlineParser = function(fieldName, i) {
   return "\nthis['" +
-    //fields containing single quotes will break
-    //the evaluated javascript unless they are escaped
-    //see https://github.com/brianc/node-postgres/issues/507
-    //Addendum: However, we need to make sure to replace all
-    //occurences of apostrophes, not just the first one.
-    //See https://github.com/brianc/node-postgres/issues/934
-    fieldName.replace(/'/g, "\\'") +
+    // fields containing single quotes will break
+    // the evaluated javascript unless they are escaped
+    // see https://github.com/brianc/node-postgres/issues/507
+    // Addendum: However, we need to make sure to replace all
+    // occurences of apostrophes, not just the first one.
+    // See https://github.com/brianc/node-postgres/issues/934
+    escape(fieldName) +
     "'] = " +
     "rowData[" + i + "] == null ? null : parsers[" + i + "](rowData[" + i + "]);";
 };
@@ -36484,129 +37554,21 @@ module.exports = Result;
 
 
 /***/ }),
-/* 240 */
+/* 250 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"_args": [
-		[
-			{
-				"raw": "pg@5.1",
-				"scope": null,
-				"escapedName": "pg",
-				"name": "pg",
-				"rawSpec": "5.1",
-				"spec": ">=5.1.0 <5.2.0",
-				"type": "range"
-			},
-			"/home/neil/DevGit/ZenGate/node_modules/pg-promise"
-		]
-	],
-	"_from": "pg@>=5.1.0 <5.2.0",
-	"_id": "pg@5.1.0",
-	"_inCache": true,
-	"_location": "/pg",
-	"_nodeVersion": "6.1.0",
-	"_npmOperationalInternal": {
-		"host": "packages-16-east.internal.npmjs.com",
-		"tmp": "tmp/pg-5.1.0.tgz_1465597295940_0.7661049372982234"
-	},
-	"_npmUser": {
-		"name": "brianc",
-		"email": "brian.m.carlson@gmail.com"
-	},
-	"_npmVersion": "3.8.6",
-	"_phantomChildren": {},
-	"_requested": {
-		"raw": "pg@5.1",
-		"scope": null,
-		"escapedName": "pg",
-		"name": "pg",
-		"rawSpec": "5.1",
-		"spec": ">=5.1.0 <5.2.0",
-		"type": "range"
-	},
-	"_requiredBy": [
-		"/pg-promise"
-	],
-	"_resolved": "https://registry.npmjs.org/pg/-/pg-5.1.0.tgz",
-	"_shasum": "073b9b36763ad8a5478dbb85effef45e739ba9d8",
-	"_shrinkwrap": null,
-	"_spec": "pg@5.1",
-	"_where": "/home/neil/DevGit/ZenGate/node_modules/pg-promise",
-	"author": {
-		"name": "Brian Carlson",
-		"email": "brian.m.carlson@gmail.com"
-	},
-	"bugs": {
-		"url": "https://github.com/brianc/node-postgres/issues"
-	},
-	"dependencies": {
-		"buffer-writer": "1.0.1",
-		"generic-pool": "2.4.2",
-		"packet-reader": "0.2.0",
-		"pg-connection-string": "0.1.3",
-		"pg-types": "1.*",
-		"pgpass": "0.0.6",
-		"semver": "4.3.2"
-	},
-	"description": "PostgreSQL client - pure javascript & libpq with the same API",
-	"devDependencies": {
-		"async": "0.9.0",
-		"jshint": "2.5.2",
-		"pg-copy-streams": "0.3.0"
-	},
-	"directories": {},
-	"dist": {
-		"shasum": "073b9b36763ad8a5478dbb85effef45e739ba9d8",
-		"tarball": "https://registry.npmjs.org/pg/-/pg-5.1.0.tgz"
-	},
-	"engines": {
-		"node": ">= 0.8.0"
-	},
-	"gitHead": "d1c5fc694be8dfab19b844e149141d4785ad7152",
-	"homepage": "http://github.com/brianc/node-postgres",
-	"keywords": [
-		"postgres",
-		"pg",
-		"libpq",
-		"postgre",
-		"database",
-		"rdbms"
-	],
-	"license": "MIT",
-	"main": "./lib",
-	"maintainers": [
-		{
-			"name": "brianc",
-			"email": "brian.m.carlson@gmail.com"
-		}
-	],
-	"minNativeVersion": "1.7.0",
-	"name": "pg",
-	"optionalDependencies": {},
-	"readme": "ERROR: No README data found!",
-	"repository": {
-		"type": "git",
-		"url": "git://github.com/brianc/node-postgres.git"
-	},
-	"scripts": {
-		"changelog": "npm i github-changes && ./node_modules/.bin/github-changes -o brianc -r node-postgres -d pulls -a -v",
-		"test": "make test-all connectionString=postgres://postgres@localhost:5432/postgres"
-	},
-	"version": "5.1.0"
-};
+module.exports = {"_args":[[{"raw":"pg@^5.1.0","scope":null,"escapedName":"pg","name":"pg","rawSpec":"^5.1.0","spec":">=5.1.0 <6.0.0","type":"range"},"/home/neil/DevGit/ZenGate/node_modules/pg-promise"]],"_from":"pg@>=5.1.0 <6.0.0","_id":"pg@5.2.1","_inCache":true,"_location":"/pg","_nodeVersion":"0.10.48","_npmOperationalInternal":{"host":"s3://npm-registry-packages","tmp":"tmp/pg-5.2.1.tgz_1502572883659_0.3402620032429695"},"_npmUser":{"name":"brianc","email":"brian.m.carlson@gmail.com"},"_npmVersion":"2.15.1","_phantomChildren":{},"_requested":{"raw":"pg@^5.1.0","scope":null,"escapedName":"pg","name":"pg","rawSpec":"^5.1.0","spec":">=5.1.0 <6.0.0","type":"range"},"_requiredBy":["/pg-promise"],"_resolved":"https://registry.npmjs.org/pg/-/pg-5.2.1.tgz","_shasum":"d43d0b2e53908ed61aa60928a38f6d791a2a66b3","_shrinkwrap":null,"_spec":"pg@^5.1.0","_where":"/home/neil/DevGit/ZenGate/node_modules/pg-promise","author":{"name":"Brian Carlson","email":"brian.m.carlson@gmail.com"},"bugs":{"url":"https://github.com/brianc/node-postgres/issues"},"dependencies":{"buffer-writer":"1.0.1","js-string-escape":"1.0.1","packet-reader":"0.2.0","pg-connection-string":"0.1.3","pg-pool":"1.*","pg-types":"1.*","pgpass":"0.0.6","semver":"4.3.2"},"description":"PostgreSQL client - pure javascript & libpq with the same API","devDependencies":{"async":"0.9.0","jshint":"2.5.2","lodash":"4.13.1","pg-copy-streams":"0.3.0","promise-polyfill":"5.2.1"},"directories":{},"dist":{"shasum":"d43d0b2e53908ed61aa60928a38f6d791a2a66b3","tarball":"https://registry.npmjs.org/pg/-/pg-5.2.1.tgz"},"engines":{"node":">= 0.8.0"},"gitHead":"979bdacb4151f956f68d075d265e1c8c3309df30","homepage":"http://github.com/brianc/node-postgres","keywords":["postgres","pg","libpq","postgre","database","rdbms"],"license":"MIT","main":"./lib","maintainers":[{"name":"brianc","email":"brian.m.carlson@gmail.com"}],"minNativeVersion":"1.7.0","name":"pg","optionalDependencies":{},"readme":"ERROR: No README data found!","repository":{"type":"git","url":"git://github.com/brianc/node-postgres.git"},"scripts":{"changelog":"npm i github-changes && ./node_modules/.bin/github-changes -o brianc -r node-postgres -d pulls -a -v","test":"make test-all connectionString=postgres://postgres@localhost:5432/postgres"},"version":"5.2.1"}
 
 /***/ }),
-/* 241 */
+/* 251 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var path = __webpack_require__(7)
-  , Stream = __webpack_require__(8).Stream
-  , Split = __webpack_require__(255)
+var path = __webpack_require__(6)
+  , Stream = __webpack_require__(11).Stream
+  , Split = __webpack_require__(266)
   , util = __webpack_require__(0)
   , defaultPort = 5432
   , isWin = (process.platform === 'win32')
@@ -36836,15 +37798,15 @@ var isValidEntry = module.exports.isValidEntry = function(entry){
 
 
 /***/ }),
-/* 242 */
+/* 252 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var path = __webpack_require__(7)
-  , fs = __webpack_require__(6)
-  , helper = __webpack_require__(241)
+var path = __webpack_require__(6)
+  , fs = __webpack_require__(8)
+  , helper = __webpack_require__(251)
 ;
 
 
@@ -36866,12 +37828,12 @@ module.exports = function(connInfo, cb) {
 
 
 /***/ }),
-/* 243 */
+/* 253 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Connection = __webpack_require__(77);
-var Pool = __webpack_require__(244);
-var mysql = __webpack_require__(24);
+var Connection = __webpack_require__(87);
+var Pool = __webpack_require__(254);
+var mysql = __webpack_require__(25);
 
 exports.createConnection = function(config){
     return new Connection(config);
@@ -36888,13 +37850,12 @@ exports.format = mysql.format;
 
 
 /***/ }),
-/* 244 */
+/* 254 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Promise = __webpack_require__(33),
-    mysql = __webpack_require__(24),
-    Connection = __webpack_require__(77),
-    promiseCallback = __webpack_require__(78).promiseCallback;
+var mysql = __webpack_require__(25),
+    PoolConnection = __webpack_require__(255),
+    promiseCallback = __webpack_require__(43).promiseCallback;
 
 var pool = function(config) {
     this.pool = mysql.createPool(config);
@@ -36903,7 +37864,7 @@ var pool = function(config) {
 pool.prototype.getConnection = function getConnection() {
     return promiseCallback.apply(this.pool, ['getConnection', arguments])
     .then(function(con) {
-        return new Connection(null, con);
+        return new PoolConnection(con);
     });
 };
 
@@ -36918,6 +37879,10 @@ pool.prototype.query = function(sql, values) {
 
 pool.prototype.end = function(data) {
     return promiseCallback.apply(this.pool, ['end', arguments]);
+};
+
+pool.prototype.release = function(data) {
+    return promiseCallback.apply(this.pool, ['release', arguments]);
 };
 
 pool.prototype.escape = function(value) {
@@ -36936,7 +37901,34 @@ module.exports = pool;
 
 
 /***/ }),
-/* 245 */
+/* 255 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Connection = __webpack_require__(87),
+    inherits = __webpack_require__(0).inherits,
+    promiseCallback = __webpack_require__(43).promiseCallback;
+
+var poolConnection = function(_connection) {
+    this.connection = _connection;
+
+    Connection.call(this, null, _connection)
+}
+
+poolConnection.prototype.release = function() {
+    return promiseCallback.apply(this.connection, ['release', arguments]);
+};
+
+poolConnection.prototype.destroy = function() {
+    return promiseCallback.apply(this.connection, ['destroy', arguments]);
+};
+
+inherits(poolConnection, Connection);
+
+module.exports = poolConnection;
+
+
+/***/ }),
+/* 256 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// export the class if we are in a Node-like system.
@@ -38137,7 +39129,7 @@ if (true)
 
 
 /***/ }),
-/* 246 */
+/* 257 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -38222,16 +39214,16 @@ module.exports = PromiseAdapter;
 
 
 /***/ }),
-/* 247 */
+/* 258 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    BatchError: __webpack_require__(79),
-    PageError: __webpack_require__(80),
-    SequenceError: __webpack_require__(81)
+    BatchError: __webpack_require__(88),
+    PageError: __webpack_require__(89),
+    SequenceError: __webpack_require__(90)
 };
 
 /**
@@ -38268,13 +39260,13 @@ Object.freeze(module.exports);
 
 
 /***/ }),
-/* 248 */
+/* 259 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var BatchError = __webpack_require__(79);
+var BatchError = __webpack_require__(88);
 
 /**
  * @method batch
@@ -38332,7 +39324,7 @@ function batch(values, cb, config) {
     var $p = config.promise, $utils = config.utils;
 
     if (!Array.isArray(values)) {
-        return $p.reject(new TypeError("Method 'batch' requires an array of values."));
+        return $p.reject(new TypeError('Method \'batch\' requires an array of values.'));
     }
 
     if (!values.length) {
@@ -38356,6 +39348,7 @@ function batch(values, cb, config) {
                 step(i, false, reason);
             });
         });
+
         function step(idx, pass, data) {
             if (cb) {
                 var cbResult, cbNow = Date.now(),
@@ -38387,7 +39380,7 @@ function batch(values, cb, config) {
                     errors.push(idx);
                 }
                 r.result = e;
-                r.origin = {success: pass, result: data}
+                r.origin = {success: pass, result: data};
             }
 
             function check() {
@@ -38419,21 +39412,20 @@ module.exports = function (config) {
     return function (values, cb) {
         if (cb && typeof cb === 'object') {
             return batch.call(this, values, cb.cb, config);
-        } else {
-            return batch.call(this, values, cb, config);
         }
+        return batch.call(this, values, cb, config);
     };
 };
 
 
 /***/ }),
-/* 249 */
+/* 260 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var PageError = __webpack_require__(80);
+var PageError = __webpack_require__(89);
 
 /**
  * @method page
@@ -38508,7 +39500,7 @@ function page(source, dest, limit, config) {
     var $p = config.promise, $spex = config.spex, $utils = config.utils;
 
     if (typeof source !== 'function') {
-        return $p.reject(new TypeError("Parameter 'source' must be a function."));
+        return $p.reject(new TypeError('Parameter \'source\' must be a function.'));
     }
 
     limit = (limit > 0) ? parseInt(limit) : 0;
@@ -38569,7 +39561,7 @@ function page(source, dest, limit, config) {
                             });
                     } else {
                         fail({
-                            error: new Error("Unexpected data returned from the source."),
+                            error: new Error('Unexpected data returned from the source.'),
                             source: request
                         }, 5, source.name);
                     }
@@ -38612,21 +39604,20 @@ module.exports = function (config) {
     return function (source, dest, limit) {
         if (dest && typeof dest === 'object') {
             return page.call(this, source, dest.dest, dest.limit, config);
-        } else {
-            return page.call(this, source, dest, limit, config);
         }
+        return page.call(this, source, dest, limit, config);
     };
 };
 
 
 /***/ }),
-/* 250 */
+/* 261 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var SequenceError = __webpack_require__(81);
+var SequenceError = __webpack_require__(90);
 
 /**
  * @method sequence
@@ -38710,7 +39701,7 @@ function sequence(source, dest, limit, track, config) {
     var $p = config.promise, $utils = config.utils;
 
     if (typeof source !== 'function') {
-        return $p.reject(new TypeError("Parameter 'source' must be a function."));
+        return $p.reject(new TypeError('Parameter \'source\' must be a function.'));
     }
 
     limit = (limit > 0) ? parseInt(limit) : 0;
@@ -38796,7 +39787,7 @@ function sequence(source, dest, limit, track, config) {
                     result = {
                         total: idx,
                         duration: length
-                    }
+                    };
                 }
                 resolve(result);
             }
@@ -38815,22 +39806,21 @@ module.exports = function (config) {
     return function (source, dest, limit, track) {
         if (dest && typeof dest === 'object') {
             return sequence.call(this, source, dest.dest, dest.limit, dest.track, config);
-        } else {
-            return sequence.call(this, source, dest, limit, track, config);
         }
+        return sequence.call(this, source, dest, limit, track, config);
     };
 };
 
 
 /***/ }),
-/* 251 */
+/* 262 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    read: __webpack_require__(252)
+    read: __webpack_require__(263)
 };
 
 /**
@@ -38840,28 +39830,28 @@ var $npm = {
  *
  * **Synchronous Stream Processing**
  *
- * ```javascript
+ * ```js
  * var stream = require('spex')(Promise).stream;
  * var fs = require('fs');
  *
  * var rs = fs.createReadStream('values.txt');
  *
  * function receiver(index, data, delay) {
- *    console.log("RECEIVED:", index, data, delay);
+ *    console.log('RECEIVED:', index, data, delay);
  * }
  *
  * stream.read(rs, receiver)
- * .then(function (data) {
- *        console.log("DATA:", data);
- *    })
- * .catch(function (error) {
- *        console.log("ERROR:", error);
- *    });
+ *     .then(function (data) {
+ *         console.log('DATA:', data);
+ *     })
+ *     .catch(function (error) {
+ *         console.log('ERROR:', error);
+ *     });
  * ```
  *
  * **Asynchronous Stream Processing**
  *
- * ```javascript
+ * ```js
  * var stream = require('spex')(Promise).stream;
  * var fs = require('fs');
  *
@@ -38869,17 +39859,17 @@ var $npm = {
  *
  * function receiver(index, data, delay) {
  *    return new Promise(function (resolve) {
- *        console.log("RECEIVED:", index, data, delay);
+ *        console.log('RECEIVED:', index, data, delay);
  *        resolve();
  *    });
  * }
  *
  * stream.read(rs, receiver)
- * .then(function (data) {
- *        console.log("DATA:", data);
- *    })
- * .catch(function (error) {
- *        console.log("ERROR:", error);
+ *     .then(function (data) {
+ *         console.log('DATA:', data);
+ *     })
+ *     .catch(function (error) {
+ *         console.log('ERROR:', error);
  *    });
  * ```
  *
@@ -38898,7 +39888,7 @@ module.exports = function (config) {
 
 
 /***/ }),
-/* 252 */
+/* 263 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -38970,11 +39960,11 @@ function read(stream, receiver, closable, readSize, config) {
     var $p = config.promise, $utils = config.utils;
 
     if (!$utils.isReadableStream(stream)) {
-        return $p.reject(new TypeError("Readable stream is required."));
+        return $p.reject(new TypeError('Readable stream is required.'));
     }
 
     if (typeof receiver !== 'function') {
-        return $p.reject(new TypeError("Invalid stream receiver."));
+        return $p.reject(new TypeError('Invalid stream receiver.'));
     }
 
     readSize = (readSize > 0) ? parseInt(readSize) : null;
@@ -39087,27 +40077,26 @@ module.exports = function (config) {
     return function (stream, receiver, closable, readSize) {
         if (closable && typeof closable === 'object') {
             return read.call(this, stream, receiver, closable.closable, closable.readSize, config);
-        } else {
-            return read.call(this, stream, receiver, closable, readSize, config);
         }
+        return read.call(this, stream, receiver, closable, readSize, config);
     };
 };
 
 
 /***/ }),
-/* 253 */
+/* 264 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var $npm = {
-    utils: __webpack_require__(254),
-    batch: __webpack_require__(248),
-    page: __webpack_require__(249),
-    sequence: __webpack_require__(250),
-    stream: __webpack_require__(251),
-    errors: __webpack_require__(247)
+    utils: __webpack_require__(265),
+    batch: __webpack_require__(259),
+    page: __webpack_require__(260),
+    sequence: __webpack_require__(261),
+    stream: __webpack_require__(262),
+    errors: __webpack_require__(258)
 };
 
 /**
@@ -39189,21 +40178,21 @@ function parsePromiseLib(lib) {
         }
         var t = typeof lib;
         if (t === 'function' || t === 'object') {
-            var root = typeof lib.Promise === 'function' ? lib.Promise : lib;
+            var Root = typeof lib.Promise === 'function' ? lib.Promise : lib;
             promise = function (func) {
-                return new root(func);
+                return new Root(func);
             };
-            promise.resolve = root.resolve;
-            promise.reject = root.reject;
+            promise.resolve = Root.resolve;
+            promise.reject = Root.reject;
             if (typeof promise.resolve === 'function' && typeof promise.reject === 'function') {
                 return promise;
             }
         }
     }
-    throw new TypeError("Invalid promise library specified.");
+    throw new TypeError('Invalid promise library specified.');
 }
 
-main.PromiseAdapter = __webpack_require__(246);
+main.PromiseAdapter = __webpack_require__(257);
 Object.freeze(main);
 
 module.exports = main;
@@ -39225,13 +40214,13 @@ module.exports = main;
 
 
 /***/ }),
-/* 254 */
+/* 265 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var stat = __webpack_require__(30);
+var stat = __webpack_require__(33);
 
 module.exports = function ($p) {
 
@@ -39319,14 +40308,14 @@ module.exports = function ($p) {
             }
 
             return handle(g.next());
-        }
+        };
     }
 
 };
 
 
 /***/ }),
-/* 255 */
+/* 266 */
 /***/ (function(module, exports, __webpack_require__) {
 
 //filter will reemit the data if cb(err,pass) pass is truthy
@@ -39336,8 +40325,8 @@ module.exports = function ($p) {
 // the most basic reduce just emits one 'data' event after it has recieved 'end'
 
 
-var through = __webpack_require__(258)
-var Decoder = __webpack_require__(263).StringDecoder
+var through = __webpack_require__(269)
+var Decoder = __webpack_require__(276).StringDecoder
 
 module.exports = split
 
@@ -39373,7 +40362,7 @@ function split (matcher, mapper, options) {
     soFar = pieces.pop()
 
     if (maxLength && soFar.length > maxLength)
-      stream.emit('error', new Error('maximum buffer reached'))
+      return stream.emit('error', new Error('maximum buffer reached'))
 
     for (var i = 0; i < pieces.length; i++) {
       var piece = pieces[i]
@@ -39395,28 +40384,31 @@ function split (matcher, mapper, options) {
 
 
 /***/ }),
-/* 256 */
+/* 267 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(257);
+module.exports = __webpack_require__(268);
 
 
 /***/ }),
-/* 257 */
+/* 268 */
 /***/ (function(module, exports) {
 
 var SqlString  = exports;
-var charsRegex = /[\0\b\t\n\r\x1a\"\'\\]/g; // eslint-disable-line no-control-regex
-var charsMap   = {
-  '\0': '\\0',
-  '\b': '\\b',
-  '\t': '\\t',
-  '\n': '\\n',
-  '\r': '\\r',
-  '\x1a': '\\Z',
-  '"': '\\"',
-  '\'': '\\\'',
-  '\\': '\\\\'
+
+var ID_GLOBAL_REGEXP    = /`/g;
+var QUAL_GLOBAL_REGEXP  = /\./g;
+var CHARS_GLOBAL_REGEXP = /[\0\b\t\n\r\x1a\"\'\\]/g; // eslint-disable-line no-control-regex
+var CHARS_ESCAPE_MAP    = {
+  '\0'   : '\\0',
+  '\b'   : '\\b',
+  '\t'   : '\\t',
+  '\n'   : '\\n',
+  '\r'   : '\\r',
+  '\x1a' : '\\Z',
+  '"'    : '\\"',
+  '\''   : '\\\'',
+  '\\'   : '\\\\'
 };
 
 SqlString.escapeId = function escapeId(val, forbidQualified) {
@@ -39428,13 +40420,11 @@ SqlString.escapeId = function escapeId(val, forbidQualified) {
     }
 
     return sql;
+  } else if (forbidQualified) {
+    return '`' + String(val).replace(ID_GLOBAL_REGEXP, '``') + '`';
+  } else {
+    return '`' + String(val).replace(ID_GLOBAL_REGEXP, '``').replace(QUAL_GLOBAL_REGEXP, '`.`') + '`';
   }
-
-  if (forbidQualified) {
-    return '`' + String(val).replace(/`/g, '``') + '`';
-  }
-
-  return '`' + String(val).replace(/`/g, '``').replace(/\./g, '`.`') + '`';
 };
 
 SqlString.escape = function escape(val, stringifyObjects, timeZone) {
@@ -39444,7 +40434,7 @@ SqlString.escape = function escape(val, stringifyObjects, timeZone) {
 
   switch (typeof val) {
     case 'boolean': return (val) ? 'true' : 'false';
-    case 'number': return val+'';
+    case 'number': return val + '';
     case 'object':
       if (val instanceof Date) {
         return SqlString.dateToString(val, timeZone || 'local');
@@ -39452,6 +40442,8 @@ SqlString.escape = function escape(val, stringifyObjects, timeZone) {
         return SqlString.arrayToList(val, timeZone);
       } else if (Buffer.isBuffer(val)) {
         return SqlString.bufferToString(val);
+      } else if (typeof val.toSqlString === 'function') {
+        return String(val.toSqlString());
       } else if (stringifyObjects) {
         return escapeString(val.toString());
       } else {
@@ -39494,8 +40486,8 @@ SqlString.format = function format(sql, values, stringifyObjects, timeZone) {
 
   while (valuesIndex < values.length && (match = placeholdersRegex.exec(sql))) {
     var value = match[0] === '??'
-        ? SqlString.escapeId(values[valuesIndex])
-        : SqlString.escape(values[valuesIndex], stringifyObjects, timeZone);
+      ? SqlString.escapeId(values[valuesIndex])
+      : SqlString.escape(values[valuesIndex], stringifyObjects, timeZone);
 
     result += sql.slice(chunkIndex, match.index) + value;
     chunkIndex = placeholdersRegex.lastIndex;
@@ -39562,7 +40554,7 @@ SqlString.dateToString = function dateToString(date, timeZone) {
 };
 
 SqlString.bufferToString = function bufferToString(buffer) {
-  return "X" + escapeString(buffer.toString('hex'));
+  return 'X' + escapeString(buffer.toString('hex'));
 };
 
 SqlString.objectToValues = function objectToValues(object, timeZone) {
@@ -39581,14 +40573,24 @@ SqlString.objectToValues = function objectToValues(object, timeZone) {
   return sql;
 };
 
+SqlString.raw = function raw(sql) {
+  if (typeof sql !== 'string') {
+    throw new TypeError('argument sql must be a string');
+  }
+
+  return {
+    toSqlString: function toSqlString() { return sql; }
+  };
+};
+
 function escapeString(val) {
-  var chunkIndex = charsRegex.lastIndex = 0;
+  var chunkIndex = CHARS_GLOBAL_REGEXP.lastIndex = 0;
   var escapedVal = '';
   var match;
 
-  while ((match = charsRegex.exec(val))) {
-    escapedVal += val.slice(chunkIndex, match.index) + charsMap[match[0]];
-    chunkIndex = charsRegex.lastIndex;
+  while ((match = CHARS_GLOBAL_REGEXP.exec(val))) {
+    escapedVal += val.slice(chunkIndex, match.index) + CHARS_ESCAPE_MAP[match[0]];
+    chunkIndex = CHARS_GLOBAL_REGEXP.lastIndex;
   }
 
   if (chunkIndex === 0) {
@@ -39619,17 +40621,17 @@ function convertTimezone(tz) {
 
   var m = tz.match(/([\+\-\s])(\d\d):?(\d\d)?/);
   if (m) {
-    return (m[1] == '-' ? -1 : 1) * (parseInt(m[2], 10) + ((m[3] ? parseInt(m[3], 10) : 0) / 60)) * 60;
+    return (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) + ((m[3] ? parseInt(m[3], 10) : 0) / 60)) * 60;
   }
   return false;
 }
 
 
 /***/ }),
-/* 258 */
+/* 269 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Stream = __webpack_require__(8)
+var Stream = __webpack_require__(11)
 
 // through
 //
@@ -39740,7 +40742,19 @@ function through (write, end, opts) {
 
 
 /***/ }),
-/* 259 */
+/* 270 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+/**
+ * For Node.js, simply re-export the core `util.deprecate` function.
+ */
+
+module.exports = __webpack_require__(0).deprecate;
+
+
+/***/ }),
+/* 271 */
 /***/ (function(module, exports) {
 
 module.exports = function(module) {
@@ -39768,52 +40782,37 @@ module.exports = function(module) {
 
 
 /***/ }),
-/* 260 */
+/* 272 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"riskmanagement": {
-		"type": "pg",
-		"server": "192.168.77.2",
-		"port": "5432",
-		"username": "rmuser",
-		"password": "verycomplexpassword",
-		"dbname": "RMManage"
-	},
-	"steeldb": {
-		"type": "mysql",
-		"server": "192.168.77.3",
-		"port": "3306",
-		"username": "root",
-		"password": "anotherjollycomplexpassword",
-		"dbname": "SteelStock"
-	},
-	"default": "riskmanagement",
-	"author": "NeilDOTSmith@WebTargetDOTcoANDANOTHERDOTuk",
-	"fileroot": "../settings/PHPTemplates/",
-	"outputfolder": "../output/"
-};
+module.exports = {"riskmanagement":{"type":"pg","server":"192.168.77.3","port":"5432","username":"postgres","password":"postgres","dbname":"ITS"},"default":"riskmanagement","author":"Neil.Smith@WebTarget.co.uk","fileroot":"../settings/PHPTemplates/","outputfolder":"../output/"}
 
 /***/ }),
-/* 261 */
+/* 273 */
+/***/ (function(module, exports) {
+
+module.exports = require("buffer");
+
+/***/ }),
+/* 274 */
 /***/ (function(module, exports) {
 
 module.exports = require("child_process");
 
 /***/ }),
-/* 262 */
+/* 275 */
 /***/ (function(module, exports) {
 
 module.exports = require("dns");
 
 /***/ }),
-/* 263 */
+/* 276 */
 /***/ (function(module, exports) {
 
 module.exports = require("string_decoder");
 
 /***/ }),
-/* 264 */
+/* 277 */
 /***/ (function(module, exports) {
 
 module.exports = require("timers");

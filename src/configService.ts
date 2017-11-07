@@ -114,12 +114,15 @@ export class configService {
       * -----------------------------------------------------------------------------
       * Date?        Whom?           Notes
       * 07 Jun 2017  NRSmith         Added default to null (PHP7, not isset)
+      * 07 Nov 2017  NRSmith         Changed to Zend filter for empty strings
       * _____________________________________________________________________________
       */
     public createExchangeArray(_fields: string[]): string {
         let _varList: string = "";
         for (var field of _fields) {            
-            _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
+            // _varList += `\t\t $this->${field} = $data[defs::${field.toUpperCase()}] ?? null; \n`;
+            _varList += `\t\t $this->${field} = $_fltIntNULL->filter($data[defs::${field.toUpperCase()}]); \n`;
+
         }
         return _varList;
     }

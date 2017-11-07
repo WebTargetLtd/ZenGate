@@ -19,6 +19,12 @@ Yes, but it has the following useful features:
 ### What do I need?
 You'll need nodejs; we developed in v6.0 LTS on Ubuntu 16.04 https://nodejs.org/en/download/ It comes with `npm` - the package manager.
 
+You'll also need libpq, more info here https://www.npmjs.com/package/pg-native
+
+
+- Ubuntu:
+` sudo apt-get install libpq-dev g++ make`
+
 
 ### How do I use it?
 - Add your databases to `settings/dbconfig.json` - We tend to develop on Vagrant machines for consistency so we put the definitions in there.
@@ -87,9 +93,9 @@ Install the node_modules that you'll need.
 
 - `npm install`
 
-On the command line:
+In the ZenGate folder:
 
-- `webpack --progress --colors --watch`
+- `webpack --progress --colors --watch` or `node node_modules/webpack/bin/webpack.js --progress --colors --watch` if not global
 
 Webpack will watch the folder for changes and overwrite the `./dist/ZenGate.js` file.
 

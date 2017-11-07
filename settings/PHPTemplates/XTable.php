@@ -15,6 +15,7 @@ ${WebTarget}
  * Created Date : ${created}
  * -----------------------------------------------------------------------------
  * Date?        Whom?       Notes
+ * 11 Oct 2017  NRSmith     Removed ZF2 ServiceLocator for __invoke.
  * _____________________________________________________________________________
  */
 
@@ -22,28 +23,10 @@ ${WebTarget}
 
 
 use Zend\Db\TableGateway\TableGateway;
-use Zend\ServiceManager\ServiceLocatorAwareInterface; 
 use ${namespace}\Model\Definitions\def${table} as defs;
 
-class ${table}Table extends \Zend\Db\TableGateway\AbstractTableGateway 
-implements ServiceLocatorAwareInterface {
+class ${table}Table  extends \Database\Abstracts\WTDBAbstract 
+{
 
-    protected $serviceLocator;
-
-    /**
-     * -----------------------------------------------------------------------------
-     * Method       : @method setServiceLocator
-     * Description  : @description Simple Get/Set method
-     * Notes        :      
-     * Created      : @author Neil Smith <Neil.Smith@WebTarget.co.uk>
-     * Created Date : 16 Oct 2015
-     * -----------------------------------------------------------------------------
-     * Date?        Whom?           Notes
-     * 01 Mar 2017  NRSmith         Yoinked out of ancestor for OS compilation
-     * _____________________________________________________________________________
-     */
-    public function setServiceLocator(ServiceLocatorInterface $serviceLocator) {
-        $this->serviceLocator = $serviceLocator;
-    }
 
 }
